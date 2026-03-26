@@ -1,0 +1,118 @@
+import type { Point, Shape, CanvasState } from './types';
+import { clamp, getTextMetrics } from './Utils';
+
+import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance } from './GeometryUtils';
+
+export { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance };
+export const screenToWorld = (screen: Point, viewport: CanvasState['viewport']): Point => ({
+  x: (screen.x - viewport.x) / viewport.zoom,
+  y: (screen.y - viewport.y) / viewport.zoom,
+});
+
+import { getArrowClippedEndpoints } from './lineUtils';
+export { getArrowClippedEndpoints };
+import { PluginRegistry } from '../plugins/index';
+
+export function getShapeBounds(shape: Shape) {
+  if (PluginRegistry.hasPlugin(shape.type)) {
+    return PluginRegistry.getPlugin(shape.type).getBounds(shape);
+  }
+  return { x: 0, y: 0, width: 0, height: 0 };
+}
+
+export function isShapeVisible(shape: Shape, viewport: CanvasState['viewport'], width: number, height: number): boolean {
+  const bounds = getShapeBounds(shape);
+  const vx = -viewport.x / viewport.zoom;
+  const vy = -viewport.y / viewport.zoom;
+  const vw = width / viewport.zoom;
+  const vh = height / viewport.zoom;
+
+  return (
+    bounds.x + bounds.width >= vx &&
+    bounds.x <= vx + vw &&
+    bounds.y + bounds.height >= vy &&
+    bounds.y <= vy + vh
+  );
+}
+
+export function isPointInsideLabel(point: Point, shape: Shape, allShapes: Shape[] = []): boolean {
+  if (!shape.text || shape.type === 'text') return false;
+
+  const fontSize = shape.fontSize || 20;
+  const lines = shape.text.split('\n');
+  let cx = shape.x;
+  let cy = shape.y;
+  
+  if (shape.type === 'rectangle' || shape.type === 'ellipse' || shape.type === 'image') {
+    const bounds = getShapeBounds(shape);
+    cx = bounds.x + bounds.width / 2;
+    cy = bounds.y + bounds.height / 2;
+  } else if (shape.type === 'arrow' || shape.type === 'line' || shape.type === 'freehand') {
+    const pts = shape.points || [];
+    if (pts.length > 1) {
+      if (shape.type === 'freehand') {
+        const p1 = { x: shape.x + pts[0].x, y: shape.y + pts[0].y };
+        const p2 = { x: shape.x + pts[pts.length - 1].x, y: shape.y + pts[pts.length - 1].y };
+        cx = (p1.x + p2.x) / 2;
+        cy = (p1.y + p2.y) / 2;
+      } else {
+        const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+        cx = (p1.x + p2.x) / 2;
+        cy = (p1.y + p2.y) / 2;
+      }
+    }
+  }
+  
+  const h = lines.length * fontSize * 1.25;
+  const w = Math.max(40, ...lines.map(line => line.length * fontSize * 0.62));
+  
+  return point.x >= cx - w/2 && point.x <= cx + w/2 && point.y >= cy - h/2 && point.y <= cy + h/2;
+}
+
+export function isPointInsideShape(point: Point, shape: Shape, allShapes: Shape[] = []): boolean {
+  if (isPointInsideLabel(point, shape, allShapes)) return true;
+
+  if (PluginRegistry.hasPlugin(shape.type)) {
+    return PluginRegistry.getPlugin(shape.type).isPointInside(point, shape, allShapes);
+  }
+
+  return false;
+}
+
+export type HandleType = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se' | 'start' | 'end';
+
+export function getHandleAtPoint(shape: Shape, point: Point, allShapes: Shape[] = []): HandleType | null {
+  if (PluginRegistry.hasPlugin(shape.type)) {
+    return PluginRegistry.getPlugin(shape.type).getHandleAtPoint(shape, point, allShapes) as HandleType | null;
+  }
+  return null;
+}
+
+export function getTopShapeAtPoint(shapes: Shape[], point: Point, spatialIndex?: any): Shape | null {
+  const candidates = spatialIndex ? spatialIndex.queryPoint(point) : shapes;
+  
+  // candidates might be a subset, but we still need to check from high to low z-index
+  // Since 'shapes' is now pre-sorted, we can find the highest index in candidates
+  // but simpler: if we have multiple candidates, sort them by zIndex or find highest.
+  
+  // Wait! queryPoint returns shapes in no particular order?
+  // Actually, we can just iterate backwards through the ORIGINAL shapes array
+  // but only if they are IN the candidates set.
+  
+  if (spatialIndex) {
+    const candidateIds = new Set(candidates.map((s: Shape) => s.id));
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (candidateIds.has(shapes[i].id) && isPointInsideShape(point, shapes[i], shapes)) {
+        return shapes[i];
+      }
+    }
+    return null;
+  }
+
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    if (isPointInsideShape(point, shapes[i], shapes)) {
+      return shapes[i];
+    }
+  }
+  return null;
+}

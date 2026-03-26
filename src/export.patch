@@ -1,0 +1,22 @@
+--- app.js
++++ app.js
+@@ -755,7 +755,7 @@
+   });
+ }
+ 
+-function bootstrap() {
++export function mountCanvas(root, canvas) {
+-  const root = document.getElementById('app');
+-  const canvas = document.createElement('canvas');
+   const bus = new EventBus();
+   const store = new WhiteboardStore({}, bus);
+   const tools = createTools();
+@@ -769,7 +767,11 @@
+   store.subscribe(render);
+   window.addEventListener('resize', render);
+   render();
++  
++  return { store, bus, destroy: () => { window.removeEventListener('resize', render); } };
+ }
+ 
+-bootstrap();
