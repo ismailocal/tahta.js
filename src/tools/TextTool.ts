@@ -1,21 +1,19 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, Shape } from '../core/types';
-import { STYLE_PRESETS } from '../core/constants';
+import { getStylePreset } from '../core/constants';
 import { createId } from '../core/Utils';
 
 export class TextTool implements ToolDefinition {
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
-    const preset = STYLE_PRESETS.text;
+    const preset = getStylePreset('text');
     const shape: Shape = {
+      ...preset,
       id: createId(),
       type: 'text',
       x: payload.world.x,
       y: payload.world.y,
       text: '', // Start empty
-      fontSize: preset.fontSize,
       fontFamily: "'Architects Daughter', cursive",
-      stroke: preset.stroke,
-      opacity: preset.opacity,
-    };
+    } as Shape;
     
     api.addShape(shape);
     api.setTool('select');

@@ -2,7 +2,7 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../core/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, drawArrowhead } from '../core/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead } from '../core/lineUtils';
 
 function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
   const hw = 4;
@@ -12,6 +12,22 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class ArrowPlugin implements IShapePlugin {
   type = 'arrow';
+  isConnector = true;
+  defaultStyle: Partial<Shape> = { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
+  defaultProperties = ['stroke', 'layer', 'action'];
+
+  getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
+    const pts = shape.points || [];
+    if (pts.length < 2) return null;
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+    if (shape.edgeStyle === 'elbow') {
+      const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
+      const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
+      const path = getElbowPath(p1, p2, b1, b2, allShapes);
+      return getPathMidpoint(path);
+    }
+    return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  }
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[]) {
     const pts = shape.points || [];

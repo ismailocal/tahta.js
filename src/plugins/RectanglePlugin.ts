@@ -14,6 +14,8 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class RectanglePlugin implements IShapePlugin {
   type = 'rectangle';
+  defaultStyle: Partial<Shape> = { stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1, roughness: 0, roundness: 'sharp', opacity: 1 };
+  defaultProperties = ['stroke', 'fill', 'roundness', 'layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
     const w = shape.width || 0;
@@ -42,18 +44,15 @@ export class RectanglePlugin implements IShapePlugin {
     const bounds = this.getBounds(shape);
     const isLocked = shape.locked;
 
-    if (!isLocked) {
-      ctx.setLineDash([7, 5]);
-      ctx.strokeStyle = (shape.stroke || '#8b5cf6');
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bounds.x - 6, bounds.y - 6, bounds.width + 12, bounds.height + 12);
-    }
-
     if (isLocked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
       return;
     }
 
+    ctx.strokeStyle = shape.stroke || '#8b5cf6';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
     ctx.setLineDash([]);
     ctx.fillStyle = '#1e1e24';
     ctx.strokeStyle = shape.stroke || '#8b5cf6';

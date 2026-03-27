@@ -37,35 +37,28 @@ export function isShapeVisible(shape: Shape, viewport: CanvasState['viewport'], 
 
 export function isPointInsideLabel(point: Point, shape: Shape, allShapes: Shape[] = []): boolean {
   if (!shape.text || shape.type === 'text') return false;
+  if (!PluginRegistry.hasPlugin(shape.type)) return false;
 
+  const plugin = PluginRegistry.getPlugin(shape.type);
   const fontSize = shape.fontSize || 20;
   const lines = shape.text.split('\n');
+
   let cx = shape.x;
   let cy = shape.y;
-  
-  if (shape.type === 'rectangle' || shape.type === 'ellipse' || shape.type === 'image') {
+
+  const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
+  if (textAnchor) {
+    cx = textAnchor.x;
+    cy = textAnchor.y;
+  } else {
     const bounds = getShapeBounds(shape);
     cx = bounds.x + bounds.width / 2;
     cy = bounds.y + bounds.height / 2;
-  } else if (shape.type === 'arrow' || shape.type === 'line' || shape.type === 'freehand') {
-    const pts = shape.points || [];
-    if (pts.length > 1) {
-      if (shape.type === 'freehand') {
-        const p1 = { x: shape.x + pts[0].x, y: shape.y + pts[0].y };
-        const p2 = { x: shape.x + pts[pts.length - 1].x, y: shape.y + pts[pts.length - 1].y };
-        cx = (p1.x + p2.x) / 2;
-        cy = (p1.y + p2.y) / 2;
-      } else {
-        const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-        cx = (p1.x + p2.x) / 2;
-        cy = (p1.y + p2.y) / 2;
-      }
-    }
   }
-  
+
   const h = lines.length * fontSize * 1.25;
   const w = Math.max(40, ...lines.map(line => line.length * fontSize * 0.62));
-  
+
   return point.x >= cx - w/2 && point.x <= cx + w/2 && point.y >= cy - h/2 && point.y <= cy + h/2;
 }
 

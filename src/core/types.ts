@@ -1,9 +1,28 @@
-export type ShapeType = 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text' | 'image';
+/** Open string type — no core change needed to add new shape types. */
+export type ShapeType = string;
 export type ArrowheadStyle = 'none' | 'arrow' | 'triangle' | 'circle' | 'diamond' | 'bar';
 
 export interface Point {
   x: number;
   y: number;
+}
+
+/** A named connection port on a shape (e.g. a table row for DB diagrams). */
+export interface ConnectionPoint {
+  id: string;
+  x: number; // world coords
+  y: number;
+  label?: string;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+}
+
+/** Binding from a connector endpoint to a target shape, optionally to a named port. */
+export interface ShapeBinding {
+  elementId: string;
+  portId?: string;
+  /** Click position relative to the bound shape's origin (shape.x / shape.y). Preserved on move. */
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface Shape {
@@ -31,10 +50,12 @@ export interface Shape {
   endArrowhead?: ArrowheadStyle;
   roundness?: 'sharp' | 'round';
   zIndex?: number;
-  startBinding?: { elementId: string };
-  endBinding?: { elementId: string };
+  startBinding?: ShapeBinding;
+  endBinding?: ShapeBinding;
   groupId?: string;
   locked?: boolean;
+  /** Type-specific data payload for custom plugins. */
+  data?: Record<string, unknown>;
 }
 
 export interface CanvasState {
@@ -83,7 +104,7 @@ export interface ICanvasAPI {
   undo: () => void;
   redo: () => void;
   batchUpdate: (fn: () => void) => void;
-  getSpatialIndex: () => any; // Use any to avoid circular import if needed, or import from SpatialIndex
+  getSpatialIndex: () => any;
 }
 
 export interface ToolDefinition {

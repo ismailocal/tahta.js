@@ -1,5 +1,5 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } from '../core/types';
-import { STYLE_PRESETS } from '../core/constants';
+import { getStylePreset } from '../core/constants';
 import { createId, updateDependentShapes } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
 
@@ -14,16 +14,13 @@ export class ShapeTool implements ToolDefinition {
 
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     this.drawStartWorld = payload.world;
-    const preset = STYLE_PRESETS[this.type];
+    const preset = getStylePreset(this.type);
     const common: Partial<Shape> = {
+      ...preset,
       id: createId(),
       x: payload.world.x,
       y: payload.world.y,
       seed: Math.floor(Math.random() * 2 ** 31),
-      stroke: preset?.stroke,
-      fill: preset?.fill,
-      strokeWidth: preset?.strokeWidth,
-      opacity: preset?.opacity
     };
 
     let shape: Shape = { ...common, type: this.type } as Shape;
@@ -74,6 +71,18 @@ export class ShapeTool implements ToolDefinition {
         api.deleteShape(this.currentShapeId);
         api.setSelection([]);
       } else {
+        // Final update at exact release position so bindings are detected correctly
+        if (PluginRegistry.hasPlugin(this.type)) {
+          const plugin = PluginRegistry.getPlugin(this.type);
+          if (plugin.onDrawUpdate) {
+            const state = api.getState();
+            const shape = state.shapes.find(s => s.id === this.currentShapeId);
+            if (shape) {
+              const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
+              api.updateShape(this.currentShapeId!, patch);
+            }
+          }
+        }
         api.commitState();
       }
     }

@@ -10,6 +10,8 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class EllipsePlugin implements IShapePlugin {
   type = 'ellipse';
+  defaultStyle: Partial<Shape> = { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
+  defaultProperties = ['stroke', 'fill', 'layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
     const w = shape.width || 0;
@@ -33,31 +35,40 @@ export class EllipsePlugin implements IShapePlugin {
     const bounds = this.getBounds(shape);
     const isLocked = shape.locked;
 
-    if (!isLocked) {
-      ctx.setLineDash([7, 5]);
-      ctx.strokeStyle = shape.stroke || '#8b5cf6';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bounds.x - 6, bounds.y - 6, bounds.width + 12, bounds.height + 12);
-    }
-
     if (isLocked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
       return;
     }
 
+    ctx.strokeStyle = shape.stroke || '#8b5cf6';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.ellipse(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+      bounds.width / 2 + 4,
+      bounds.height / 2 + 4,
+      0, 0, Math.PI * 2
+    );
+    ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#1e1e24';
     ctx.strokeStyle = shape.stroke || '#8b5cf6';
 
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
-    drawHandle(ctx, b.x, b.y);
-    drawHandle(ctx, b.x + b.w / 2, b.y);
-    drawHandle(ctx, b.x + b.w, b.y);
-    drawHandle(ctx, b.x, b.y + b.h / 2);
-    drawHandle(ctx, b.x + b.w, b.y + b.h / 2);
-    drawHandle(ctx, b.x, b.y + b.h);
-    drawHandle(ctx, b.x + b.w / 2, b.y + b.h);
-    drawHandle(ctx, b.x + b.w, b.y + b.h);
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    const rx = bounds.width / 2 + 6;
+    const ry = bounds.height / 2 + 6;
+    const d45 = Math.SQRT1_2; // cos/sin of 45°
+    drawHandle(ctx, cx, cy - ry);                         // n
+    drawHandle(ctx, cx + rx, cy);                         // e
+    drawHandle(ctx, cx, cy + ry);                         // s
+    drawHandle(ctx, cx - rx, cy);                         // w
+    drawHandle(ctx, cx + rx * d45, cy - ry * d45);        // ne
+    drawHandle(ctx, cx + rx * d45, cy + ry * d45);        // se
+    drawHandle(ctx, cx - rx * d45, cy + ry * d45);        // sw
+    drawHandle(ctx, cx - rx * d45, cy - ry * d45);        // nw
   }
 
   getBounds(shape: Shape) {
@@ -67,16 +78,20 @@ export class EllipsePlugin implements IShapePlugin {
   getHandleAtPoint(shape: Shape, point: Point): string | null {
     const d = 6;
     const bounds = this.getBounds(shape);
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    const rx = bounds.width / 2 + 6;
+    const ry = bounds.height / 2 + 6;
+    const d45 = Math.SQRT1_2;
 
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - b.y) <= d) return 'nw';
-    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - b.y) <= d) return 'n';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - b.y) <= d) return 'ne';
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'w';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'e';
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'sw';
-    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 's';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'se';
+    if (Math.abs(point.x - cx) <= d && Math.abs(point.y - (cy - ry)) <= d) return 'n';
+    if (Math.abs(point.x - (cx + rx)) <= d && Math.abs(point.y - cy) <= d) return 'e';
+    if (Math.abs(point.x - cx) <= d && Math.abs(point.y - (cy + ry)) <= d) return 's';
+    if (Math.abs(point.x - (cx - rx)) <= d && Math.abs(point.y - cy) <= d) return 'w';
+    if (Math.abs(point.x - (cx + rx * d45)) <= d && Math.abs(point.y - (cy - ry * d45)) <= d) return 'ne';
+    if (Math.abs(point.x - (cx + rx * d45)) <= d && Math.abs(point.y - (cy + ry * d45)) <= d) return 'se';
+    if (Math.abs(point.x - (cx - rx * d45)) <= d && Math.abs(point.y - (cy + ry * d45)) <= d) return 'sw';
+    if (Math.abs(point.x - (cx - rx * d45)) <= d && Math.abs(point.y - (cy - ry * d45)) <= d) return 'nw';
     return null;
   }
 

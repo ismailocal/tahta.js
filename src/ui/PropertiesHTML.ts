@@ -1,5 +1,5 @@
 import type { Shape, ICanvasAPI } from '../core/types';
-import { STROKE_COLORS, FILL_COLORS, ICONS, SHAPE_PROPERTIES } from './PropertyConstants';
+import { STROKE_COLORS, FILL_COLORS, ICONS, getShapePropertyKeys } from './PropertyConstants';
 
 export function renderColorSwatches(prop: string, colors: string[], activeColor: string | undefined): string {
   const safeActiveColor = activeColor || colors[0];
@@ -47,9 +47,9 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   if (selectedShapes.length === 0) return '';
 
   const selectedShape = selectedShapes[0]!;
-  let allowedProps = SHAPE_PROPERTIES[selectedShape.type] || [];
+  let allowedProps = getShapePropertyKeys(selectedShape.type);
   for (let i = 1; i < selectedShapes.length; i++) {
-    const props = SHAPE_PROPERTIES[selectedShapes[i]!.type] || [];
+    const props = getShapePropertyKeys(selectedShapes[i]!.type);
     allowedProps = allowedProps.filter(p => props.includes(p));
   }
 

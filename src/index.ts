@@ -24,6 +24,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     hand: new HandTool(),
     rectangle: new ShapeTool('rectangle'),
     ellipse: new ShapeTool('ellipse'),
+    diamond: new ShapeTool('diamond'),
     line: new ShapeTool('line'),
     arrow: new ShapeTool('arrow'),
     freehand: new ShapeTool('freehand'),

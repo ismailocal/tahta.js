@@ -12,6 +12,8 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class ImagePlugin implements IShapePlugin {
   type = 'image';
+  defaultStyle: Partial<Shape> = {};
+  defaultProperties = ['layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
     const { x, y, width = 100, height = 100, imageSrc } = shape;
@@ -37,22 +39,19 @@ export class ImagePlugin implements IShapePlugin {
     const { x, y, width = 100, height = 100 } = shape;
     const isLocked = shape.locked;
 
-    if (!isLocked) {
-      ctx.setLineDash([7, 5]);
-      ctx.strokeStyle = '#8b5cf6';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x - 6, y - 6, width + 12, height + 12);
-    }
-
     if (isLocked) {
       drawLockIcon(ctx, x + width + 6, y - 6);
       return;
     }
 
+    ctx.strokeStyle = shape.stroke || '#8b5cf6';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(x - 4, y - 4, width + 8, height + 8);
     ctx.setLineDash([]);
     ctx.fillStyle = '#1e1e24';
     ctx.strokeStyle = '#8b5cf6';
-    
+
     const b = { x: x - 6, y: y - 6, w: width + 12, h: height + 12 };
     drawHandle(ctx, b.x, b.y); // nw
     drawHandle(ctx, b.x + b.w / 2, b.y); // n

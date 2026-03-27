@@ -11,6 +11,8 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
+  defaultStyle: Partial<Shape> = { stroke: '#f59e0b', strokeWidth: 1, roughness: 0, opacity: 1 };
+  defaultProperties = ['stroke', 'layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
     const pts = shape.points || [];
@@ -34,18 +36,16 @@ export class FreehandPlugin implements IShapePlugin {
     const isLocked = shape.locked;
 
     const bounds = this.getBounds(shape);
-    if (!isLocked) {
-      ctx.setLineDash([7, 5]);
-      ctx.strokeStyle = (shape.stroke || '#8b5cf6');
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bounds.x - 6, bounds.y - 6, bounds.width + 12, bounds.height + 12);
-    }
 
     if (isLocked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
       return;
     }
 
+    ctx.strokeStyle = shape.stroke || '#8b5cf6';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
     ctx.setLineDash([]);
     ctx.fillStyle = '#1e1e24';
     ctx.strokeStyle = shape.stroke || '#8b5cf6';

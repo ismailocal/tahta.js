@@ -1,3 +1,6 @@
+import { PluginRegistry } from '../plugins/PluginRegistry';
+import type { Shape } from './types';
+
 export const STYLE_PRESETS: Record<string, any> = {
   rectangle: { stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1, roughness: 0, roundness: 'sharp', opacity: 1 },
   ellipse: { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 },
@@ -20,6 +23,7 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
   { key: 'select', label: 'Select', shortcut: 'V', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7.07 16.97 2.51-7.39 7.39-2.51L4 4z"/></svg>` },
   { key: 'rectangle', label: 'Rectangle', shortcut: 'R', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>` },
   { key: 'ellipse', label: 'Ellipse', shortcut: 'E', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>` },
+  { key: 'diamond', label: 'Diamond', shortcut: 'D', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 12 12 22 2 12"/></svg>` },
   { key: 'arrow', label: 'Arrow', shortcut: 'A', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>` },
   { key: 'line', label: 'Line', shortcut: 'L', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
   { key: 'freehand', label: 'Draw', shortcut: 'P', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` },
@@ -31,3 +35,13 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
   { key: 'redo', label: 'İleri Al', shortcut: 'Ctrl+Y', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>` },
   { key: 'export', label: 'JSON Dışa Aktar', shortcut: 'Alt+S', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>` },
 ];
+
+/**
+ * Returns the default style for a shape type.
+ * Prefers the plugin's declared defaultStyle, falls back to the legacy STYLE_PRESETS map.
+ */
+export function getStylePreset(type: string): Partial<Shape> {
+  const fromPlugin = PluginRegistry.getDefaultStyle(type);
+  if (Object.keys(fromPlugin).length > 0) return fromPlugin;
+  return STYLE_PRESETS[type] ?? {};
+}

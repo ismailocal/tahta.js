@@ -10,6 +10,8 @@ function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
 
 export class TextPlugin implements IShapePlugin {
   type = 'text';
+  defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fontSize: 24, opacity: 1 };
+  defaultProperties = ['stroke', 'layer', 'action'];
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean) {
     if (!shape.text) return;
@@ -25,22 +27,19 @@ export class TextPlugin implements IShapePlugin {
     const bounds = this.getBounds(shape);
     const isLocked = shape.locked;
 
-    if (!isLocked) {
-      ctx.setLineDash([7, 5]);
-      ctx.strokeStyle = (shape.stroke || '#8b5cf6');
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bounds.x - 6, bounds.y - 6, bounds.width + 12, bounds.height + 12);
-    }
-
     if (isLocked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
       return;
     }
 
+    ctx.strokeStyle = shape.stroke || '#8b5cf6';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
     ctx.setLineDash([]);
     ctx.fillStyle = '#1e1e24';
     ctx.strokeStyle = shape.stroke || '#8b5cf6';
-    
+
     const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
     drawHandle(ctx, b.x, b.y);
     drawHandle(ctx, b.x + b.w, b.y);

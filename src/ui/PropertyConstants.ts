@@ -66,3 +66,15 @@ export const SHAPE_PROPERTIES: Record<string, string[]> = {
   text: ['stroke', 'layer', 'action'],
   image: ['layer', 'action']
 };
+
+import { PluginRegistry } from '../plugins/PluginRegistry';
+
+/**
+ * Returns the property panel keys for a shape type.
+ * Prefers the plugin's declared defaultProperties, falls back to the legacy SHAPE_PROPERTIES map.
+ */
+export function getShapePropertyKeys(type: string): string[] {
+  const fromPlugin = PluginRegistry.getDefaultProperties(type);
+  if (fromPlugin.length > 0) return fromPlugin;
+  return SHAPE_PROPERTIES[type] ?? ['layer', 'action'];
+}

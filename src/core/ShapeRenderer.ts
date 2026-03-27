@@ -1,5 +1,5 @@
 import rough from 'roughjs';
-import type { Shape } from '../core/types';
+import type { Shape, ConnectionPoint } from '../core/types';
 import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint } from './lineUtils';
 import { getShapeBounds } from './Geometry';
 import { PluginRegistry } from '../plugins/index';
@@ -34,7 +34,8 @@ export function renderShape(
   isSelected: boolean, 
   isErasing: boolean = false, 
   allShapes: Shape[] = [], 
-  isEditingText: boolean = false
+  isEditingText: boolean = false,
+  isHovered: boolean = false
 ) {
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
@@ -101,6 +102,9 @@ export function renderShape(
   if (isSelected && plugin.renderSelection) {
     plugin.renderSelection(ctx, shape, allShapes);
   }
+  if (isHovered && !isSelected && plugin.getConnectionPoints) {
+    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape));
+  }
   ctx.restore();
 }
 
@@ -118,21 +122,11 @@ function renderShapeText(
   
   let cx = 0;
   let cy = 0;
-  
-  if (shape.type === 'arrow' || shape.type === 'line') {
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-    
-    if (shape.edgeStyle === 'elbow') {
-      const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
-      const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2, allShapes, s => getShapeBounds(s));
-      const mid = getPathMidpoint(path);
-      cx = mid.x;
-      cy = mid.y;
-    } else {
-      cx = (p1.x + p2.x) / 2;
-      cy = (p1.y + p2.y) / 2;
-    }
+
+  const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
+  if (textAnchor) {
+    cx = textAnchor.x;
+    cy = textAnchor.y;
   } else {
     const bounds = plugin.getBounds(shape);
     cx = bounds.x + bounds.width / 2;
@@ -143,7 +137,7 @@ function renderShapeText(
   const lineHeight = fontSize * 1.2;
   const totalHeight = lines.length * lineHeight;
 
-  if (shape.type === 'arrow' || shape.type === 'line') {
+  if (plugin.isConnector) {
     let maxWidth = 0;
     lines.forEach(line => {
       const w = ctx.measureText(line).width;
@@ -162,5 +156,18 @@ function renderShapeText(
   lines.forEach((line) => {
     ctx.fillText(line, cx, startY);
     startY += lineHeight;
+  });
+}
+
+function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[]) {
+  ctx.setLineDash([]);
+  points.forEach(cp => {
+    ctx.beginPath();
+    ctx.arc(cp.x, cp.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e1e24';
+    ctx.fill();
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   });
 }

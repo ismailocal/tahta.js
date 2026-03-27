@@ -5,6 +5,7 @@ import { Quadtree } from './SpatialIndex';
 import { getShapeBounds } from './Geometry';
 import { ShapeManager } from './ShapeManager';
 import { getArrowClippedEndpoints } from './lineUtils';
+import { PluginRegistry } from '../plugins/PluginRegistry';
 
 export const DEFAULT_STATE: CanvasState = {
   shapes: [],
@@ -137,7 +138,7 @@ export class WhiteboardStore {
 
     // DETACH & BAKE: Capture visual endpoints before the bound shape is removed from the array
     const nextShapes = ShapeManager.delete(shapes, shapeId).map(s => {
-      if ((s.type === 'arrow' || s.type === 'line') && (s.startBinding?.elementId === shapeId || s.endBinding?.elementId === shapeId)) {
+      if (PluginRegistry.hasPlugin(s.type) && PluginRegistry.getPlugin(s.type).isConnector && (s.startBinding?.elementId === shapeId || s.endBinding?.elementId === shapeId)) {
         const { p1, p2 } = getArrowClippedEndpoints(s, shapes);
         return {
           ...s,
