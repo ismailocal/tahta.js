@@ -42,16 +42,18 @@ export function getTextMetrics(shape: Shape) {
 
 export function updateDependentShapes(state: CanvasState, api: ICanvasAPI, changedShapeIds: string[]) {
   if (changedShapeIds.length === 0) return;
-  state.shapes.forEach((dependentShape) => {
-    if (PluginRegistry.hasPlugin(dependentShape.type)) {
-      const plugin = PluginRegistry.getPlugin(dependentShape.type);
-      if (plugin.onBoundShapeChange) {
-        const patch = plugin.onBoundShapeChange(dependentShape, state.shapes, changedShapeIds);
-        if (patch) {
-          api.updateShape(dependentShape.id, patch, true);
+  api.batchUpdate(() => {
+    state.shapes.forEach((dependentShape) => {
+      if (PluginRegistry.hasPlugin(dependentShape.type)) {
+        const plugin = PluginRegistry.getPlugin(dependentShape.type);
+        if (plugin.onBoundShapeChange) {
+          const patch = plugin.onBoundShapeChange(dependentShape, state.shapes, changedShapeIds);
+          if (patch) {
+            api.updateShape(dependentShape.id, patch, true);
+          }
         }
       }
-    }
+    });
   });
 }
 

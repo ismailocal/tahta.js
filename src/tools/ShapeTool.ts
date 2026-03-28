@@ -1,6 +1,6 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } from '../core/types';
 import { getStylePreset } from '../core/constants';
-import { createId, updateDependentShapes } from '../core/Utils';
+import { createId } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
 
 export class ShapeTool implements ToolDefinition {
@@ -50,12 +50,6 @@ export class ShapeTool implements ToolDefinition {
           const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
           
           api.updateShape(this.currentShapeId, patch);
-
-          const updatedShape = api.getState().shapes.find(s => s.id === this.currentShapeId);
-          const bindShapeIds = [updatedShape?.startBinding?.elementId, updatedShape?.endBinding?.elementId].filter(Boolean) as string[];
-          if (bindShapeIds.length > 0) {
-            updateDependentShapes(api.getState(), api, bindShapeIds);
-          }
         }
       }
     }

@@ -3,12 +3,6 @@ import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
 
-function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
-  const hw = 4;
-  ctx.fillRect(hx - hw, hy - hw, hw * 2, hw * 2);
-  ctx.strokeRect(hx - hw, hy - hw, hw * 2, hw * 2);
-}
-
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
   defaultStyle: Partial<Shape> = { stroke: '#f59e0b', strokeWidth: 1, roughness: 0, opacity: 1 };
@@ -33,32 +27,10 @@ export class FreehandPlugin implements IShapePlugin {
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
     const pts = shape.points || [];
     if (pts.length < 2) return;
-    const isLocked = shape.locked;
-
     const bounds = this.getBounds(shape);
-
-    if (isLocked) {
+    if (shape.locked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-      return;
     }
-
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 3]);
-    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e1e24';
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
-    drawHandle(ctx, b.x, b.y); // nw
-    drawHandle(ctx, b.x + b.w / 2, b.y); // n
-    drawHandle(ctx, b.x + b.w, b.y); // ne
-    drawHandle(ctx, b.x, b.y + b.h / 2); // w
-    drawHandle(ctx, b.x + b.w, b.y + b.h / 2); // e
-    drawHandle(ctx, b.x, b.y + b.h); // sw
-    drawHandle(ctx, b.x + b.w / 2, b.y + b.h); // s
-    drawHandle(ctx, b.x + b.w, b.y + b.h); // se
   }
 
   getBounds(shape: Shape) {
@@ -75,7 +47,7 @@ export class FreehandPlugin implements IShapePlugin {
   }
 
   getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 6;
+    const d = 12;
     const bounds = this.getBounds(shape);
     const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
 

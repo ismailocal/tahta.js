@@ -9,6 +9,18 @@ export interface IShapePlugin {
    */
   isConnector?: boolean;
 
+  /** If true, renderSelection handles its own selection brackets; ShapeRenderer skips default corner brackets. */
+  customSelectionBrackets?: boolean;
+
+  /** If true, only corner L-brackets are drawn (no midpoint ticks). */
+  cornersOnly?: boolean;
+
+  /** Corner radius for selection/hover brackets. Return 0 for sharp corners. */
+  getBracketRadius?(shape: Shape): number;
+
+  /** Draw the shape's outline path for hover/selection border. If omitted, ShapeRenderer draws a roundRect using getBounds. */
+  drawHoverOutline?(ctx: CanvasRenderingContext2D, shape: Shape): void;
+
   /** Default style applied when this shape type is created. */
   defaultStyle?: Partial<Shape>;
 

@@ -13,9 +13,15 @@ import { getArrowClippedEndpoints } from './lineUtils';
 export { getArrowClippedEndpoints };
 import { PluginRegistry } from '../plugins/index';
 
+const boundsCache = new WeakMap<Shape, { x: number, y: number, width: number, height: number }>();
+
 export function getShapeBounds(shape: Shape) {
+  if (boundsCache.has(shape)) return boundsCache.get(shape)!;
+  
   if (PluginRegistry.hasPlugin(shape.type)) {
-    return PluginRegistry.getPlugin(shape.type).getBounds(shape);
+    const bounds = PluginRegistry.getPlugin(shape.type).getBounds(shape);
+    boundsCache.set(shape, bounds);
+    return bounds;
   }
   return { x: 0, y: 0, width: 0, height: 0 };
 }
@@ -46,7 +52,7 @@ export function isPointInsideLabel(point: Point, shape: Shape, allShapes: Shape[
   let cx = shape.x;
   let cy = shape.y;
 
-  const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
+  const textAnchor = plugin.getTextAnchor?.(shape, []);
   if (textAnchor) {
     cx = textAnchor.x;
     cy = textAnchor.y;

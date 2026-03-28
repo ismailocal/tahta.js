@@ -104,6 +104,69 @@ button {
   pointer-events: none;
 }
 
+.tool-dropdown-wrap {
+  position: relative;
+}
+
+.tool-dropdown-wrap > .tool-button {
+  width: 40px;
+  gap: 1px;
+  padding: 0 4px;
+}
+
+.tool-dropdown-arrow {
+  font-size: 8px;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.tool-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  flex-direction: column;
+  background: #1e1e2e;
+  border: 1px solid #3d3d5c;
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1000;
+  min-width: 130px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  gap: 2px;
+}
+
+.tool-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #c9d2db;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tool-dropdown-item:hover {
+  background: #36364a;
+  color: #fff;
+}
+
+.tool-dropdown-item.active {
+  background: #4a4771;
+  color: #fff;
+}
+
+.tool-dropdown-item .tool-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .toolbar-separator {
   width: 1px;
   height: 24px;

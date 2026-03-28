@@ -28,7 +28,7 @@ export class WhiteboardStore {
   private state: CanvasState;
   private historyManager: HistoryManager;
   private spatialIndex: Quadtree | null = null;
-  private isBatching = false;
+  private batchDepth = 0;
 
   constructor(initialState: Partial<CanvasState> = {}, bus = new EventBus()) {
     this.bus = bus;
@@ -68,17 +68,17 @@ export class WhiteboardStore {
   }
 
   notify() {
-    if (this.isBatching) return;
+    if (this.batchDepth > 0) return;
     this.spatialIndex = null;
     this.subscribers.forEach((listener) => listener(this.state));
     this.bus.emit('document:changed', { state: this.state });
   }
 
   batchUpdate(fn: () => void) {
-    this.isBatching = true;
+    this.batchDepth++;
     try { fn(); } finally {
-      this.isBatching = false;
-      this.notify();
+      this.batchDepth--;
+      if (this.batchDepth === 0) this.notify();
     }
   }
 

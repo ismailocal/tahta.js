@@ -2,17 +2,11 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
-import { getPathMidpoint } from '../core/lineUtils';
-
-function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
-  const hw = 4;
-  ctx.fillRect(hx - hw, hy - hw, hw * 2, hw * 2);
-  ctx.strokeRect(hx - hw, hy - hw, hw * 2, hw * 2);
-}
+import { getPathMidpoint, renderEndpointHandles } from '../core/lineUtils';
 
 export class LinePlugin implements IShapePlugin {
   type = 'line';
-  isConnector = false;
+  isConnector = true;
   defaultStyle: Partial<Shape> = { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'roughness', 'layer', 'action'];
 
@@ -43,17 +37,8 @@ export class LinePlugin implements IShapePlugin {
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return;
-
-    if (shape.locked) {
-      drawLockIcon(ctx, wpts[0].x, wpts[0].y);
-      return;
-    }
-
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e1e24';
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-    drawHandle(ctx, wpts[0].x, wpts[0].y);
-    drawHandle(ctx, wpts[wpts.length - 1].x, wpts[wpts.length - 1].y);
+    if (shape.locked) drawLockIcon(ctx, wpts[0].x, wpts[0].y);
+    renderEndpointHandles(ctx, wpts[0], wpts[wpts.length - 1], shape.stroke);
   }
 
   getBounds(shape: Shape) {
@@ -72,7 +57,7 @@ export class LinePlugin implements IShapePlugin {
   getHandleAtPoint(shape: Shape, point: Point): string | null {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return null;
-    const d = 15;
+    const d = 20;
     if (Math.abs(point.x - wpts[0].x) <= d && Math.abs(point.y - wpts[0].y) <= d) return 'start';
     const last = wpts[wpts.length - 1];
     if (Math.abs(point.x - last.x) <= d && Math.abs(point.y - last.y) <= d) return 'end';

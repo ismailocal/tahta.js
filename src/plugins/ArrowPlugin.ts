@@ -2,12 +2,24 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../core/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead } from '../core/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath } from '../core/lineUtils';
+import { PluginRegistry } from './PluginRegistry';
 
-function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
-  const hw = 4;
-  ctx.fillRect(hx - hw, hy - hw, hw * 2, hw * 2);
-  ctx.strokeRect(hx - hw, hy - hw, hw * 2, hw * 2);
+/** Use smart elbow routing when BOTH ends are bound, or edgeStyle is explicitly 'elbow'. */
+function useSmartRouting(shape: Shape): boolean {
+  return shape.edgeStyle === 'elbow' || !!(shape.startBinding && shape.endBinding);
+}
+
+
+function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
+  if (portId && PluginRegistry.hasPlugin(shape.type)) {
+    const plugin = PluginRegistry.getPlugin(shape.type);
+    if (plugin.getConnectionPoints) {
+      const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
+      if (port) return { x: port.x, y: port.y };
+    }
+  }
+  return { x: shape.x + (shape.width || 0) / 2, y: shape.y + (shape.height || 0) / 2 };
 }
 
 export class ArrowPlugin implements IShapePlugin {
@@ -20,10 +32,10 @@ export class ArrowPlugin implements IShapePlugin {
     const pts = shape.points || [];
     if (pts.length < 2) return null;
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-    if (shape.edgeStyle === 'elbow') {
+    if (useSmartRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2, allShapes);
+      const path = getElbowPath(p1, p2, b1, b2);
       return getPathMidpoint(path);
     }
     return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
@@ -44,21 +56,21 @@ export class ArrowPlugin implements IShapePlugin {
 
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
 
-    if (shape.edgeStyle === 'elbow') {
+    if (useSmartRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2, allShapes, s => {
-        if (s.id === shape.id) return this.getBounds(s);
-        // Fallback for obstacles
-        const xs = (s.points || []).map(p => s.x + p.x);
-        const ys = (s.points || []).map(p => s.y + p.y);
-        if (xs.length > 0) {
-          const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-          return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-        }
-        return { x: s.x, y: s.y, width: s.width || 0, height: s.height || 0 };
-      });
-      rc.linearPath(path.map(p => [p.x, p.y]), options);
+      const path = getElbowPath(p1, p2, b1, b2);
+      ctx.save();
+      ctx.strokeStyle = options.stroke;
+      ctx.lineWidth = options.strokeWidth || 1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (shape.strokeStyle === 'dashed') ctx.setLineDash([8, 8]);
+      else if (shape.strokeStyle === 'dotted') ctx.setLineDash([2, 6]);
+      else ctx.setLineDash([]);
+      drawRoundedPath(ctx, path, 10);
+      ctx.stroke();
+      ctx.restore();
 
       const lastP1 = path[path.length - 2];
       const lastP2 = path[path.length - 1];
@@ -90,23 +102,9 @@ export class ArrowPlugin implements IShapePlugin {
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[]) {
     const pts = shape.points || [];
     if (pts.length < 2) return;
-    const isLocked = shape.locked;
-
-    const bounds = this.getBounds(shape);
-
-    if (isLocked) {
-      const { p1 } = getArrowClippedEndpoints(shape, allShapes);
-      drawLockIcon(ctx, p1.x, p1.y);
-      return;
-    }
-
-    // Interactive handles on clipped points
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e1e24';
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-    drawHandle(ctx, p1.x, p1.y);
-    drawHandle(ctx, p2.x, p2.y);
+    if (shape.locked) drawLockIcon(ctx, p1.x, p1.y);
+    renderEndpointHandles(ctx, p1, p2, shape.stroke);
   }
 
   getBounds(shape: Shape) {
@@ -126,7 +124,7 @@ export class ArrowPlugin implements IShapePlugin {
     const pts = shape.points || [];
     if (pts.length > 1) {
       const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-      const d = 15;
+      const d = 20;
       if (Math.abs(point.x - p1.x) <= d && Math.abs(point.y - p1.y) <= d) return 'start';
       if (Math.abs(point.x - p2.x) <= d && Math.abs(point.y - p2.y) <= d) return 'end';
     }
@@ -140,7 +138,7 @@ export class ArrowPlugin implements IShapePlugin {
     // Use the *visually clipped* endpoints for hit testing
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
 
-    if (shape.edgeStyle === 'elbow') {
+    if (useSmartRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
       const path = getElbowPath(p1, p2, b1, b2);
@@ -158,11 +156,23 @@ export class ArrowPlugin implements IShapePlugin {
       allShapes.filter(s => s.type !== 'arrow' && s.type !== 'line' && s.type !== 'freehand'),
       payload.world
     );
+    let portId: string | undefined;
+    if (hitShape && PluginRegistry.hasPlugin(hitShape.type)) {
+      const hitPlugin = PluginRegistry.getPlugin(hitShape.type);
+      if (hitPlugin.getConnectionPoints) {
+        const ports = hitPlugin.getConnectionPoints(hitShape);
+        let minDist = Infinity;
+        for (const port of ports) {
+          const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
+          if (d < minDist) { minDist = d; portId = port.id; }
+        }
+      }
+    }
     return {
       x: payload.world.x,
       y: payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      startBinding: hitShape ? { elementId: hitShape.id } : undefined
+      startBinding: hitShape ? { elementId: hitShape.id, portId } : undefined
     };
   }
 
@@ -182,7 +192,19 @@ export class ArrowPlugin implements IShapePlugin {
     const state = api.getState();
     if (hitShape && shape?.startBinding?.elementId !== hitShape.id && (!payload.ctrlKey && !payload.metaKey)) {
       if (state.hoveredShapeId !== hitShape.id) api.setState({ hoveredShapeId: hitShape.id });
-      patch.endBinding = { elementId: hitShape.id };
+      let portId: string | undefined;
+      if (PluginRegistry.hasPlugin(hitShape.type)) {
+        const hitPlugin = PluginRegistry.getPlugin(hitShape.type);
+        if (hitPlugin.getConnectionPoints) {
+          const ports = hitPlugin.getConnectionPoints(hitShape);
+          let minDist = Infinity;
+          for (const port of ports) {
+            const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
+            if (d < minDist) { minDist = d; portId = port.id; }
+          }
+        }
+      }
+      patch.endBinding = { elementId: hitShape.id, portId };
     } else {
       if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
     }
@@ -211,17 +233,34 @@ export class ArrowPlugin implements IShapePlugin {
   onDragBindHandle(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: any): Partial<Shape> {
     const hit = getTopShapeAtPoint(allShapes.filter(s => s.id !== activeShapeId), payload.world);
     const isSelf = hit?.id === activeShapeId;
-    const hoveredValid = hit && !isSelf && ['rectangle', 'ellipse', 'text'].includes(hit.type);
+    const hoveredValid = hit && !isSelf && PluginRegistry.hasPlugin(hit.type) && !PluginRegistry.getPlugin(hit.type).isConnector;
 
     const patch: Partial<Shape> = {};
     const state = api.getState();
     if (hoveredValid && (!payload.ctrlKey && !payload.metaKey)) {
       if (hit.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: hit.id });
+
+      // Find closest connection port if available
+      let portId: string | undefined;
+      if (PluginRegistry.hasPlugin(hit.type)) {
+        const hitPlugin = PluginRegistry.getPlugin(hit.type);
+        if (hitPlugin.getConnectionPoints) {
+          const ports = hitPlugin.getConnectionPoints(hit);
+          if (ports.length > 0) {
+            let minDist = Infinity;
+            for (const port of ports) {
+              const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
+              if (d < minDist) { minDist = d; portId = port.id; }
+            }
+          }
+        }
+      }
+
       if (handle === 'start') {
-        if (shape.endBinding?.elementId !== hit.id) patch.startBinding = { elementId: hit.id };
+        if (shape.endBinding?.elementId !== hit.id) patch.startBinding = { elementId: hit.id, portId };
         else patch.startBinding = undefined;
       } else if (handle === 'end') {
-        if (shape.startBinding?.elementId !== hit.id) patch.endBinding = { elementId: hit.id };
+        if (shape.startBinding?.elementId !== hit.id) patch.endBinding = { elementId: hit.id, portId };
         else patch.endBinding = undefined;
       }
     } else {
@@ -243,11 +282,11 @@ export class ArrowPlugin implements IShapePlugin {
 
       if (startId) {
         const sShape = allShapes.find(s => s.id === startId);
-        if (sShape) p1 = { x: sShape.x + (sShape.width || 0) / 2, y: sShape.y + (sShape.height || 0) / 2 };
+        if (sShape) p1 = getBindingPoint(sShape, shape.startBinding!.portId);
       }
       if (endId) {
         const eShape = allShapes.find(s => s.id === endId);
-        if (eShape) p2 = { x: eShape.x + (eShape.width || 0) / 2, y: eShape.y + (eShape.height || 0) / 2 };
+        if (eShape) p2 = getBindingPoint(eShape, shape.endBinding!.portId);
       }
 
       return {

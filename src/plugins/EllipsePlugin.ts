@@ -1,19 +1,14 @@
-import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
+import { BaseRectPlugin } from './BaseRectPlugin';
 
-function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
-  const hw = 4;
-  ctx.fillRect(hx - hw, hy - hw, hw * 2, hw * 2);
-  ctx.strokeRect(hx - hw, hy - hw, hw * 2, hw * 2);
-}
-
-export class EllipsePlugin implements IShapePlugin {
+export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
+  customSelectionBrackets = true;
   defaultStyle: Partial<Shape> = { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'fill', 'layer', 'action'];
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
+  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const options: any = {
@@ -31,67 +26,19 @@ export class EllipsePlugin implements IShapePlugin {
     rc.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w), Math.abs(h), options);
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
-    const bounds = this.getBounds(shape);
-    const isLocked = shape.locked;
-
-    if (isLocked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-      return;
-    }
-
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 3]);
-    ctx.beginPath();
-    ctx.ellipse(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-      bounds.width / 2 + 4,
-      bounds.height / 2 + 4,
-      0, 0, Math.PI * 2
-    );
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e1e24';
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-
-    const cx = bounds.x + bounds.width / 2;
-    const cy = bounds.y + bounds.height / 2;
-    const rx = bounds.width / 2 + 6;
-    const ry = bounds.height / 2 + 6;
-    const d45 = Math.SQRT1_2; // cos/sin of 45°
-    drawHandle(ctx, cx, cy - ry);                         // n
-    drawHandle(ctx, cx + rx, cy);                         // e
-    drawHandle(ctx, cx, cy + ry);                         // s
-    drawHandle(ctx, cx - rx, cy);                         // w
-    drawHandle(ctx, cx + rx * d45, cy - ry * d45);        // ne
-    drawHandle(ctx, cx + rx * d45, cy + ry * d45);        // se
-    drawHandle(ctx, cx - rx * d45, cy + ry * d45);        // sw
-    drawHandle(ctx, cx - rx * d45, cy - ry * d45);        // nw
-  }
-
-  getBounds(shape: Shape) {
-    return { x: shape.x, y: shape.y, width: shape.width || 0, height: shape.height || 0 };
-  }
-
+  /** 4-point handle hit test at N/E/S/W on the actual ellipse outline. */
   getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 6;
+    const d = 12;
     const bounds = this.getBounds(shape);
     const cx = bounds.x + bounds.width / 2;
     const cy = bounds.y + bounds.height / 2;
     const rx = bounds.width / 2 + 6;
     const ry = bounds.height / 2 + 6;
-    const d45 = Math.SQRT1_2;
 
-    if (Math.abs(point.x - cx) <= d && Math.abs(point.y - (cy - ry)) <= d) return 'n';
-    if (Math.abs(point.x - (cx + rx)) <= d && Math.abs(point.y - cy) <= d) return 'e';
-    if (Math.abs(point.x - cx) <= d && Math.abs(point.y - (cy + ry)) <= d) return 's';
-    if (Math.abs(point.x - (cx - rx)) <= d && Math.abs(point.y - cy) <= d) return 'w';
-    if (Math.abs(point.x - (cx + rx * d45)) <= d && Math.abs(point.y - (cy - ry * d45)) <= d) return 'ne';
-    if (Math.abs(point.x - (cx + rx * d45)) <= d && Math.abs(point.y - (cy + ry * d45)) <= d) return 'se';
-    if (Math.abs(point.x - (cx - rx * d45)) <= d && Math.abs(point.y - (cy + ry * d45)) <= d) return 'sw';
-    if (Math.abs(point.x - (cx - rx * d45)) <= d && Math.abs(point.y - (cy - ry * d45)) <= d) return 'nw';
+    if (Math.abs(point.x - cx)       <= d && Math.abs(point.y - (cy - ry)) <= d) return 'n';
+    if (Math.abs(point.x - (cx + rx)) <= d && Math.abs(point.y - cy)       <= d) return 'e';
+    if (Math.abs(point.x - cx)       <= d && Math.abs(point.y - (cy + ry)) <= d) return 's';
+    if (Math.abs(point.x - (cx - rx)) <= d && Math.abs(point.y - cy)       <= d) return 'w';
     return null;
   }
 
@@ -106,51 +53,39 @@ export class EllipsePlugin implements IShapePlugin {
     );
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0 };
+  drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
+    const b = this.getBounds(shape);
+    ctx.beginPath();
+    ctx.ellipse(b.x + b.width / 2, b.y + b.height / 2, b.width / 2, b.height / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
-  onDrawUpdate(shape: Shape, payload: PointerPayload, dragStart: Pick<Point, "x" | "y">): Partial<Shape> {
-    let x = dragStart.x;
-    let y = dragStart.y;
-    let width = payload.world.x - dragStart.x;
-    let height = payload.world.y - dragStart.y;
-
-    if (payload.shiftKey) {
-      const size = Math.max(Math.abs(width), Math.abs(height));
-      width = width < 0 ? -size : size;
-      height = height < 0 ? -size : size;
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+    const bounds = this.getBounds(shape);
+    if (shape.locked) {
+      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
     }
 
-    if (payload.altKey) {
-      x = dragStart.x - width;
-      y = dragStart.y - height;
-      width *= 2;
-      height *= 2;
-    }
+    // Small arc indicators at N/E/S/W handle positions on the ellipse
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    const rx = bounds.width / 2;
+    const ry = bounds.height / 2;
+    const span = 0.13;
+    const color = shape.stroke || '#ffffff';
 
-    if (width < 0) { x += width; width = Math.abs(width); }
-    if (height < 0) { y += height; height = Math.abs(height); }
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
 
-    return { x, y, width, height };
-  }
+    [-Math.PI / 2, 0, Math.PI / 2, Math.PI].forEach(angle => {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, angle - span, angle + span);
+      ctx.stroke();
+    });
 
-  onDragHandle(shape: Shape, handle: string, payload: PointerPayload, dragStart: Point): Partial<Shape> {
-    const dx = payload.world.x - dragStart.x;
-    const dy = payload.world.y - dragStart.y;
-
-    let { x, y } = shape;
-    let w = shape.width || 0;
-    let h = shape.height || 0;
-
-    if (handle.includes('n')) { y += dy; h -= dy; }
-    if (handle.includes('s')) { h += dy; }
-    if (handle.includes('w')) { x += dx; w -= dx; }
-    if (handle.includes('e')) { w += dx; }
-
-    if (w < 0) { x += w; w = Math.abs(w); }
-    if (h < 0) { y += h; h = Math.abs(h); }
-
-    return { x, y, width: w, height: h };
+    ctx.restore();
   }
 }

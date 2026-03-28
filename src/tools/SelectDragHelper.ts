@@ -25,11 +25,10 @@ export function dragHandle(
         Object.assign(patch, plugin.onDragBindHandle(shape, activeHandle, payload, state.shapes, activeShapeId, api));
       }
 
-      api.updateShape(activeShapeId, patch);
-
-      const updatedShape = api.getState().shapes.find(s => s.id === activeShapeId);
-      const bindShapeIds = [updatedShape?.startBinding?.elementId, updatedShape?.endBinding?.elementId].filter(Boolean) as string[];
-      updateDependentShapes(api.getState(), api, [activeShapeId, ...bindShapeIds]);
+      api.batchUpdate(() => {
+        api.updateShape(activeShapeId, patch);
+        updateDependentShapes(api.getState(), api, [activeShapeId]);
+      });
     }
   }
 }
@@ -104,21 +103,20 @@ export function translateSelection(
     }
   }
 
-  initialSnapshot.forEach(shape => {
-    if (shape.locked) return;
-    const patch: Partial<Shape> = { x: shape.x + dx, y: shape.y + dy };
-    
-    if ((shape.type === 'arrow' || shape.type === 'line')) {
-      const isBoundToUnselected = (shape.startBinding && !state.selectedIds.includes(shape.startBinding.elementId)) ||
-                                  (shape.endBinding && !state.selectedIds.includes(shape.endBinding.elementId));
-      
-      if (isBoundToUnselected) {
-        return; // skip translation for bound arrows if their targets aren't moving with them
+  api.batchUpdate(() => {
+    initialSnapshot.forEach(shape => {
+      if (shape.locked) return;
+      const patch: Partial<Shape> = { x: shape.x + dx, y: shape.y + dy };
+
+      if ((shape.type === 'arrow' || shape.type === 'line')) {
+        const isBoundToUnselected = (shape.startBinding && !state.selectedIds.includes(shape.startBinding.elementId)) ||
+                                    (shape.endBinding && !state.selectedIds.includes(shape.endBinding.elementId));
+        if (isBoundToUnselected) return;
       }
-    }
 
-    api.updateShape(shape.id, patch);
+      api.updateShape(shape.id, patch);
+    });
+
+    updateDependentShapes(api.getState(), api, initialSnapshot.map(s => s.id));
   });
-
-  updateDependentShapes(api.getState(), api, initialSnapshot.map(s => s.id));
 }

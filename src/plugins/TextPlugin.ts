@@ -2,12 +2,6 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point } from '../core/types';
 import { getTextMetrics, drawLockIcon } from '../core/Utils';
 
-function drawHandle(ctx: CanvasRenderingContext2D, hx: number, hy: number) {
-  const hw = 4;
-  ctx.fillRect(hx - hw, hy - hw, hw * 2, hw * 2);
-  ctx.strokeRect(hx - hw, hy - hw, hw * 2, hw * 2);
-}
-
 export class TextPlugin implements IShapePlugin {
   type = 'text';
   defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fontSize: 24, opacity: 1 };
@@ -25,26 +19,9 @@ export class TextPlugin implements IShapePlugin {
 
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
     const bounds = this.getBounds(shape);
-    const isLocked = shape.locked;
-
-    if (isLocked) {
+    if (shape.locked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-      return;
     }
-
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 3]);
-    ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e1e24';
-    ctx.strokeStyle = shape.stroke || '#8b5cf6';
-
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
-    drawHandle(ctx, b.x, b.y);
-    drawHandle(ctx, b.x + b.w, b.y);
-    drawHandle(ctx, b.x, b.y + b.h);
-    drawHandle(ctx, b.x + b.w, b.y + b.h);
   }
 
   getBounds(shape: Shape) {
@@ -53,7 +30,7 @@ export class TextPlugin implements IShapePlugin {
   }
 
   getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 6;
+    const d = 12;
     const bounds = this.getBounds(shape);
     const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
     

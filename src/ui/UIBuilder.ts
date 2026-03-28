@@ -31,14 +31,35 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
 
+  const DB_KEYS = new Set(['db-table', 'db-view', 'db-enum']);
+
   const renderToolbar = (state: any) => {
+    const dbActive = DB_KEYS.has(state.activeTool);
     toolbar.innerHTML = TOOLBAR_ITEMS.map((tool) => {
-      if (tool.isSeparator) {
-        return `<div class="toolbar-separator"></div>`;
-      }
+      if (tool.isSeparator) return `<div class="toolbar-separator"></div>`;
+
       let disabled = false;
       if (tool.key === 'undo') disabled = !store.canUndo;
       if (tool.key === 'redo') disabled = !store.canRedo;
+
+      if (tool.isDropdown && tool.children) {
+        return `
+          <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
+            <button class="tool-button ${dbActive ? 'active' : ''}" data-dropdown-toggle="${tool.key}" title="${tool.label} (${tool.shortcut})">
+              <span class="tool-icon">${tool.icon}</span>
+              <span class="tool-dropdown-arrow">▾</span>
+            </button>
+            <div class="tool-dropdown-menu" id="dropdown-${tool.key}" style="display:none;">
+              ${tool.children.map(child => `
+                <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}">
+                  <span class="tool-icon">${child.icon}</span>
+                  <span>${child.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
 
       return `
         <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${disabled ? 'disabled' : ''}>
@@ -46,7 +67,26 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         </button>
       `;
     }).join('');
+
+    // Attach dropdown toggle listeners after render
+    toolbar.querySelectorAll<HTMLButtonElement>('[data-dropdown-toggle]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = btn.getAttribute('data-dropdown-toggle')!;
+        const menu = document.getElementById(`dropdown-${key}`);
+        if (!menu) return;
+        const isOpen = menu.style.display !== 'none';
+        closeAllDropdowns();
+        if (!isOpen) menu.style.display = 'flex';
+      });
+    });
   };
+
+  function closeAllDropdowns() {
+    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.style.display = 'none');
+  }
+
+  document.addEventListener('click', () => closeAllDropdowns());
 
   const selectedShape = () => {
     const state = store.getState();
@@ -68,6 +108,8 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   root.querySelector('.app-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
+    // Close dropdown if clicked inside dropdown item
+    if (target.closest('.tool-dropdown-item')) closeAllDropdowns();
     const btn = target.closest('[data-tool]') as HTMLButtonElement | null;
     if (btn?.disabled) return;
 
@@ -158,7 +200,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       cursor = state.isPanning ? 'grabbing' : 'grab';
     } else if (state.activeTool === 'text') {
       cursor = 'text';
-    } else if (['rectangle', 'ellipse', 'line', 'arrow', 'freehand', 'eraser'].includes(state.activeTool)) {
+    } else if (['rectangle', 'ellipse', 'line', 'arrow', 'freehand', 'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
       cursor = 'crosshair';
     } else {
       cursor = 'default';

@@ -5,6 +5,7 @@ import { renderGrid } from './GridRenderer';
 import { renderWelcome, renderOverlays } from './OverlayRenderer';
 import { renderShape } from './ShapeRenderer';
 import { isShapeVisible } from './Geometry';
+import { clearElbowCache, setSkipObstacles } from './lineUtils';
 
 
 
@@ -15,6 +16,8 @@ let lastViewport = { x: 0, y: 0, zoom: 1 };
 let lastEditingShapeId: string | null = null;
 
 export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
+  // clearElbowCache(); // DISABLED: Clearing cache every frame makes it useless. Rely on the robust cache key instead.
+  setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -132,8 +135,6 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   lastDragState = state.isDraggingSelection;
 
   renderOverlays(ctx, state);
-
-
 
   ctx.restore();
 }

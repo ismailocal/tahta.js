@@ -1,5 +1,49 @@
 import type { Shape, Point, ArrowheadStyle } from './types';
 import { getRayEllipseIntersection } from './GeometryUtils';
+import { PluginRegistry } from '../plugins/PluginRegistry';
+
+/** Draws an open path with quadratic-curve rounding at each interior bend point. */
+export function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[], radius: number) {
+  const n = points.length;
+  if (n < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < n - 1; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const next = points[i + 1];
+    const d1 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+    const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const t1 = Math.min(radius / d1, 0.5);
+    const t2 = Math.min(radius / d2, 0.5);
+    ctx.lineTo(curr.x + (prev.x - curr.x) * t1, curr.y + (prev.y - curr.y) * t1);
+    ctx.quadraticCurveTo(curr.x, curr.y, curr.x + (next.x - curr.x) * t2, curr.y + (next.y - curr.y) * t2);
+  }
+  ctx.lineTo(points[n - 1].x, points[n - 1].y);
+}
+
+/** Draws small diamond-shaped handle indicators at line/arrow endpoints. */
+export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, p2: Point, stroke?: string) {
+  const color = stroke || '#ffffff';
+  const r = 5;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = '#1e1e24';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  [p1, p2].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(p.x,     p.y - r);
+    ctx.lineTo(p.x + r, p.y);
+    ctx.lineTo(p.x,     p.y + r);
+    ctx.lineTo(p.x - r, p.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+  ctx.restore();
+}
 
 export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1: Point, p2: Point } {
   const p0 = shape.points?.[0] || { x: 0, y: 0 };
@@ -29,22 +73,36 @@ export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1
   if (shape.startBinding) {
     const bShape = allShapes.find(s => s.id === shape.startBinding!.elementId);
     if (bShape) {
-      const cx = bShape.x + (bShape.width||0) / 2;
-      const cy = bShape.y + (bShape.height||0) / 2;
-      const rx = Math.abs(bShape.width||0) / 2;
-      const ry = Math.abs(bShape.height||0) / 2;
-      p1 = getClosestPort(cx, cy, rx, ry, p2, bShape.type);
+      const portId = shape.startBinding!.portId;
+      if (portId && PluginRegistry.hasPlugin(bShape.type)) {
+        const plugin = PluginRegistry.getPlugin(bShape.type);
+        const port = plugin.getConnectionPoints?.(bShape)?.find(p => p.id === portId);
+        if (port) { p1 = { x: port.x, y: port.y }; }
+      } else {
+        const cx = bShape.x + (bShape.width||0) / 2;
+        const cy = bShape.y + (bShape.height||0) / 2;
+        const rx = Math.abs(bShape.width||0) / 2;
+        const ry = Math.abs(bShape.height||0) / 2;
+        p1 = getClosestPort(cx, cy, rx, ry, p2, bShape.type);
+      }
     }
   }
 
   if (shape.endBinding) {
     const bShape = allShapes.find(s => s.id === shape.endBinding!.elementId);
     if (bShape) {
-      const cx = bShape.x + (bShape.width||0) / 2;
-      const cy = bShape.y + (bShape.height||0) / 2;
-      const rx = Math.abs(bShape.width||0) / 2;
-      const ry = Math.abs(bShape.height||0) / 2;
-      p2 = getClosestPort(cx, cy, rx, ry, p1, bShape.type);
+      const portId = shape.endBinding!.portId;
+      if (portId && PluginRegistry.hasPlugin(bShape.type)) {
+        const plugin = PluginRegistry.getPlugin(bShape.type);
+        const port = plugin.getConnectionPoints?.(bShape)?.find(p => p.id === portId);
+        if (port) { p2 = { x: port.x, y: port.y }; }
+      } else {
+        const cx = bShape.x + (bShape.width||0) / 2;
+        const cy = bShape.y + (bShape.height||0) / 2;
+        const rx = Math.abs(bShape.width||0) / 2;
+        const ry = Math.abs(bShape.height||0) / 2;
+        p2 = getClosestPort(cx, cy, rx, ry, p1, bShape.type);
+      }
     }
   }
 
@@ -77,127 +135,176 @@ export function getPathMidpoint(path: Point[]): Point {
   return path[path.length - 1];
 }
 
-export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape, allShapes?: Shape[], getBounds?: (s: Shape) => { x: number, y: number, width: number, height: number }): Point[] {
-  const dx = Math.abs(p2.x - p1.x);
-  const dy = Math.abs(p2.y - p1.y);
-  const fallback = dx > dy 
-    ? [p1, { x: (p1.x + p2.x) / 2, y: p1.y }, { x: (p1.x + p2.x) / 2, y: p2.y }, p2]
-    : [p1, { x: p1.x, y: (p1.y + p2.y) / 2 }, { x: p2.x, y: (p1.y + p2.y) / 2 }, p2];
+export function clearElbowCache() { /* no-op */ }
+export function setSkipObstacles(_val: boolean) { /* no-op */ }
 
-  if (!allShapes || allShapes.length === 0 || !getBounds) return fallback;
+function getShapeBoundsLocal(shape: Shape) {
+  if (PluginRegistry.hasPlugin(shape.type)) return PluginRegistry.getPlugin(shape.type).getBounds(shape);
+  return { x: shape.x, y: shape.y, width: shape.width || 0, height: shape.height || 0 };
+}
 
-  const ignoreIds = new Set<string>();
-  if (b1) ignoreIds.add(b1.id);
-  if (b2) ignoreIds.add(b2.id);
+/** Returns the outward normal direction at point p on the boundary of shape. */
+function getExitDir(p: Point, shape: Shape): { x: number; y: number } {
+  const b = getShapeBoundsLocal(shape);
+  const dL = Math.abs(p.x - b.x);
+  const dR = Math.abs(p.x - (b.x + b.width));
+  const dT = Math.abs(p.y - b.y);
+  const dB = Math.abs(p.y - (b.y + b.height));
+  const min = Math.min(dL, dR, dT, dB);
+  if (min === dL) return { x: -1, y: 0 };
+  if (min === dR) return { x: 1, y: 0 };
+  if (min === dT) return { x: 0, y: -1 };
+  return { x: 0, y: 1 };
+}
 
-  const obstacles = allShapes
-    .filter(s => s.type !== 'line' && s.type !== 'arrow' && s.type !== 'freehand' && !ignoreIds.has(s.id))
-    .map(s => {
-      const b = getBounds(s);
-      const pad = 15;
-      return { 
-        trueMinX: b.x, trueMinY: b.y, trueMaxX: b.x + b.width, trueMaxY: b.y + b.height,
-        minX: b.x - pad, minY: b.y - pad, maxX: b.x + b.width + pad, maxY: b.y + b.height + pad 
-      };
-    });
+const CLEARANCE = 20;
 
-  if (obstacles.length === 0) return fallback;
+// Direction indices: 0=right, 1=down, 2=left, 3=up
+const DIRS = [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 }];
 
-  const xs = new Set<number>([p1.x, p2.x]);
-  const ys = new Set<number>([p1.y, p2.y]);
-  obstacles.forEach(o => { xs.add(o.minX); xs.add(o.maxX); ys.add(o.minY); ys.add(o.maxY); });
-  if (b1) { const b = getBounds(b1); xs.add(b.x - 20); xs.add(b.x + b.width + 20); ys.add(b.y - 20); ys.add(b.y + b.height + 20); }
-  if (b2) { const b = getBounds(b2); xs.add(b.x - 20); xs.add(b.x + b.width + 20); ys.add(b.y - 20); ys.add(b.y + b.height + 20); }
+function dirIndex(d: { x: number; y: number }): number {
+  if (d.x > 0) return 0;
+  if (d.y > 0) return 1;
+  if (d.x < 0) return 2;
+  return 3;
+}
 
-  const xArr = Array.from(xs).sort((a, b) => a - b);
-  const yArr = Array.from(ys).sort((a, b) => a - b);
-  const xMap = new Map(xArr.map((v, i) => [v, i]));
-  const yMap = new Map(yArr.map((v, i) => [v, i]));
+function inflate(b: { x: number; y: number; width: number; height: number }, pad: number) {
+  return { left: b.x - pad, right: b.x + b.width + pad, top: b.y - pad, bottom: b.y + b.height + pad };
+}
 
-  const startNode = { x: xMap.get(p1.x)!, y: yMap.get(p1.y)! };
-  const endNode = { x: xMap.get(p2.x)!, y: yMap.get(p2.y)! };
+function midpointBlocked(
+  ax: number, ay: number, bx: number, by: number,
+  boxes: Array<{ left: number; right: number; top: number; bottom: number }>
+): boolean {
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  return boxes.some(bb => mx > bb.left && mx < bb.right && my > bb.top && my < bb.bottom);
+}
 
-  const isInside = (x: number, y: number) => {
-    if (x === p1.x && y === p1.y) return false;
-    if (x === p2.x && y === p2.y) return false;
-    return obstacles.some(o => x > o.trueMinX && x < o.trueMaxX && y > o.trueMinY && y < o.trueMaxY);
-  };
+function collapseCollinear(pts: Point[]): Point[] {
+  if (pts.length <= 2) return pts;
+  const out: Point[] = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = out[out.length - 1], cur = pts[i], next = pts[i + 1];
+    const collinear = (Math.abs(prev.x - cur.x) < 0.5 && Math.abs(cur.x - next.x) < 0.5) ||
+                      (Math.abs(prev.y - cur.y) < 0.5 && Math.abs(cur.y - next.y) < 0.5);
+    if (!collinear) out.push(cur);
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
 
-  const gridWalkable = Array.from({ length: xArr.length }, (_, i) => 
-    Array.from({ length: yArr.length }, (_, j) => !isInside(xArr[i], yArr[j]))
+export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Point[] {
+  const ed1 = b1 ? getExitDir(p1, b1)
+    : (Math.abs(p2.x - p1.x) >= Math.abs(p2.y - p1.y) ? { x: p2.x > p1.x ? 1 : -1, y: 0 } : { x: 0, y: p2.y > p1.y ? 1 : -1 });
+  const ed2 = b2 ? getExitDir(p2, b2) : { x: -ed1.x, y: -ed1.y };
+
+  // Dongle = exit stub outside each shape
+  const d1 = { x: p1.x + ed1.x * CLEARANCE, y: p1.y + ed1.y * CLEARANCE };
+  const d2 = { x: p2.x + ed2.x * CLEARANCE, y: p2.y + ed2.y * CLEARANCE };
+
+  // Inflated bounding boxes used to block paths through shapes
+  const raw1 = b1 ? getShapeBoundsLocal(b1) : null;
+  const raw2 = b2 ? getShapeBoundsLocal(b2) : null;
+  const box1 = raw1 ? inflate(raw1, CLEARANCE * 0.4) : null;
+  const box2 = raw2 ? inflate(raw2, CLEARANCE * 0.4) : null;
+  const boxes = [box1, box2].filter(Boolean) as Array<{ left: number; right: number; top: number; bottom: number }>;
+
+  // Build sparse grid: collect "interesting" X and Y coordinates
+  const xSet = new Set<number>();
+  const ySet = new Set<number>();
+
+  xSet.add(d1.x); ySet.add(d1.y);
+  xSet.add(d2.x); ySet.add(d2.y);
+
+  for (const bb of [raw1, raw2]) {
+    if (!bb) continue;
+    const pad = CLEARANCE;
+    xSet.add(bb.x - pad); xSet.add(bb.x + bb.width + pad);
+    ySet.add(bb.y - pad); ySet.add(bb.y + bb.height + pad);
+  }
+
+  const xs = Array.from(xSet).sort((a, b) => a - b);
+  const ys = Array.from(ySet).sort((a, b) => a - b);
+  const W = xs.length, H = ys.length;
+
+  const xi = new Map(xs.map((v, i) => [v, i]));
+  const yi = new Map(ys.map((v, i) => [v, i]));
+
+  const startI = xi.get(d1.x)!, startJ = yi.get(d1.y)!;
+  const endI   = xi.get(d2.x)!, endJ   = yi.get(d2.y)!;
+
+  const startDir = dirIndex(ed1);
+
+  // A* state: (gridI, gridJ, direction) → best gScore
+  const INF = 1e9;
+  // gScore[i][j][dir], parent encoded
+  type State = { i: number; j: number; dir: number; g: number; parent: State | null };
+
+  const gScore: number[][][] = Array.from({ length: W }, () =>
+    Array.from({ length: H }, () => new Array(4).fill(INF))
   );
 
-  const openSet = new Set<string>();
-  const gScore = new Map<string, number>();
-  const fScore = new Map<string, number>();
-  const cameFrom = new Map<string, { x: number, y: number }>();
+  // Manhattan distance heuristic
+  const h = (i: number, j: number) => Math.abs(xs[i] - d2.x) + Math.abs(ys[j] - d2.y);
 
-  const startKey = `${startNode.x},${startNode.y}`;
-  openSet.add(startKey);
-  gScore.set(startKey, 0);
+  // Turn penalty: proportional to total distance (same approach as Excalidraw)
+  const totalDist = Math.abs(d1.x - d2.x) + Math.abs(d1.y - d2.y);
+  const BEND = Math.max(totalDist * totalDist, 1);
 
-  const h = (nx: number, ny: number) => Math.abs(xArr[nx] - xArr[endNode.x]) + Math.abs(yArr[ny] - yArr[endNode.y]);
-  fScore.set(startKey, h(startNode.x, startNode.y));
-
-  const MOVES = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-  const getDir = (from: string | undefined, nx: number, ny: number) => {
-    if (!from) return null;
-    const [px, py] = from.split(',').map(Number);
-    if (nx > px) return 'R'; if (nx < px) return 'L';
-    if (ny > py) return 'D'; if (ny < py) return 'U';
-    return null;
+  // Min-heap via simple sorted array (grid is tiny, ≤ ~10×10×4 = 400 states)
+  const open: State[] = [];
+  const pushOpen = (s: State) => {
+    const f = s.g + h(s.i, s.j);
+    let lo = 0, hi = open.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if ((open[m].g + h(open[m].i, open[m].j)) <= f) lo = m + 1; else hi = m; }
+    open.splice(lo, 0, s);
   };
 
-  let maxIterations = 2000;
-  while (openSet.size > 0 && maxIterations-- > 0) {
-    let currKey = ''; let minVal = Infinity;
-    for (const key of openSet) {
-      if ((fScore.get(key) || Infinity) < minVal) { minVal = fScore.get(key)!; currKey = key; }
-    }
+  const start: State = { i: startI, j: startJ, dir: startDir, g: 0, parent: null };
+  gScore[startI][startJ][startDir] = 0;
+  pushOpen(start);
 
-    if (currKey === `${endNode.x},${endNode.y}`) {
-      const path: Point[] = [];
-      let current: string | undefined = currKey;
-      while (current) {
-        const [cx, cy] = current.split(',').map(Number);
-        path.unshift({ x: xArr[cx], y: yArr[cy] });
-        const p = cameFrom.get(current);
-        current = p ? `${p.x},${p.y}` : undefined;
-      }
-      const cleaned: Point[] = [path[0]];
-      for (let i = 1; i < path.length - 1; i++) {
-        if ((cleaned[cleaned.length-1].x === path[i].x && path[i].x === path[i+1].x) || (cleaned[cleaned.length-1].y === path[i].y && path[i].y === path[i+1].y)) continue;
-        cleaned.push(path[i]);
-      }
-      cleaned.push(path[path.length - 1]);
-      return cleaned;
-    }
+  let found: State | null = null;
 
-    openSet.delete(currKey);
-    const [cx, cy] = currKey.split(',').map(Number);
-    const prevKey = cameFrom.has(currKey) ? `${cameFrom.get(currKey)!.x},${cameFrom.get(currKey)!.y}` : undefined;
-    const currentDir = getDir(prevKey, cx, cy);
+  while (open.length > 0) {
+    const cur = open.shift()!;
+    if (cur.g > gScore[cur.i][cur.j][cur.dir]) continue; // stale
 
-    for (const [dx, dy] of MOVES) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= xArr.length || ny >= yArr.length || !gridWalkable[nx][ny]) continue;
-      const midX = (xArr[cx] + xArr[nx]) / 2, midY = (yArr[cy] + yArr[ny]) / 2;
-      if (obstacles.some(o => midX > o.trueMinX && midX < o.trueMaxX && midY > o.trueMinY && midY < o.trueMaxY)) continue;
+    if (cur.i === endI && cur.j === endJ) { found = cur; break; }
 
-      const nKey = `${nx},${ny}`;
-      const turnPenalty = (currentDir && currentDir !== getDir(currKey, nx, ny)) ? 20 : 0;
-      const padPenalty = obstacles.some(o => midX > o.minX && midX < o.maxX && midY > o.minY && midY < o.maxY) ? 500 : 0;
-      const tentativeG = (gScore.get(currKey) || 0) + Math.abs(xArr[nx] - xArr[cx]) + Math.abs(yArr[ny] - yArr[cy]) + turnPenalty + padPenalty;
+    for (let di = 0; di < 4; di++) {
+      const { dx, dy } = DIRS[di];
+      const ni = cur.i + dx, nj = cur.j + dy;
+      if (ni < 0 || ni >= W || nj < 0 || nj >= H) continue;
+      if (di === ((cur.dir + 2) % 4)) continue; // no reversing
 
-      if (!openSet.has(nKey) || tentativeG < (gScore.get(nKey) || Infinity)) {
-        cameFrom.set(nKey, { x: cx, y: cy });
-        gScore.set(nKey, tentativeG);
-        fScore.set(nKey, tentativeG + h(nx, ny));
-        openSet.add(nKey);
+      // Block segment if midpoint falls inside any inflated shape box
+      if (midpointBlocked(xs[cur.i], ys[cur.j], xs[ni], ys[nj], boxes)) continue;
+
+      const segLen = Math.abs(xs[ni] - xs[cur.i]) + Math.abs(ys[nj] - ys[cur.j]);
+      const turnCost = di !== cur.dir ? BEND : 0;
+      const ng = cur.g + segLen + turnCost;
+
+      if (ng < gScore[ni][nj][di]) {
+        gScore[ni][nj][di] = ng;
+        pushOpen({ i: ni, j: nj, dir: di, g: ng, parent: cur });
       }
     }
   }
-  return fallback;
+
+  if (!found) return [p1, d1, d2, p2]; // fallback
+
+  // Reconstruct path from A* result
+  const mid: Point[] = [];
+  let cur: State | null = found;
+  while (cur) {
+    mid.push({ x: xs[cur.i], y: ys[cur.j] });
+    cur = cur.parent;
+  }
+  mid.reverse();
+
+  return collapseCollinear([p1, ...mid, p2]);
 }
 
 export function drawArrowhead(rc: any, ctx: CanvasRenderingContext2D, point: Point, angle: number, style: ArrowheadStyle, options: any) {

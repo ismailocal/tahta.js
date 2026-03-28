@@ -105,7 +105,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
             if (shape.edgeStyle === 'elbow') {
               const b1 = shape.startBinding ? state.shapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
               const b2 = shape.endBinding ? state.shapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-              const path = getElbowPath(p1, p2, b1, b2, state.shapes, s => getShapeBounds(s));
+              const path = getElbowPath(p1, p2);
               const mid = getPathMidpoint(path);
               cx = mid.x;
               cy = mid.y;
