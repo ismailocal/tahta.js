@@ -7,23 +7,42 @@ export type Template = {
   build: (origin: Point) => Shape[];
 };
 
-function arrow(
-  x1: number, y1: number, x2: number, y2: number,
-  opts: Partial<Shape> = {}
-): Shape {
+// ─── Port helper ──────────────────────────────────────────────────────────────
+
+type Side = 'top' | 'right' | 'bottom' | 'left';
+
+function port(shape: Shape, side: Side): { x: number; y: number; id: string } {
+  const w = shape.width || 0;
+  const h = shape.height || 0;
+  const cx = shape.x + w / 2;
+  const cy = shape.y + h / 2;
+  switch (side) {
+    case 'top':    return { x: cx,         y: shape.y,     id: 'top'    };
+    case 'right':  return { x: shape.x + w, y: cy,          id: 'right'  };
+    case 'bottom': return { x: cx,         y: shape.y + h, id: 'bottom' };
+    case 'left':   return { x: shape.x,    y: cy,          id: 'left'   };
+  }
+}
+
+// ─── Shape helpers (all use plugin defaultStyle as base) ──────────────────────
+
+function arrow(from: { x: number; y: number; id: string; shapeId: string },
+               to:   { x: number; y: number; id: string; shapeId: string },
+               opts: Partial<Shape> = {}): Shape {
   return {
     ...getStylePreset('arrow'),
-    id: createId(), type: 'arrow', x: x1, y: y1, width: 0, height: 0, zIndex: 0,
-    points: [{ x: 0, y: 0 }, { x: x2 - x1, y: y2 - y1 }],
+    id: createId(), type: 'arrow',
+    x: from.x, y: from.y, width: 0, height: 0, zIndex: 0,
+    points: [{ x: 0, y: 0 }, { x: to.x - from.x, y: to.y - from.y }],
+    startBinding: { elementId: from.shapeId, portId: from.id },
+    endBinding:   { elementId: to.shapeId,   portId: to.id   },
     seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
   } as Shape;
 }
 
-function rect(
-  x: number, y: number, w: number, h: number,
-  text: string, opts: Partial<Shape> = {}
-): Shape {
+function rect(x: number, y: number, w: number, h: number,
+              text: string, opts: Partial<Shape> = {}): Shape {
   return {
     ...getStylePreset('rectangle'),
     id: createId(), type: 'rectangle', x, y, width: w, height: h, zIndex: 0,
@@ -32,10 +51,8 @@ function rect(
   } as Shape;
 }
 
-function oval(
-  x: number, y: number, w: number, h: number,
-  text: string, opts: Partial<Shape> = {}
-): Shape {
+function oval(x: number, y: number, w: number, h: number,
+              text: string, opts: Partial<Shape> = {}): Shape {
   return {
     ...getStylePreset('ellipse'),
     id: createId(), type: 'ellipse', x, y, width: w, height: h, zIndex: 0,
@@ -44,10 +61,8 @@ function oval(
   } as Shape;
 }
 
-function diamond(
-  x: number, y: number, w: number, h: number,
-  text: string, opts: Partial<Shape> = {}
-): Shape {
+function diamond(x: number, y: number, w: number, h: number,
+                 text: string, opts: Partial<Shape> = {}): Shape {
   return {
     ...getStylePreset('diamond'),
     id: createId(), type: 'diamond', x, y, width: w, height: h, zIndex: 0,
@@ -56,11 +71,9 @@ function diamond(
   } as Shape;
 }
 
-function dbTable(
-  x: number, y: number, tableName: string,
-  columns: Array<{ name: string; type: string; pk?: boolean; fk?: boolean }>,
-  opts: Partial<Shape> = {}
-): Shape {
+function dbTable(x: number, y: number, tableName: string,
+                 columns: Array<{ name: string; type: string; pk?: boolean; fk?: boolean }>,
+                 opts: Partial<Shape> = {}): Shape {
   return {
     ...getStylePreset('db-table'),
     id: createId(), type: 'db-table', x, y, width: 220, height: 0, zIndex: 0,
@@ -81,28 +94,22 @@ export const TEMPLATES: Record<string, Template> = {
       const cx = x;
 
       const root   = diamond(cx - DW / 2, y, DW, DH, 'Karar?');
-      const yesX = cx - SIDE - W / 2, yesY = y + DH + VERT;
-      const yes    = rect(yesX, yesY, W, H, 'Evet',  { stroke: '#22c55e' });
-      const noX = cx + SIDE - W / 2, noY = y + DH + VERT;
-      const no     = rect(noX, noY, W, H, 'Hayır', { stroke: '#ef4444' });
-      const resY   = yesY + H + VERT;
+      const yes    = rect(cx - SIDE - W / 2, y + DH + VERT, W, H, 'Evet',  { stroke: '#22c55e' });
+      const no     = rect(cx + SIDE - W / 2, y + DH + VERT, W, H, 'Hayır', { stroke: '#ef4444' });
+      const resY   = y + DH + VERT + H + VERT;
       const yesEnd = oval(cx - SIDE - 70, resY, 140, H, 'Sonuç A');
       const noEnd  = oval(cx + SIDE - 70, resY, 140, H, 'Sonuç B');
 
-      const leftTipX = cx - DW / 2, leftTipY = y + DH / 2;
-      const rightTipX = cx + DW / 2, rightTipY = y + DH / 2;
-      const yesCx = yesX + W / 2, noCx = noX + W / 2;
-
       return [
         root, yes, no, yesEnd, noEnd,
-        arrow(leftTipX,  leftTipY,  yesX + W,  yesY + H / 2,
-          { text: 'Evet',  startBinding: { elementId: root.id }, endBinding: { elementId: yes.id } }),
-        arrow(rightTipX, rightTipY, noX, noY + H / 2,
-          { text: 'Hayır', startBinding: { elementId: root.id }, endBinding: { elementId: no.id } }),
-        arrow(yesCx, yesY + H, yesCx, resY,
-          { startBinding: { elementId: yes.id }, endBinding: { elementId: yesEnd.id } }),
-        arrow(noCx, noY + H, noCx, resY,
-          { startBinding: { elementId: no.id },  endBinding: { elementId: noEnd.id } }),
+        arrow({ ...port(root,   'left'),  shapeId: root.id   },
+              { ...port(yes,    'right'), shapeId: yes.id    }, { text: 'Evet'  }),
+        arrow({ ...port(root,   'right'), shapeId: root.id   },
+              { ...port(no,     'left'),  shapeId: no.id     }, { text: 'Hayır' }),
+        arrow({ ...port(yes,    'bottom'), shapeId: yes.id   },
+              { ...port(yesEnd, 'top'),    shapeId: yesEnd.id }),
+        arrow({ ...port(no,     'bottom'), shapeId: no.id    },
+              { ...port(noEnd,  'top'),    shapeId: noEnd.id  }),
       ];
     },
   },
@@ -118,28 +125,28 @@ export const TEMPLATES: Record<string, Template> = {
       const y2 = y1 + H + GAP;
       const y3 = y2 + DH + GAP;
       const y4 = y3 + H + GAP;
+      const noX = cx + DW / 2 + 60;
+      const noY = y2 + DH / 2 - H / 2;
 
-      const start   = oval(cx - W / 2,    y0, W,   H,   'Başlangıç');
-      const process = rect(cx - W / 2,    y1, W,   H,   'İşlem');
-      const decide  = diamond(cx - DW / 2, y2, DW, DH,  'Koşul?');
-      const yes     = rect(cx - W / 2,    y3, W,   H,   'Evet yolu', { stroke: '#22c55e' });
-      const noX     = cx + DW / 2 + 60;
-      const noY     = y2 + DH / 2 - H / 2;
-      const no      = rect(noX,            noY, W,  H,   'Hayır yolu', { stroke: '#ef4444' });
-      const end     = oval(cx - W / 2,    y4, W,   H,   'Bitiş');
+      const start   = oval(cx - W / 2,     y0,  W,   H,  'Başlangıç');
+      const process = rect(cx - W / 2,     y1,  W,   H,  'İşlem');
+      const decide  = diamond(cx - DW / 2, y2,  DW,  DH, 'Koşul?');
+      const yes     = rect(cx - W / 2,     y3,  W,   H,  'Evet yolu', { stroke: '#22c55e' });
+      const no      = rect(noX,            noY, W,   H,  'Hayır yolu', { stroke: '#ef4444' });
+      const end     = oval(cx - W / 2,     y4,  W,   H,  'Bitiş');
 
       return [
         start, process, decide, yes, no, end,
-        arrow(cx, y0 + H, cx, y1,
-          { startBinding: { elementId: start.id },   endBinding: { elementId: process.id } }),
-        arrow(cx, y1 + H, cx, y2,
-          { startBinding: { elementId: process.id }, endBinding: { elementId: decide.id } }),
-        arrow(cx, y2 + DH, cx, y3,
-          { text: 'Evet',  startBinding: { elementId: decide.id }, endBinding: { elementId: yes.id } }),
-        arrow(cx + DW / 2, y2 + DH / 2, noX, noY + H / 2,
-          { text: 'Hayır', startBinding: { elementId: decide.id }, endBinding: { elementId: no.id } }),
-        arrow(cx, y3 + H, cx, y4,
-          { startBinding: { elementId: yes.id },     endBinding: { elementId: end.id } }),
+        arrow({ ...port(start,   'bottom'), shapeId: start.id   },
+              { ...port(process, 'top'),    shapeId: process.id }),
+        arrow({ ...port(process, 'bottom'), shapeId: process.id },
+              { ...port(decide,  'top'),    shapeId: decide.id  }),
+        arrow({ ...port(decide,  'bottom'), shapeId: decide.id  },
+              { ...port(yes,     'top'),    shapeId: yes.id     }, { text: 'Evet'  }),
+        arrow({ ...port(decide,  'right'),  shapeId: decide.id  },
+              { ...port(no,      'left'),   shapeId: no.id      }, { text: 'Hayır' }),
+        arrow({ ...port(yes,     'bottom'), shapeId: yes.id     },
+              { ...port(end,     'top'),    shapeId: end.id     }),
       ];
     },
   },
@@ -147,7 +154,7 @@ export const TEMPLATES: Record<string, Template> = {
   'db-schema': {
     label: 'DB Şeması',
     build({ x, y }) {
-      const users = dbTable(x, y, 'users', [
+      const users  = dbTable(x,       y, 'users', [
         { name: 'id',         type: 'INT',       pk: true },
         { name: 'name',       type: 'VARCHAR' },
         { name: 'email',      type: 'VARCHAR' },
@@ -160,7 +167,7 @@ export const TEMPLATES: Record<string, Template> = {
         { name: 'status',     type: 'VARCHAR' },
         { name: 'created_at', type: 'TIMESTAMP' },
       ]);
-      const items = dbTable(x + 600, y, 'order_items', [
+      const items  = dbTable(x + 600, y, 'order_items', [
         { name: 'id',         type: 'INT',       pk: true },
         { name: 'order_id',   type: 'INT',       fk: true },
         { name: 'product',    type: 'VARCHAR' },
@@ -170,10 +177,10 @@ export const TEMPLATES: Record<string, Template> = {
 
       return [
         users, orders, items,
-        arrow(x + 220, y + 50, x + 300, y + 50,
-          { startBinding: { elementId: users.id }, endBinding: { elementId: orders.id } }),
-        arrow(x + 520, y + 50, x + 600, y + 50,
-          { startBinding: { elementId: orders.id }, endBinding: { elementId: items.id } }),
+        arrow({ ...port(users,  'right'), shapeId: users.id  },
+              { ...port(orders, 'left'),  shapeId: orders.id }),
+        arrow({ ...port(orders, 'right'), shapeId: orders.id },
+              { ...port(items,  'left'),  shapeId: items.id  }),
       ];
     },
   },
@@ -182,34 +189,28 @@ export const TEMPLATES: Record<string, Template> = {
     label: 'Kullanıcı Akışı',
     build({ x, y }) {
       const W = 150, H = 52, DW = 180, DH = 72, GAP = 60;
-      const cy = y + H / 2;
-
-      const x0 = x;
-      const x1 = x0 + W + GAP;
-      const x2 = x1 + W + GAP;
-      const x3 = x2 + DW + GAP;
-
+      const x0 = x, x1 = x0 + W + GAP, x2 = x1 + W + GAP, x3 = x2 + DW + GAP;
       const dY = y + H / 2 - DH / 2;
 
-      const login     = rect(x0, y,            W,   H,  'Giriş',     { stroke: '#06b6d4' });
-      const dashboard = rect(x1, y,            W,   H,  'Dashboard');
-      const action    = diamond(x2, dY,        DW, DH,  'Aksiyon?');
-      const success   = rect(x3, y - 20,       W,   H,  'Başarı',    { stroke: '#22c55e' });
-      const error     = rect(x3, y + H + 20,   W,   H,  'Hata',      { stroke: '#ef4444' });
-      const logout    = oval(x0, y + H + 100,  W,   H,  'Çıkış');
+      const login     = rect(x0, y,           W,  H,  'Giriş',     { stroke: '#06b6d4' });
+      const dashboard = rect(x1, y,           W,  H,  'Dashboard');
+      const action    = diamond(x2, dY,       DW, DH, 'Aksiyon?');
+      const success   = rect(x3, y - 20,      W,  H,  'Başarı',    { stroke: '#22c55e' });
+      const error     = rect(x3, y + H + 20,  W,  H,  'Hata',      { stroke: '#ef4444' });
+      const logout    = oval(x0, y + H + 100, W,  H,  'Çıkış');
 
       return [
         login, dashboard, action, success, error, logout,
-        arrow(x0 + W,  cy, x1, cy,
-          { startBinding: { elementId: login.id },     endBinding: { elementId: dashboard.id } }),
-        arrow(x1 + W,  cy, x2, cy,
-          { startBinding: { elementId: dashboard.id }, endBinding: { elementId: action.id } }),
-        arrow(x2 + DW, cy, x3, y - 20 + H / 2,
-          { text: 'Evet',  startBinding: { elementId: action.id }, endBinding: { elementId: success.id } }),
-        arrow(x2 + DW / 2, dY + DH, x3, y + H + 20 + H / 2,
-          { text: 'Hayır', startBinding: { elementId: action.id }, endBinding: { elementId: error.id } }),
-        arrow(x0 + W / 2, y + H, x0 + W / 2, y + H + 100,
-          { startBinding: { elementId: login.id },     endBinding: { elementId: logout.id } }),
+        arrow({ ...port(login,     'right'),  shapeId: login.id     },
+              { ...port(dashboard, 'left'),   shapeId: dashboard.id }),
+        arrow({ ...port(dashboard, 'right'),  shapeId: dashboard.id },
+              { ...port(action,    'left'),   shapeId: action.id    }),
+        arrow({ ...port(action,    'right'),  shapeId: action.id    },
+              { ...port(success,   'left'),   shapeId: success.id   }, { text: 'Evet'  }),
+        arrow({ ...port(action,    'bottom'), shapeId: action.id    },
+              { ...port(error,     'left'),   shapeId: error.id     }, { text: 'Hayır' }),
+        arrow({ ...port(login,     'bottom'), shapeId: login.id     },
+              { ...port(logout,    'top'),    shapeId: logout.id    }),
       ];
     },
   },
@@ -217,8 +218,7 @@ export const TEMPLATES: Record<string, Template> = {
   'mind-map': {
     label: 'Mind Map',
     build({ x, y }) {
-      const CW = 160, CH = 52, BW = 130, BH = 44;
-      const HGAP = 100, VGAP = 30;
+      const CW = 160, CH = 52, BW = 130, BH = 44, HGAP = 100, VGAP = 30;
 
       const center = rect(x - CW / 2, y - CH / 2, CW, CH, 'Ana Fikir', {
         stroke: '#f59e0b', fill: '#1c1310',
@@ -235,16 +235,13 @@ export const TEMPLATES: Record<string, Template> = {
 
       const arrs = branches.map((b, i) => {
         const isLeft = b.bx < x;
-        const ax1 = isLeft ? b.bx + BW : b.bx;
-        const ay1 = b.by + BH / 2;
-        const ax2 = isLeft ? x - CW / 2 : x + CW / 2;
-        const ay2 = b.by + BH / 2 < y ? y - CH / 2 : y + CH / 2;
-        return arrow(ax1, ay1, ax2, ay2, {
-          endArrowhead: 'none',
-          stroke: branches[i].color,
-          startBinding: { elementId: nodes[i].id },
-          endBinding:   { elementId: center.id },
-        });
+        const nodeSide: Side  = isLeft ? 'right' : 'left';
+        const centerSide: Side = isLeft ? 'left'  : 'right';
+        return arrow(
+          { ...port(nodes[i], nodeSide),  shapeId: nodes[i].id },
+          { ...port(center,   centerSide), shapeId: center.id  },
+          { endArrowhead: 'none', stroke: branches[i].color }
+        );
       });
 
       return [center, ...nodes, ...arrs];
