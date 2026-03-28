@@ -18,6 +18,14 @@ let lastEditingShapeId: string | null = null;
 export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   // clearElbowCache(); // DISABLED: Clearing cache every frame makes it useless. Rely on the robust cache key instead.
   setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
+
+  const isBindingTool = PluginRegistry.hasPlugin(state.activeTool) && !!(PluginRegistry.getPlugin(state.activeTool) as any).canBind;
+  const showPorts = isBindingTool ||
+    (!state.drawingShapeId && state.selectedIds.some(id => {
+      const s = state.shapes.find(x => x.id === id);
+      return s && PluginRegistry.hasPlugin(s.type) && !!(PluginRegistry.getPlugin(s.type) as any).canBind;
+    }));
+
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -53,6 +61,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
         }
       }
     });
+    // Hovered shape must be dynamic so it re-renders with isHovered=true (shows ports)
+    if (state.hoveredShapeId) dynamicIds.add(state.hoveredShapeId);
 
     if (!lastDragState || !isStaticValid) {
       if (!staticCanvas) staticCanvas = document.createElement('canvas');
@@ -78,7 +88,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
 
       staticShapes.forEach((shape) => {
         if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
-          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId);
+          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts);
         }
       });
       sCtx.restore();
@@ -100,8 +110,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
       .filter(s => dynamicIds.has(s.id));
 
     dynamicShapes.forEach((shape) => {
-      // Dynamic shapes (selected) are always rendered to ensure responsive drag feedback
-      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId);
+      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts);
     });
 
   } else {
@@ -125,7 +134,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
     sortedShapes.forEach((shape) => {
       if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
         const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
-        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId);
+        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts);
       }
     });
   }

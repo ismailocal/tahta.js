@@ -30,6 +30,8 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     'db-view': new ShapeTool('db-view'),
     'db-enum': new ShapeTool('db-enum'),
     line: new ShapeTool('line'),
+    'line-dashed': new ShapeTool('line-dashed', 'line'),
+    'line-dotted': new ShapeTool('line-dotted', 'line'),
     arrow: new ShapeTool('arrow'),
     'arrow-double': new ShapeTool('arrow-double', 'arrow'),
     'arrow-elbow':  new ShapeTool('arrow-elbow',  'arrow'),

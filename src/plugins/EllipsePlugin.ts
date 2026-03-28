@@ -1,4 +1,4 @@
-import type { Shape, Point } from '../core/types';
+import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
@@ -39,6 +39,17 @@ export class EllipsePlugin extends BaseRectPlugin {
     if (Math.abs(point.x - cx)       <= d && Math.abs(point.y - (cy + ry)) <= d) return 's';
     if (Math.abs(point.x - (cx - rx)) <= d && Math.abs(point.y - cy)       <= d) return 'w';
     return null;
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const b = this.getBounds(shape);
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    return [
+      { id: 'top',    x: cx,          y: b.y,            side: 'top'    },
+      { id: 'right',  x: b.x + b.width, y: cy,           side: 'right'  },
+      { id: 'bottom', x: cx,          y: b.y + b.height, side: 'bottom' },
+      { id: 'left',   x: b.x,        y: cy,             side: 'left'   },
+    ];
   }
 
   isPointInside(point: Point, shape: Shape): boolean {

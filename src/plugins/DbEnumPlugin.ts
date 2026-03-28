@@ -1,4 +1,4 @@
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
@@ -25,14 +25,31 @@ export class DbEnumPlugin extends BaseRectPlugin {
   getCornerRadius(): number { return 6; }
 
   getBounds(shape: Shape) {
-    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height: shape.height ?? DEFAULT_HEIGHT };
+    const values = ((shape.data as DbEnumData | undefined)?.values) ?? [];
+    const height = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
+    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height };
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const { enumName: _, values } = getEnumData(shape);
+    const { x, y } = shape;
+    const w = shape.width ?? DEFAULT_WIDTH;
+    const h = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
+    const points: ConnectionPoint[] = [];
+    values.forEach((val, i) => {
+      const rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+      if (rowY > y + h) return;
+      points.push({ id: `val-${i}-left`,  x,         y: rowY, label: val, side: 'left'  });
+      points.push({ id: `val-${i}-right`, x: x + w,  y: rowY, label: val, side: 'right' });
+    });
+    return points;
   }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const { enumName, values } = getEnumData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = shape.height ?? DEFAULT_HEIGHT;
+    const h = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
     const accent = shape.stroke || '#f472b6';
 
     ctx.save();

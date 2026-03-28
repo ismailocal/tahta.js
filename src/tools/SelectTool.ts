@@ -9,6 +9,9 @@ import { createId } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
 
 const PORT_HIT_RADIUS = 12;
+function isBindingPlugin(type: string): boolean {
+  return PluginRegistry.hasPlugin(type) && !!(PluginRegistry.getPlugin(type) as any).canBind;
+}
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
@@ -47,8 +50,13 @@ export class SelectTool implements ToolDefinition {
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     const state = api.getState();
 
-    // Check if clicking on a connection port of the hovered shape
-    if (state.hoveredShapeId) {
+    // Check if clicking on a connection port of the hovered shape (only when ports are visible)
+    const selectedHasConnector = !state.drawingShapeId && state.selectedIds.some(id => {
+      const s = state.shapes.find(x => x.id === id);
+      return s && isBindingPlugin(s.type);
+    });
+    const portsVisible = isBindingPlugin(state.activeTool) || selectedHasConnector;
+    if (portsVisible && state.hoveredShapeId) {
       const hoveredShape = state.shapes.find(s => s.id === state.hoveredShapeId);
       if (hoveredShape) {
         const port = getNearestPort(hoveredShape, payload.world);

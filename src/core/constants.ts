@@ -4,7 +4,9 @@ import type { Shape } from './types';
 export const STYLE_PRESETS: Record<string, any> = {
   rectangle: { stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1, roughness: 0, roundness: 'sharp', opacity: 1 },
   ellipse: { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 },
-  line: { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', opacity: 1 },
+  line:        { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1 },
+  'line-dashed': { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1, strokeStyle: 'dashed' },
+  'line-dotted': { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1, strokeStyle: 'dotted' },
   arrow:         { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
   'arrow-double': { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'arrow',   endArrowhead: 'arrow',    opacity: 1 },
   'arrow-elbow':  { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'elbow',    startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
@@ -47,7 +49,15 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
       { key: 'arrow-elbow',   label: 'Elbow Arrow',   shortcut: '',  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 18 4 6 20 6"/><polyline points="13 1 20 6 13 11"/></svg>` },
       { key: 'arrow-curved',  label: 'Curved Arrow',  shortcut: '',  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 Q12 4 20 12"/><polyline points="14 7 20 12 15 17"/></svg>` },
       { key: 'arrow-filled',  label: 'Filled Arrow',  shortcut: '',  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="17" y2="12"/><polygon points="17 7 23 12 17 17" fill="currentColor"/></svg>` },
-      { key: 'line',          label: 'Line',          shortcut: 'L', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
+    ],
+  },
+  {
+    key: 'lines-group', label: 'Lines', shortcut: 'L', isDropdown: true,
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>`,
+    children: [
+      { key: 'line',        label: 'Line',        shortcut: 'L', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
+      { key: 'line-dashed', label: 'Dashed Line', shortcut: '',  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
+      { key: 'line-dotted', label: 'Dotted Line', shortcut: '',  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
     ],
   },
   {

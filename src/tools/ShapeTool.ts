@@ -2,6 +2,7 @@ import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } fro
 import { getStylePreset } from '../core/constants';
 import { createId } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
+import { getTopShapeAtPoint } from '../core/Geometry';
 
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
@@ -45,7 +46,14 @@ export class ShapeTool implements ToolDefinition {
   }
 
   onPointerMove(payload: PointerPayload, api: ICanvasAPI) {
-    if (!this.drawStartWorld || !this.currentShapeId) return;
+    if (!this.drawStartWorld || !this.currentShapeId) {
+      // Not drawing — update hover so ports show on shapes for connector tools
+      const state = api.getState();
+      const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
+      const hoveredId = hovered?.id ?? null;
+      if (hoveredId !== state.hoveredShapeId) api.setState({ hoveredShapeId: hoveredId });
+      return;
+    }
 
     if (PluginRegistry.hasPlugin(this.shapeType)) {
       const plugin = PluginRegistry.getPlugin(this.shapeType);

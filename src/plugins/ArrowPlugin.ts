@@ -25,6 +25,7 @@ function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number 
 export class ArrowPlugin implements IShapePlugin {
   type = 'arrow';
   isConnector = true;
+  canBind = true;
   defaultStyle: Partial<Shape> = { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
   defaultProperties = ['stroke', 'layer', 'action'];
 
@@ -190,21 +191,21 @@ export class ArrowPlugin implements IShapePlugin {
       payload.world
     );
     const state = api.getState();
-    if (hitShape && shape?.startBinding?.elementId !== hitShape.id && (!payload.ctrlKey && !payload.metaKey)) {
+    const canBind = hitShape &&
+      shape?.startBinding?.elementId !== hitShape.id &&
+      (!payload.ctrlKey && !payload.metaKey) &&
+      PluginRegistry.hasPlugin(hitShape.type) &&
+      !!PluginRegistry.getPlugin(hitShape.type).getConnectionPoints;
+
+    if (canBind) {
       if (state.hoveredShapeId !== hitShape.id) api.setState({ hoveredShapeId: hitShape.id });
-      let portId: string | undefined;
-      if (PluginRegistry.hasPlugin(hitShape.type)) {
-        const hitPlugin = PluginRegistry.getPlugin(hitShape.type);
-        if (hitPlugin.getConnectionPoints) {
-          const ports = hitPlugin.getConnectionPoints(hitShape);
-          let minDist = Infinity;
-          for (const port of ports) {
-            const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
-            if (d < minDist) { minDist = d; portId = port.id; }
-          }
-        }
+      const ports = PluginRegistry.getPlugin(hitShape!.type).getConnectionPoints!(hitShape!);
+      let minDist = Infinity, portId: string | undefined;
+      for (const port of ports) {
+        const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
+        if (d < minDist) { minDist = d; portId = port.id; }
       }
-      patch.endBinding = { elementId: hitShape.id, portId };
+      patch.endBinding = { elementId: hitShape!.id, portId };
     } else {
       if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
     }
@@ -233,27 +234,22 @@ export class ArrowPlugin implements IShapePlugin {
   onDragBindHandle(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: any): Partial<Shape> {
     const hit = getTopShapeAtPoint(allShapes.filter(s => s.id !== activeShapeId), payload.world);
     const isSelf = hit?.id === activeShapeId;
-    const hoveredValid = hit && !isSelf && PluginRegistry.hasPlugin(hit.type) && !PluginRegistry.getPlugin(hit.type).isConnector;
+    const canBind = hit && !isSelf &&
+      PluginRegistry.hasPlugin(hit.type) &&
+      !PluginRegistry.getPlugin(hit.type).isConnector &&
+      !!PluginRegistry.getPlugin(hit.type).getConnectionPoints &&
+      (!payload.ctrlKey && !payload.metaKey);
 
     const patch: Partial<Shape> = {};
     const state = api.getState();
-    if (hoveredValid && (!payload.ctrlKey && !payload.metaKey)) {
+    if (canBind) {
       if (hit.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: hit.id });
 
-      // Find closest connection port if available
-      let portId: string | undefined;
-      if (PluginRegistry.hasPlugin(hit.type)) {
-        const hitPlugin = PluginRegistry.getPlugin(hit.type);
-        if (hitPlugin.getConnectionPoints) {
-          const ports = hitPlugin.getConnectionPoints(hit);
-          if (ports.length > 0) {
-            let minDist = Infinity;
-            for (const port of ports) {
-              const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
-              if (d < minDist) { minDist = d; portId = port.id; }
-            }
-          }
-        }
+      const ports = PluginRegistry.getPlugin(hit.type).getConnectionPoints!(hit);
+      let minDist = Infinity, portId: string | undefined;
+      for (const port of ports) {
+        const d = Math.hypot(payload.world.x - port.x, payload.world.y - port.y);
+        if (d < minDist) { minDist = d; portId = port.id; }
       }
 
       if (handle === 'start') {

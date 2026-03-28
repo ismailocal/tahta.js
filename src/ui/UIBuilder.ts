@@ -198,7 +198,8 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       cursor = state.isPanning ? 'grabbing' : 'grab';
     } else if (state.activeTool === 'text') {
       cursor = 'text';
-    } else if (['rectangle', 'ellipse', 'line', 'arrow', 'arrow-double', 'arrow-elbow', 'arrow-curved', 'arrow-filled',
+    } else if (['rectangle', 'ellipse', 'line', 'line-dashed', 'line-dotted',
+                'arrow', 'arrow-double', 'arrow-elbow', 'arrow-curved', 'arrow-filled',
                 'freehand', 'freehand-highlighter', 'freehand-thick',
                 'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
       cursor = 'crosshair';

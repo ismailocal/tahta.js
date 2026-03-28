@@ -25,14 +25,15 @@ function getShapeVersionHash(shape: Shape): string {
 }
 
 export function renderShape(
-  rc: any, 
-  ctx: CanvasRenderingContext2D, 
-  shape: Shape, 
-  isSelected: boolean, 
-  isErasing: boolean = false, 
-  allShapes: Shape[] = [], 
+  rc: any,
+  ctx: CanvasRenderingContext2D,
+  shape: Shape,
+  isSelected: boolean,
+  isErasing: boolean = false,
+  allShapes: Shape[] = [],
   isEditingText: boolean = false,
-  isHovered: boolean = false
+  isHovered: boolean = false,
+  showPorts: boolean = false
 ) {
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
@@ -105,7 +106,7 @@ export function renderShape(
   if (isHovered || isSelected) {
     renderHoverBorder(ctx, shape, plugin);
   }
-  if (isHovered && !isSelected && plugin.getConnectionPoints) {
+  if (isHovered && !isSelected && plugin.getConnectionPoints && showPorts) {
     renderConnectionPoints(ctx, plugin.getConnectionPoints(shape));
   }
   ctx.restore();
@@ -210,14 +211,19 @@ function renderHandleBrackets(
 }
 
 function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[]) {
+  const s = 5; // half-size of the diamond icon
   ctx.setLineDash([]);
+  ctx.strokeStyle = '#60a5fa';
+  ctx.lineWidth = 1.5;
   points.forEach(cp => {
     ctx.beginPath();
-    ctx.arc(cp.x, cp.y, 6, 0, Math.PI * 2);
+    ctx.moveTo(cp.x,     cp.y - s);
+    ctx.lineTo(cp.x + s, cp.y    );
+    ctx.lineTo(cp.x,     cp.y + s);
+    ctx.lineTo(cp.x - s, cp.y    );
+    ctx.closePath();
     ctx.fillStyle = '#1e1e24';
     ctx.fill();
-    ctx.strokeStyle = '#60a5fa';
-    ctx.lineWidth = 2;
     ctx.stroke();
   });
 }

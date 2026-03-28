@@ -1,5 +1,5 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 
 /**
@@ -119,6 +119,17 @@ export abstract class BaseRectPlugin implements IShapePlugin {
     if (Math.abs(point.x - (x + w / 2)) <= d && Math.abs(point.y - (y + h))     <= d) return 's';
     if (Math.abs(point.x - (x + w))     <= d && Math.abs(point.y - (y + h))     <= d) return 'se';
     return null;
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const cx = x + w / 2, cy = y + h / 2;
+    return [
+      { id: 'top',    x: cx,     y,         side: 'top'    },
+      { id: 'right',  x: x + w,  y: cy,     side: 'right'  },
+      { id: 'bottom', x: cx,     y: y + h,  side: 'bottom' },
+      { id: 'left',   x,         y: cy,     side: 'left'   },
+    ];
   }
 
   isPointInside(point: Point, shape: Shape): boolean {

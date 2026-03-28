@@ -100,7 +100,7 @@ export class WhiteboardStore {
   }
 
   setTool(tool: string) {
-    this.state = { ...this.state, activeTool: tool };
+    this.state = { ...this.state, activeTool: tool, selectedIds: [] };
     this.notify();
     this.bus.emit('tool:changed', { tool });
   }

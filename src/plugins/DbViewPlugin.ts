@@ -26,14 +26,16 @@ export class DbViewPlugin extends BaseRectPlugin {
   getCornerRadius(): number { return 6; }
 
   getBounds(shape: Shape) {
-    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height: shape.height ?? DEFAULT_HEIGHT };
+    const columns = ((shape.data as DbViewData | undefined)?.columns) ?? [];
+    const height = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
+    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height };
   }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const { viewName, columns } = getViewData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = shape.height ?? DEFAULT_HEIGHT;
+    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
     const accent = shape.stroke || '#34d399';
 
     ctx.save();
@@ -94,13 +96,13 @@ export class DbViewPlugin extends BaseRectPlugin {
     const { columns } = getViewData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = shape.height ?? DEFAULT_HEIGHT;
+    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
     const points: ConnectionPoint[] = [];
     columns.forEach((col, i) => {
-      const rowY = y + HEADER_HEIGHT + BADGE_H + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2;
       if (rowY > y + h) return;
-      points.push({ id: `col-${i}-left`,  x,     y: rowY, label: col.name, side: 'left'  });
-      points.push({ id: `col-${i}-right`, x: x + w, y: rowY, label: col.name, side: 'right' });
+      points.push({ id: `col-${i}-left`,  x,         y: rowY, label: col.name, side: 'left'  });
+      points.push({ id: `col-${i}-right`, x: x + w,  y: rowY, label: col.name, side: 'right' });
     });
     return points;
   }

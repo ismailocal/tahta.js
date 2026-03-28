@@ -1,4 +1,4 @@
-import type { Shape, Point } from '../core/types';
+import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
@@ -96,6 +96,22 @@ export class DiamondPlugin extends BaseRectPlugin {
     if (Math.abs(point.x - cx)    <= d && Math.abs(point.y - sTipY) <= d) return 's';
     if (Math.abs(point.x - wTipX) <= d && Math.abs(point.y - cy)    <= d) return 'w';
     return null;
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const { x, y, width: w, height: h } = shape;
+    const cx = x + w / 2, cy = y + h / 2;
+    const r = this.getCornerRadius(shape);
+    // Half-diagonal of one edge (e.g. top-left edge from left-tip to top-tip)
+    const d = Math.hypot(w / 2, h / 2);
+    const t = d > 0 ? Math.min(r / d, 0.45) : 0;
+    // Actual bezier peak = bbox tip + inset of (side/4)*t toward center
+    return [
+      { id: 'top',    x: cx,              y: y     + (h / 4) * t, side: 'top'    },
+      { id: 'right',  x: x + w - (w / 4) * t, y: cy,             side: 'right'  },
+      { id: 'bottom', x: cx,              y: y + h - (h / 4) * t, side: 'bottom' },
+      { id: 'left',   x: x     + (w / 4) * t, y: cy,             side: 'left'   },
+    ];
   }
 
   isPointInside(point: Point, shape: Shape): boolean {
