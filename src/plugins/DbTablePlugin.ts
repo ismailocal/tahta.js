@@ -36,17 +36,22 @@ export class DbTablePlugin extends BaseRectPlugin {
 
   getCornerRadius(): number { return 6; }
 
-  getBounds(shape: Shape) {
+  getDefaultHeight(shape: Shape): number {
     const columns = (shape.data?.columns as any[]) ?? [];
-    const height = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
-    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height };
+    return HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
+  }
+
+  getBounds(shape: Shape) {
+    const w = shape.width ?? DEFAULT_WIDTH;
+    const h = shape.height ?? this.getDefaultHeight(shape);
+    return { x: shape.x, y: shape.y, width: w, height: h };
   }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const { tableName, columns } = getTableData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
+    const h = shape.height ?? this.getDefaultHeight(shape);
     const accent = shape.stroke || '#60a5fa';
 
     ctx.save();
@@ -120,7 +125,7 @@ export class DbTablePlugin extends BaseRectPlugin {
     const { columns } = getTableData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
+    const h = shape.height ?? this.getDefaultHeight(shape);
     const points: ConnectionPoint[] = [];
     columns.forEach((col, i) => {
       const rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2;
@@ -132,16 +137,14 @@ export class DbTablePlugin extends BaseRectPlugin {
   }
 
   onDrawInit(payload: PointerPayload): Partial<Shape> {
+    const defaultColumns = [
+      { name: 'id', type: 'INT', pk: true },
+      { name: 'name', type: 'VARCHAR' },
+      { name: 'created_at', type: 'TIMESTAMP' },
+    ];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
-      data: {
-        tableName: 'Table',
-        columns: [
-          { name: 'id', type: 'INT', pk: true },
-          { name: 'name', type: 'VARCHAR' },
-          { name: 'created_at', type: 'TIMESTAMP' },
-        ],
-      } as DbTableData,
+      data: { tableName: 'Table', columns: defaultColumns } as DbTableData,
     };
   }
 }

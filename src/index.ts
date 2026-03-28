@@ -10,6 +10,7 @@ import { TextTool } from './tools/TextTool';
 import { EraserTool } from './tools/EraserTool';
 import { TemplateTool } from './tools/TemplateTool';
 import { createUI } from './ui/UIBuilder';
+import { PluginRegistry } from './plugins/PluginRegistry';
 
 import './styles.css';
 
@@ -40,6 +41,18 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     freehand: new ShapeTool('freehand'),
     'freehand-thick':       new ShapeTool('freehand-thick',       'freehand'),
     'freehand-highlighter': new ShapeTool('freehand-highlighter', 'freehand'),
+  };
+
+  // Register tool aliases so Renderer and other subsystems can resolve
+  // tool keys to their underlying plugins without ad-hoc string manipulation.
+  PluginRegistry.registerToolAlias('arrow-double', 'arrow');
+  PluginRegistry.registerToolAlias('arrow-elbow',  'arrow');
+  PluginRegistry.registerToolAlias('arrow-curved', 'arrow');
+  PluginRegistry.registerToolAlias('arrow-filled', 'arrow');
+  PluginRegistry.registerToolAlias('line-dashed',  'line');
+  PluginRegistry.registerToolAlias('line-dotted',  'line');
+
+  Object.assign(tools, {
     eraser: new EraserTool(),
     text: new TextTool(),
     'template-decision-tree': new TemplateTool('decision-tree'),
@@ -47,7 +60,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     'template-db-schema':     new TemplateTool('db-schema'),
     'template-user-flow':     new TemplateTool('user-flow'),
     'template-mind-map':      new TemplateTool('mind-map'),
-  };
+  });
 
   createUI(root, store, canvas, api);
   const inputManager = new InputManager(canvas, api, tools);

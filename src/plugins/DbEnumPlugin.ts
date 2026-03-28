@@ -24,17 +24,20 @@ export class DbEnumPlugin extends BaseRectPlugin {
 
   getCornerRadius(): number { return 6; }
 
-  getBounds(shape: Shape) {
+  getDefaultHeight(shape: Shape): number {
     const values = ((shape.data as DbEnumData | undefined)?.values) ?? [];
-    const height = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
-    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height };
+    return HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
+  }
+
+  getBounds(shape: Shape) {
+    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height: shape.height ?? this.getDefaultHeight(shape) };
   }
 
   getConnectionPoints(shape: Shape): ConnectionPoint[] {
     const { enumName: _, values } = getEnumData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
+    const h = shape.height ?? this.getDefaultHeight(shape);
     const points: ConnectionPoint[] = [];
     values.forEach((val, i) => {
       const rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2;
@@ -49,7 +52,7 @@ export class DbEnumPlugin extends BaseRectPlugin {
     const { enumName, values } = getEnumData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = HEADER_HEIGHT + Math.max(1, values.length) * ROW_HEIGHT;
+    const h = shape.height ?? this.getDefaultHeight(shape);
     const accent = shape.stroke || '#f472b6';
 
     ctx.save();
@@ -102,9 +105,10 @@ export class DbEnumPlugin extends BaseRectPlugin {
   }
 
   onDrawInit(payload: PointerPayload): Partial<Shape> {
+    const defaultValues = ['ACTIVE', 'INACTIVE', 'PENDING'];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
-      data: { enumName: 'Status', values: ['ACTIVE', 'INACTIVE', 'PENDING'] } as DbEnumData,
+      data: { enumName: 'Status', values: defaultValues } as DbEnumData,
     };
   }
 }

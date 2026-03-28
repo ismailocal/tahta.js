@@ -1,4 +1,4 @@
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
@@ -51,6 +51,24 @@ export class ImagePlugin extends BaseRectPlugin {
 
   getBounds(shape: Shape) {
     return { x: shape.x, y: shape.y, width: shape.width || 100, height: shape.height || 100 };
+  }
+
+  /** Images always fill their bounds — hit anywhere inside. */
+  isPointInside(point: Point, shape: Shape): boolean {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const m = 6;
+    return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const cx = x + w / 2, cy = y + h / 2;
+    return [
+      { id: 'top',    x: cx,     y,        side: 'top'    },
+      { id: 'right',  x: x + w,  y: cy,    side: 'right'  },
+      { id: 'bottom', x: cx,     y: y + h, side: 'bottom' },
+      { id: 'left',   x,         y: cy,    side: 'left'   },
+    ];
   }
 
   getHandleAtPoint(shape: Shape, point: Point): string | null {

@@ -19,7 +19,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   // clearElbowCache(); // DISABLED: Clearing cache every frame makes it useless. Rely on the robust cache key instead.
   setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
 
-  const isBindingTool = PluginRegistry.hasPlugin(state.activeTool) && !!(PluginRegistry.getPlugin(state.activeTool) as any).canBind;
+  const activeToolPlugin = PluginRegistry.getPluginForTool(state.activeTool);
+  const isBindingTool = !!(activeToolPlugin as any)?.canBind;
   const showPorts = isBindingTool ||
     (!state.drawingShapeId && state.selectedIds.some(id => {
       const s = state.shapes.find(x => x.id === id);

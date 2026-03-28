@@ -3,9 +3,23 @@ import type { Shape } from '../core/types';
 
 class Registry {
   private plugins = new Map<string, IShapePlugin>();
+  private toolAliases = new Map<string, string>(); // toolKey → pluginType
 
   register(plugin: IShapePlugin) {
     this.plugins.set(plugin.type, plugin);
+  }
+
+  /** Map a tool key to an existing plugin type (e.g. 'arrow-double' → 'arrow'). */
+  registerToolAlias(toolKey: string, pluginType: string) {
+    this.toolAliases.set(toolKey, pluginType);
+  }
+
+  /** Resolve a tool key to its plugin. Returns null if not found. */
+  getPluginForTool(toolKey: string): IShapePlugin | null {
+    if (this.plugins.has(toolKey)) return this.plugins.get(toolKey)!;
+    const aliased = this.toolAliases.get(toolKey);
+    if (aliased && this.plugins.has(aliased)) return this.plugins.get(aliased)!;
+    return null;
   }
 
   getPlugin(type: string): IShapePlugin {

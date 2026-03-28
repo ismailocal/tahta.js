@@ -99,8 +99,8 @@ export class WhiteboardStore {
     this.notify();
   }
 
-  setTool(tool: string) {
-    this.state = { ...this.state, activeTool: tool, selectedIds: [] };
+  setTool(tool: string, keepSelection = false) {
+    this.state = { ...this.state, activeTool: tool, selectedIds: keepSelection ? this.state.selectedIds : [] };
     this.notify();
     this.bus.emit('tool:changed', { tool });
   }
@@ -177,7 +177,7 @@ export class WhiteboardStore {
       deleteShape: (id) => this.deleteShape(id),
       setSelection: (ids) => this.setSelection(ids),
       setViewport: (viewport) => this.setViewport(viewport),
-      setTool: (tool) => this.setTool(tool),
+      setTool: (tool, keepSelection) => this.setTool(tool, keepSelection),
       reorderShape: (id, direction) => { this.reorderShape(id, direction); this.commitState(); },
       commitState: () => this.commitState(),
       undo: () => this.undo(),

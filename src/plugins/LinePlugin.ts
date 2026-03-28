@@ -3,10 +3,24 @@ import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
 import { getPathMidpoint, renderEndpointHandles } from '../core/lineUtils';
+import { PluginRegistry } from './PluginRegistry';
+import { findNearestPort } from './ArrowPlugin';
+
+function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
+  if (portId && PluginRegistry.hasPlugin(shape.type)) {
+    const plugin = PluginRegistry.getPlugin(shape.type);
+    if (plugin.getConnectionPoints) {
+      const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
+      if (port) return { x: port.x, y: port.y };
+    }
+  }
+  return { x: shape.x + (shape.width || 0) / 2, y: shape.y + (shape.height || 0) / 2 };
+}
 
 export class LinePlugin implements IShapePlugin {
   type = 'line';
   isConnector = true;
+  canBind = true;
   defaultStyle: Partial<Shape> = { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'roughness', 'layer', 'action'];
 
@@ -74,22 +88,38 @@ export class LinePlugin implements IShapePlugin {
     return false;
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
+  onDrawInit(payload: PointerPayload, allShapes: Shape[]): Partial<Shape> {
+    const snap = findNearestPort(payload.world, allShapes);
     return {
-      x: payload.world.x,
-      y: payload.world.y,
+      x: snap ? snap.x : payload.world.x,
+      y: snap ? snap.y : payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
+      startBinding: snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined,
     };
   }
 
-  onDrawUpdate(shape: Shape, payload: PointerPayload): Partial<Shape> {
+  onDrawUpdate(shape: Shape, payload: PointerPayload, _dragStart: Point, allShapes: Shape[], api: any): Partial<Shape> {
     let dx = payload.world.x - shape.x;
     let dy = payload.world.y - shape.y;
     if (payload.shiftKey) {
       if (Math.abs(dx) > Math.abs(dy)) dy = 0;
       else dx = 0;
     }
-    return { points: [{ x: 0, y: 0 }, { x: dx, y: dy }] };
+    const patch: Partial<Shape> = { points: [{ x: 0, y: 0 }, { x: dx, y: dy }], endBinding: undefined };
+    const state = api.getState();
+
+    const snap = (!payload.ctrlKey && !payload.metaKey)
+      ? findNearestPort(payload.world, allShapes, [shape.id])
+      : null;
+
+    if (snap) {
+      if (state.hoveredShapeId !== snap.shape.id) api.setState({ hoveredShapeId: snap.shape.id });
+      patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
+      patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
+    } else {
+      if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
+    }
+    return patch;
   }
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload): Partial<Shape> {
@@ -98,11 +128,64 @@ export class LinePlugin implements IShapePlugin {
       const dx = shape.x - payload.world.x;
       const dy = shape.y - payload.world.y;
       const newPts = pts.map((p, i) => i === 0 ? { x: 0, y: 0 } : { x: p.x + dx, y: p.y + dy });
-      return { x: payload.world.x, y: payload.world.y, points: newPts };
+      return { x: payload.world.x, y: payload.world.y, points: newPts, startBinding: undefined };
     } else if (handle === 'end') {
       pts[pts.length - 1] = { x: payload.world.x - shape.x, y: payload.world.y - shape.y };
-      return { points: pts };
+      return { points: pts, endBinding: undefined };
     }
     return {};
+  }
+
+  onDragBindHandle(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: any): Partial<Shape> {
+    const snap = (!payload.ctrlKey && !payload.metaKey)
+      ? findNearestPort(payload.world, allShapes, [activeShapeId])
+      : null;
+
+    const patch: Partial<Shape> = {};
+    const state = api.getState();
+    if (snap) {
+      if (snap.shape.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: snap.shape.id });
+      if (handle === 'start') {
+        patch.startBinding = { elementId: snap.shape.id, portId: snap.portId };
+        const p2wx = shape.x + (shape.points?.[1]?.x || 0);
+        const p2wy = shape.y + (shape.points?.[1]?.y || 0);
+        patch.x = snap.x; patch.y = snap.y;
+        patch.points = [{ x: 0, y: 0 }, { x: p2wx - snap.x, y: p2wy - snap.y }];
+      } else if (handle === 'end') {
+        patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
+        patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
+      }
+    } else {
+      if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
+      if (handle === 'start') patch.startBinding = undefined;
+      if (handle === 'end') patch.endBinding = undefined;
+    }
+    return patch;
+  }
+
+  onBoundShapeChange(shape: Shape, allShapes: Shape[], changedShapeIds: string[]): Partial<Shape> | null {
+    const startId = shape.startBinding?.elementId;
+    const endId = shape.endBinding?.elementId;
+    if (!startId && !endId) return null;
+
+    if ((startId && changedShapeIds.includes(startId)) || (endId && changedShapeIds.includes(endId))) {
+      let p1 = { x: shape.x, y: shape.y };
+      let p2 = { x: shape.x + (shape.points?.[1]?.x || 0), y: shape.y + (shape.points?.[1]?.y || 0) };
+
+      if (startId) {
+        const sShape = allShapes.find(s => s.id === startId);
+        if (sShape) p1 = getBindingPoint(sShape, shape.startBinding!.portId);
+      }
+      if (endId) {
+        const eShape = allShapes.find(s => s.id === endId);
+        if (eShape) p2 = getBindingPoint(eShape, shape.endBinding!.portId);
+      }
+
+      return {
+        x: p1.x, y: p1.y,
+        points: [{ x: 0, y: 0 }, { x: p2.x - p1.x, y: p2.y - p1.y }]
+      };
+    }
+    return null;
   }
 }

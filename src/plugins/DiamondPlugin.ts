@@ -119,9 +119,19 @@ export class DiamondPlugin extends BaseRectPlugin {
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
-    const dx = Math.abs(point.x - cx) / (w / 2 + 8);
-    const dy = Math.abs(point.y - cy) / (h / 2 + 8);
-    return dx + dy <= 1;
+    const hasFill = shape.fill && shape.fill !== 'transparent' && shape.fill !== 'none';
+    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
+    // Diamond hit test: use L1 (taxicab) norm. Outer = inflated diamond, Inner = deflated diamond
+    const dxOuter = Math.abs(point.x - cx) / (w / 2 + t);
+    const dyOuter = Math.abs(point.y - cy) / (h / 2 + t);
+    if (dxOuter + dyOuter > 1) return false;
+    if (hasFill) return true;
+    const rxi = Math.max(0, w / 2 - t);
+    const ryi = Math.max(0, h / 2 - t);
+    if (rxi === 0 || ryi === 0) return true;
+    const dxInner = Math.abs(point.x - cx) / rxi;
+    const dyInner = Math.abs(point.y - cy) / ryi;
+    return dxInner + dyInner >= 1;
   }
 
   getResizeHandlePositions(shape: Shape) {

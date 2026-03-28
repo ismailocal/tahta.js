@@ -98,7 +98,7 @@ export interface ICanvasAPI {
   deleteShape: (id: string) => void;
   setSelection: (ids: string[]) => void;
   setViewport: (viewport: CanvasState['viewport']) => void;
-  setTool: (tool: string) => void;
+  setTool: (tool: string, keepSelection?: boolean) => void;
   reorderShape: (id: string, direction: 'forward' | 'backward' | 'front' | 'back') => void;
   commitState: () => void;
   undo: () => void;

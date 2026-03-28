@@ -100,14 +100,9 @@ export function renderShape(
   if ((isSelected || isHovered) && plugin.renderSelection) {
     plugin.renderSelection(ctx, shape, allShapes);
   }
-  if ((isSelected || isHovered) && !plugin.isConnector && plugin.getResizeHandlePositions) {
-    renderHandleBrackets(ctx, plugin.getResizeHandlePositions(shape));
-  }
-  if (isHovered || isSelected) {
-    renderHoverBorder(ctx, shape, plugin);
-  }
+  // Hover border intentionally omitted — shape color/style must not change on hover
   if (isHovered && !isSelected && plugin.getConnectionPoints && showPorts) {
-    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape));
+    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke);
   }
   ctx.restore();
 }
@@ -189,12 +184,13 @@ function renderHoverBorder(ctx: CanvasRenderingContext2D, shape: Shape, plugin: 
  */
 function renderHandleBrackets(
   ctx: CanvasRenderingContext2D,
-  handles: Array<{ x: number; y: number; angle: number; draw?: (ctx: CanvasRenderingContext2D) => void }>
+  handles: Array<{ x: number; y: number; angle: number; draw?: (ctx: CanvasRenderingContext2D) => void }>,
+  shapeStroke?: string
 ) {
   if (!handles.length) return;
 
   ctx.save();
-  ctx.strokeStyle = '#60a5fa';
+  ctx.strokeStyle = shapeStroke || '#f8fafc';
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -210,10 +206,10 @@ function renderHandleBrackets(
   ctx.restore();
 }
 
-function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[]) {
+function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[], shapeStroke?: string) {
   const s = 5; // half-size of the diamond icon
   ctx.setLineDash([]);
-  ctx.strokeStyle = '#60a5fa';
+  ctx.strokeStyle = shapeStroke || '#f8fafc';
   ctx.lineWidth = 1.5;
   points.forEach(cp => {
     ctx.beginPath();

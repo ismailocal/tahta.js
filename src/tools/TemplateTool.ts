@@ -11,6 +11,6 @@ export class TemplateTool implements ToolDefinition {
     shapes.forEach(s => api.addShape(s));
     api.setState({ selectedIds: shapes.map(s => s.id) });
     api.commitState();
-    api.setTool('select');
+    api.setTool('select', true);
   }
 }

@@ -276,7 +276,16 @@ export class SelectTool implements ToolDefinition {
 
   onDoubleClick(payload: PointerPayload, api: ICanvasAPI) {
     const state = api.getState();
-    const hit = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
+    // Use bounds-based hit for double-click so clicking anywhere inside a shape works,
+    // even if the shape has transparent fill (border-only isPointInside).
+    const pt = payload.world;
+    const hit = [...state.shapes].reverse().find(s => {
+      if (!PluginRegistry.hasPlugin(s.type)) return false;
+      const plugin = PluginRegistry.getPlugin(s.type);
+      if (plugin.isConnector || !plugin.getBounds) return false;
+      const b = plugin.getBounds(s);
+      return pt.x >= b.x && pt.x <= b.x + b.width && pt.y >= b.y && pt.y <= b.y + b.height;
+    });
     if (hit && !hit.locked) {
       if (hit.type === 'db-table' || hit.type === 'db-view' || hit.type === 'db-enum') {
         openDbTableEditor(hit.id, api, payload.nativeEvent.target as HTMLCanvasElement);

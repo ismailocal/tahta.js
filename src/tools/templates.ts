@@ -1,5 +1,6 @@
 import type { Shape, Point } from '../core/types';
 import { createId } from '../core/Utils';
+import { getStylePreset } from '../core/constants';
 
 export type Template = {
   label: string;
@@ -11,10 +12,9 @@ function arrow(
   opts: Partial<Shape> = {}
 ): Shape {
   return {
+    ...getStylePreset('arrow'),
     id: createId(), type: 'arrow', x: x1, y: y1, width: 0, height: 0, zIndex: 0,
     points: [{ x: 0, y: 0 }, { x: x2 - x1, y: y2 - y1 }],
-    stroke: '#94a3b8', strokeWidth: 1, roughness: 0, opacity: 1,
-    edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow',
     seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
   } as Shape;
@@ -25,10 +25,9 @@ function rect(
   text: string, opts: Partial<Shape> = {}
 ): Shape {
   return {
+    ...getStylePreset('rectangle'),
     id: createId(), type: 'rectangle', x, y, width: w, height: h, zIndex: 0,
-    stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1, roughness: 0,
-    roundness: 'round', opacity: 1, text,
-    seed: Math.floor(Math.random() * 2 ** 31),
+    text, seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
   } as Shape;
 }
@@ -38,10 +37,9 @@ function oval(
   text: string, opts: Partial<Shape> = {}
 ): Shape {
   return {
+    ...getStylePreset('ellipse'),
     id: createId(), type: 'ellipse', x, y, width: w, height: h, zIndex: 0,
-    stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0,
-    opacity: 1, text,
-    seed: Math.floor(Math.random() * 2 ** 31),
+    text, seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
   } as Shape;
 }
@@ -51,10 +49,9 @@ function diamond(
   text: string, opts: Partial<Shape> = {}
 ): Shape {
   return {
+    ...getStylePreset('diamond'),
     id: createId(), type: 'diamond', x, y, width: w, height: h, zIndex: 0,
-    stroke: '#f8fafc', fill: 'transparent', strokeWidth: 1, roughness: 0,
-    opacity: 1, text,
-    seed: Math.floor(Math.random() * 2 ** 31),
+    text, seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
   } as Shape;
 }
@@ -65,8 +62,8 @@ function dbTable(
   opts: Partial<Shape> = {}
 ): Shape {
   return {
+    ...getStylePreset('db-table'),
     id: createId(), type: 'db-table', x, y, width: 220, height: 0, zIndex: 0,
-    stroke: '#a78bfa', opacity: 1,
     data: { tableName, columns },
     seed: Math.floor(Math.random() * 2 ** 31),
     ...opts,
@@ -113,24 +110,23 @@ export const TEMPLATES: Record<string, Template> = {
   'flowchart': {
     label: 'Akış Şeması',
     build({ x, y }) {
-      // x,y is top-center
       const W = 160, H = 52, DW = 200, DH = 72, GAP = 80;
       const cx = x;
 
-      const y0 = y;                  // start
-      const y1 = y0 + H + GAP;       // process
-      const y2 = y1 + H + GAP;       // decide
-      const y3 = y2 + DH + GAP;      // yes path
-      const y4 = y3 + H + GAP;       // end
+      const y0 = y;
+      const y1 = y0 + H + GAP;
+      const y2 = y1 + H + GAP;
+      const y3 = y2 + DH + GAP;
+      const y4 = y3 + H + GAP;
 
-      const start   = oval(cx - W / 2,   y0, W,   H,   'Başlangıç', { stroke: '#06b6d4' });
-      const process = rect(cx - W / 2,   y1, W,   H,   'İşlem',     { stroke: '#8b5cf6' });
-      const decide  = diamond(cx - DW / 2, y2, DW, DH, 'Koşul?');
-      const yes     = rect(cx - W / 2,   y3, W,   H,   'Evet yolu', { stroke: '#22c55e' });
+      const start   = oval(cx - W / 2,    y0, W,   H,   'Başlangıç');
+      const process = rect(cx - W / 2,    y1, W,   H,   'İşlem');
+      const decide  = diamond(cx - DW / 2, y2, DW, DH,  'Koşul?');
+      const yes     = rect(cx - W / 2,    y3, W,   H,   'Evet yolu', { stroke: '#22c55e' });
       const noX     = cx + DW / 2 + 60;
       const noY     = y2 + DH / 2 - H / 2;
-      const no      = rect(noX,           noY, W,  H,   'Hayır yolu', { stroke: '#ef4444' });
-      const end     = oval(cx - W / 2,   y4, W,   H,   'Bitiş',     { stroke: '#06b6d4' });
+      const no      = rect(noX,            noY, W,  H,   'Hayır yolu', { stroke: '#ef4444' });
+      const end     = oval(cx - W / 2,    y4, W,   H,   'Bitiş');
 
       return [
         start, process, decide, yes, no, end,
@@ -151,7 +147,6 @@ export const TEMPLATES: Record<string, Template> = {
   'db-schema': {
     label: 'DB Şeması',
     build({ x, y }) {
-      // x,y is top-left of first table
       const users = dbTable(x, y, 'users', [
         { name: 'id',         type: 'INT',       pk: true },
         { name: 'name',       type: 'VARCHAR' },
@@ -173,13 +168,12 @@ export const TEMPLATES: Record<string, Template> = {
         { name: 'price',      type: 'DECIMAL' },
       ]);
 
-      // Connect at row 1 center (header=36, row=28 → center of row0 = 36+14 = 50)
       return [
         users, orders, items,
         arrow(x + 220, y + 50, x + 300, y + 50,
-          { stroke: '#a78bfa', startBinding: { elementId: users.id }, endBinding: { elementId: orders.id } }),
+          { startBinding: { elementId: users.id }, endBinding: { elementId: orders.id } }),
         arrow(x + 520, y + 50, x + 600, y + 50,
-          { stroke: '#a78bfa', startBinding: { elementId: orders.id }, endBinding: { elementId: items.id } }),
+          { startBinding: { elementId: orders.id }, endBinding: { elementId: items.id } }),
       ];
     },
   },
@@ -187,24 +181,22 @@ export const TEMPLATES: Record<string, Template> = {
   'user-flow': {
     label: 'Kullanıcı Akışı',
     build({ x, y }) {
-      // Horizontal flow, x,y is top-left of first box
       const W = 150, H = 52, DW = 180, DH = 72, GAP = 60;
-      const cy = y + H / 2;  // vertical center of regular boxes
+      const cy = y + H / 2;
 
       const x0 = x;
       const x1 = x0 + W + GAP;
       const x2 = x1 + W + GAP;
       const x3 = x2 + DW + GAP;
 
-      // Diamond vertically centered with regular boxes
       const dY = y + H / 2 - DH / 2;
 
-      const login     = rect(x0, y,   W,   H,   'Giriş',     { stroke: '#06b6d4' });
-      const dashboard = rect(x1, y,   W,   H,   'Dashboard', { stroke: '#8b5cf6' });
-      const action    = diamond(x2, dY, DW, DH,  'Aksiyon?');
-      const success   = rect(x3, y - 20,      W, H, 'Başarı', { stroke: '#22c55e' });
-      const error     = rect(x3, y + H + 20,  W, H, 'Hata',   { stroke: '#ef4444' });
-      const logout    = oval(x0, y + H + 100, W, H, 'Çıkış',  { stroke: '#94a3b8' });
+      const login     = rect(x0, y,            W,   H,  'Giriş',     { stroke: '#06b6d4' });
+      const dashboard = rect(x1, y,            W,   H,  'Dashboard');
+      const action    = diamond(x2, dY,        DW, DH,  'Aksiyon?');
+      const success   = rect(x3, y - 20,       W,   H,  'Başarı',    { stroke: '#22c55e' });
+      const error     = rect(x3, y + H + 20,   W,   H,  'Hata',      { stroke: '#ef4444' });
+      const logout    = oval(x0, y + H + 100,  W,   H,  'Çıkış');
 
       return [
         login, dashboard, action, success, error, logout,
@@ -225,20 +217,18 @@ export const TEMPLATES: Record<string, Template> = {
   'mind-map': {
     label: 'Mind Map',
     build({ x, y }) {
-      // x,y is center of the mind map
       const CW = 160, CH = 52, BW = 130, BH = 44;
-      const HGAP = 100, VGAP = 30;  // gaps between center and branches
+      const HGAP = 100, VGAP = 30;
 
       const center = rect(x - CW / 2, y - CH / 2, CW, CH, 'Ana Fikir', {
         stroke: '#f59e0b', fill: '#1c1310',
       });
 
-      // branch positions: left-top, left-bottom, right-top, right-bottom
       const branches = [
         { bx: x - CW / 2 - HGAP - BW, by: y - CH / 2 - BH - VGAP, label: 'Konu 1', color: '#8b5cf6' },
-        { bx: x - CW / 2 - HGAP - BW, by: y + CH / 2 + VGAP,        label: 'Konu 3', color: '#22c55e' },
-        { bx: x + CW / 2 + HGAP,      by: y - CH / 2 - BH - VGAP,   label: 'Konu 2', color: '#06b6d4' },
-        { bx: x + CW / 2 + HGAP,      by: y + CH / 2 + VGAP,         label: 'Konu 4', color: '#f43f5e' },
+        { bx: x - CW / 2 - HGAP - BW, by: y + CH / 2 + VGAP,       label: 'Konu 3', color: '#22c55e' },
+        { bx: x + CW / 2 + HGAP,      by: y - CH / 2 - BH - VGAP,  label: 'Konu 2', color: '#06b6d4' },
+        { bx: x + CW / 2 + HGAP,      by: y + CH / 2 + VGAP,        label: 'Konu 4', color: '#f43f5e' },
       ];
 
       const nodes = branches.map(b => rect(b.bx, b.by, BW, BH, b.label, { stroke: b.color }));
@@ -250,7 +240,8 @@ export const TEMPLATES: Record<string, Template> = {
         const ax2 = isLeft ? x - CW / 2 : x + CW / 2;
         const ay2 = b.by + BH / 2 < y ? y - CH / 2 : y + CH / 2;
         return arrow(ax1, ay1, ax2, ay2, {
-          startArrowhead: 'none', endArrowhead: 'none', stroke: branches[i].color,
+          endArrowhead: 'none',
+          stroke: branches[i].color,
           startBinding: { elementId: nodes[i].id },
           endBinding:   { elementId: center.id },
         });

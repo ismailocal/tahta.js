@@ -53,14 +53,20 @@ export class EllipsePlugin extends BaseRectPlugin {
   }
 
   isPointInside(point: Point, shape: Shape): boolean {
-    const bounds = this.getBounds(shape);
-    const margin = 6;
-    return (
-      point.x >= bounds.x - margin &&
-      point.x <= bounds.x + bounds.width + margin &&
-      point.y >= bounds.y - margin &&
-      point.y <= bounds.y + bounds.height + margin
-    );
+    const b = this.getBounds(shape);
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    const hasFill = shape.fill && shape.fill !== 'transparent' && shape.fill !== 'none';
+    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
+    // Check using normalized ellipse distance
+    const rx = b.width / 2, ry = b.height / 2;
+    const dx = point.x - cx, dy = point.y - cy;
+    const distOuter = (dx * dx) / ((rx + t) * (rx + t)) + (dy * dy) / ((ry + t) * (ry + t));
+    if (distOuter > 1) return false;
+    if (hasFill) return true;
+    const rxInner = Math.max(0, rx - t), ryInner = Math.max(0, ry - t);
+    if (rxInner === 0 || ryInner === 0) return true;
+    const distInner = (dx * dx) / (rxInner * rxInner) + (dy * dy) / (ryInner * ryInner);
+    return distInner >= 1;
   }
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {

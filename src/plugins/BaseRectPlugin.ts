@@ -134,8 +134,17 @@ export abstract class BaseRectPlugin implements IShapePlugin {
 
   isPointInside(point: Point, shape: Shape): boolean {
     const { x, y, width: w, height: h } = this.getBounds(shape);
-    const m = 6;
-    return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
+    const hasFill = shape.fill && shape.fill !== 'transparent' && shape.fill !== 'none';
+    if (hasFill) {
+      const m = 6;
+      return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
+    }
+    // Transparent fill: only hit on stroke border
+    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
+    const inOuter = point.x >= x - t && point.x <= x + w + t && point.y >= y - t && point.y <= y + h + t;
+    const inInner = w > t * 2 && h > t * 2 &&
+      point.x > x + t && point.x < x + w - t && point.y > y + t && point.y < y + h - t;
+    return inOuter && !inInner;
   }
 
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
