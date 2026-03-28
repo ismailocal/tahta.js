@@ -10,7 +10,7 @@ export class RectanglePlugin extends BaseRectPlugin {
   defaultStyle: Partial<Shape> = { stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1, roughness: 0, roundness: 'round', opacity: 1 };
   defaultProperties = ['stroke', 'fill', 'roundness', 'layer', 'action'];
 
-  getBracketRadius(shape: Shape): number {
+  getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;
     return shape.roundness === 'round' ? Math.min(16, w / 2, h / 2) : 0;
   }

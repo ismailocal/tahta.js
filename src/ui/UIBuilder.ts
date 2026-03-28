@@ -31,10 +31,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
 
-  const DB_KEYS = new Set(['db-table', 'db-view', 'db-enum']);
-
   const renderToolbar = (state: any) => {
-    const dbActive = DB_KEYS.has(state.activeTool);
     toolbar.innerHTML = TOOLBAR_ITEMS.map((tool) => {
       if (tool.isSeparator) return `<div class="toolbar-separator"></div>`;
 
@@ -43,9 +40,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       if (tool.key === 'redo') disabled = !store.canRedo;
 
       if (tool.isDropdown && tool.children) {
+        const groupActive = tool.children.some(c => c.key === state.activeTool);
         return `
           <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
-            <button class="tool-button ${dbActive ? 'active' : ''}" data-dropdown-toggle="${tool.key}" title="${tool.label} (${tool.shortcut})">
+            <button class="tool-button ${groupActive ? 'active' : ''}" data-dropdown-toggle="${tool.key}" title="${tool.label} (${tool.shortcut})">
               <span class="tool-icon">${tool.icon}</span>
               <span class="tool-dropdown-arrow">▾</span>
             </button>
@@ -200,7 +198,9 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       cursor = state.isPanning ? 'grabbing' : 'grab';
     } else if (state.activeTool === 'text') {
       cursor = 'text';
-    } else if (['rectangle', 'ellipse', 'line', 'arrow', 'freehand', 'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
+    } else if (['rectangle', 'ellipse', 'line', 'arrow', 'arrow-double', 'arrow-elbow', 'arrow-curved', 'arrow-filled',
+                'freehand', 'freehand-highlighter', 'freehand-thick',
+                'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
       cursor = 'crosshair';
     } else {
       cursor = 'default';

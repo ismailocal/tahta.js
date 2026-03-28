@@ -34,17 +34,19 @@ export class DbTablePlugin extends BaseRectPlugin {
   protected minWidth = 80;
   protected minHeight = 40;
 
-  getBracketRadius(): number { return 6; }
+  getCornerRadius(): number { return 6; }
 
   getBounds(shape: Shape) {
-    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height: shape.height ?? DEFAULT_HEIGHT };
+    const columns = (shape.data?.columns as any[]) ?? [];
+    const height = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
+    return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height };
   }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const { tableName, columns } = getTableData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = shape.height ?? DEFAULT_HEIGHT;
+    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
     const accent = shape.stroke || '#60a5fa';
 
     ctx.save();
@@ -118,7 +120,7 @@ export class DbTablePlugin extends BaseRectPlugin {
     const { columns } = getTableData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
-    const h = shape.height ?? DEFAULT_HEIGHT;
+    const h = HEADER_HEIGHT + Math.max(1, columns.length) * ROW_HEIGHT;
     const points: ConnectionPoint[] = [];
     columns.forEach((col, i) => {
       const rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2;

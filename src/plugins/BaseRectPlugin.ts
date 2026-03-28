@@ -28,6 +28,83 @@ export abstract class BaseRectPlugin implements IShapePlugin {
     };
   }
 
+  /**
+   * Corner radius used by both hover border and bracket indicators.
+   * Override this in subclasses — no need to override getBracketRadius or drawHoverOutline separately.
+   */
+  getCornerRadius(_shape: Shape): number { return 0; }
+
+  getBracketRadius(shape: Shape): number { return this.getCornerRadius(shape); }
+
+  /** Default: 8 handle positions at bounding box corners + midpoints with appropriate draw closures. */
+  getResizeHandlePositions(shape: Shape) {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const cx = x + w / 2, cy = y + h / 2;
+    const r = this.getCornerRadius(shape);
+    const arm = 11;
+
+    // Arc bracket draw closure for a rounded corner
+    const arcDraw = (acx: number, acy: number, mid: number) =>
+      (ctx: CanvasRenderingContext2D) => {
+        const span = r > 0 ? Math.min(arm / r, Math.PI / 3) : 0;
+        ctx.beginPath();
+        ctx.arc(acx, acy, r, mid - span, mid + span);
+        ctx.stroke();
+      };
+
+    // L-bracket draw closure for a sharp corner
+    const lDraw = (px: number, py: number, dx: number, dy: number) =>
+      (ctx: CanvasRenderingContext2D) => {
+        ctx.beginPath();
+        ctx.moveTo(px + dx * arm, py);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px, py + dy * arm);
+        ctx.stroke();
+      };
+
+    // Tick draw closure for an edge midpoint
+    const tickDraw = (px: number, py: number, horiz: boolean) =>
+      (ctx: CanvasRenderingContext2D) => {
+        const tick = 7;
+        ctx.beginPath();
+        if (horiz) { ctx.moveTo(px - tick, py); ctx.lineTo(px + tick, py); }
+        else       { ctx.moveTo(px, py - tick); ctx.lineTo(px, py + tick); }
+        ctx.stroke();
+      };
+
+    const cornerNW = r > 0
+      ? arcDraw(x + r, y + r, 5 * Math.PI / 4)
+      : lDraw(x, y, 1, 1);
+    const cornerNE = r > 0
+      ? arcDraw(x + w - r, y + r, 7 * Math.PI / 4)
+      : lDraw(x + w, y, -1, 1);
+    const cornerSW = r > 0
+      ? arcDraw(x + r, y + h - r, 3 * Math.PI / 4)
+      : lDraw(x, y + h, 1, -1);
+    const cornerSE = r > 0
+      ? arcDraw(x + w - r, y + h - r, 1 * Math.PI / 4)
+      : lDraw(x + w, y + h, -1, -1);
+
+    return [
+      { x,      y,      angle: -3 * Math.PI / 4, draw: cornerNW },
+      { x: cx,  y,      angle: -Math.PI / 2,      draw: tickDraw(cx, y, true) },
+      { x: x+w, y,      angle: -Math.PI / 4,      draw: cornerNE },
+      { x: x+w, y: cy,  angle: 0,                 draw: tickDraw(x + w, cy, false) },
+      { x: x+w, y: y+h, angle:  Math.PI / 4,      draw: cornerSE },
+      { x: cx,  y: y+h, angle:  Math.PI / 2,      draw: tickDraw(cx, y + h, true) },
+      { x,      y: y+h, angle:  3 * Math.PI / 4,  draw: cornerSW },
+      { x,      y: cy,  angle:  Math.PI,           draw: tickDraw(x, cy, false) },
+    ];
+  }
+
+  drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const r = this.getCornerRadius(shape);
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.stroke();
+  }
+
   /** 8-point handle hit test on inflated bounding box. */
   getHandleAtPoint(shape: Shape, point: Point): string | null {
     const d = 12;

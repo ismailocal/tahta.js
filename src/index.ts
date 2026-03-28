@@ -8,6 +8,7 @@ import { HandTool } from './tools/HandTool';
 import { ShapeTool } from './tools/ShapeTool';
 import { TextTool } from './tools/TextTool';
 import { EraserTool } from './tools/EraserTool';
+import { TemplateTool } from './tools/TemplateTool';
 import { createUI } from './ui/UIBuilder';
 
 import './styles.css';
@@ -30,9 +31,20 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     'db-enum': new ShapeTool('db-enum'),
     line: new ShapeTool('line'),
     arrow: new ShapeTool('arrow'),
+    'arrow-double': new ShapeTool('arrow-double', 'arrow'),
+    'arrow-elbow':  new ShapeTool('arrow-elbow',  'arrow'),
+    'arrow-curved': new ShapeTool('arrow-curved', 'arrow'),
+    'arrow-filled': new ShapeTool('arrow-filled', 'arrow'),
     freehand: new ShapeTool('freehand'),
+    'freehand-thick':       new ShapeTool('freehand-thick',       'freehand'),
+    'freehand-highlighter': new ShapeTool('freehand-highlighter', 'freehand'),
     eraser: new EraserTool(),
     text: new TextTool(),
+    'template-decision-tree': new TemplateTool('decision-tree'),
+    'template-flowchart':     new TemplateTool('flowchart'),
+    'template-db-schema':     new TemplateTool('db-schema'),
+    'template-user-flow':     new TemplateTool('user-flow'),
+    'template-mind-map':      new TemplateTool('mind-map'),
   };
 
   createUI(root, store, canvas, api);

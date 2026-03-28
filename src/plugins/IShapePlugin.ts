@@ -9,16 +9,30 @@ export interface IShapePlugin {
    */
   isConnector?: boolean;
 
-  /** If true, renderSelection handles its own selection brackets; ShapeRenderer skips default corner brackets. */
-  customSelectionBrackets?: boolean;
+  /**
+   * Returns the resize handle positions for selection bracket rendering.
+   * Each entry has world position (x, y) and outward angle in radians
+   * (0=right, π/2=down, π=left, -π/2=up — canvas convention).
+   * Central renderer draws uniform V/L brackets at each position.
+   * Return empty array to suppress brackets entirely (connectors).
+   */
+  getResizeHandlePositions?(shape: Shape): Array<{
+    x: number; y: number; angle: number;
+    /** Custom draw for this indicator (arc, ellipse arc, etc.). Called by central renderer. */
+    draw?: (ctx: CanvasRenderingContext2D) => void;
+  }>;
 
-  /** If true, only corner L-brackets are drawn (no midpoint ticks). */
-  cornersOnly?: boolean;
+  /**
+   * Single override point for corner radius.
+   * BaseRectPlugin uses this for both getBracketRadius and drawHoverOutline automatically.
+   * Custom shapes (ellipse, diamond) override drawHoverOutline directly instead.
+   */
+  getCornerRadius?(shape: Shape): number;
 
-  /** Corner radius for selection/hover brackets. Return 0 for sharp corners. */
+  /** Derived from getCornerRadius by BaseRectPlugin. Override only for fully custom shapes. */
   getBracketRadius?(shape: Shape): number;
 
-  /** Draw the shape's outline path for hover/selection border. If omitted, ShapeRenderer draws a roundRect using getBounds. */
+  /** Derived from getCornerRadius by BaseRectPlugin. Override only for fully custom shapes. */
   drawHoverOutline?(ctx: CanvasRenderingContext2D, shape: Shape): void;
 
   /** Default style applied when this shape type is created. */

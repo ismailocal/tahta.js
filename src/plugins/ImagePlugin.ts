@@ -6,9 +6,27 @@ export const imageCache = new Map<string, HTMLImageElement>();
 
 export class ImagePlugin extends BaseRectPlugin {
   type = 'image';
-  cornersOnly = true;
   defaultStyle: Partial<Shape> = {};
   defaultProperties = ['layer', 'action'];
+
+  getResizeHandlePositions(shape: Shape) {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const arm = 11;
+    const lDraw = (px: number, py: number, dx: number, dy: number) =>
+      (ctx: CanvasRenderingContext2D) => {
+        ctx.beginPath();
+        ctx.moveTo(px + dx * arm, py);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px, py + dy * arm);
+        ctx.stroke();
+      };
+    return [
+      { x,      y,      angle: -3 * Math.PI / 4, draw: lDraw(x,      y,     1,  1) },
+      { x: x+w, y,      angle: -Math.PI / 4,      draw: lDraw(x + w,  y,    -1,  1) },
+      { x: x+w, y: y+h, angle:  Math.PI / 4,      draw: lDraw(x + w,  y+h,  -1, -1) },
+      { x,      y: y+h, angle:  3 * Math.PI / 4,  draw: lDraw(x,      y+h,   1, -1) },
+    ];
+  }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const { x, y, width = 100, height = 100, imageSrc } = shape;

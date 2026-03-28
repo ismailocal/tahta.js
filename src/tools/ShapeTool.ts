@@ -6,15 +6,21 @@ import { PluginRegistry } from '../plugins/index';
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
   private currentShapeId: string | null = null;
-  private type: ShapeType;
+  private toolKey: ShapeType;  // used for preset lookup (e.g. 'arrow-elbow')
+  private shapeType: ShapeType; // actual plugin/shape type (e.g. 'arrow')
 
-  constructor(type: ShapeType) {
-    this.type = type;
+  /**
+   * @param toolKey  Toolbar tool key — used to look up the style preset.
+   * @param shapeType  Plugin/shape type to create. Defaults to toolKey.
+   */
+  constructor(toolKey: ShapeType, shapeType?: ShapeType) {
+    this.toolKey = toolKey;
+    this.shapeType = shapeType ?? toolKey;
   }
 
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     this.drawStartWorld = payload.world;
-    const preset = getStylePreset(this.type);
+    const preset = getStylePreset(this.toolKey);
     const common: Partial<Shape> = {
       ...preset,
       id: createId(),
@@ -23,10 +29,10 @@ export class ShapeTool implements ToolDefinition {
       seed: Math.floor(Math.random() * 2 ** 31),
     };
 
-    let shape: Shape = { ...common, type: this.type } as Shape;
+    let shape: Shape = { ...common, type: this.shapeType } as Shape;
     
-    if (PluginRegistry.hasPlugin(this.type)) {
-      const plugin = PluginRegistry.getPlugin(this.type);
+    if (PluginRegistry.hasPlugin(this.shapeType)) {
+      const plugin = PluginRegistry.getPlugin(this.shapeType);
       if (plugin.onDrawInit) {
         shape = { ...shape, ...plugin.onDrawInit(payload, api.getState().shapes, api) } as Shape;
       }
@@ -41,8 +47,8 @@ export class ShapeTool implements ToolDefinition {
   onPointerMove(payload: PointerPayload, api: ICanvasAPI) {
     if (!this.drawStartWorld || !this.currentShapeId) return;
 
-    if (PluginRegistry.hasPlugin(this.type)) {
-      const plugin = PluginRegistry.getPlugin(this.type);
+    if (PluginRegistry.hasPlugin(this.shapeType)) {
+      const plugin = PluginRegistry.getPlugin(this.shapeType);
       if (plugin.onDrawUpdate) {
         const state = api.getState();
         const shape = state.shapes.find(s => s.id === this.currentShapeId);
@@ -61,13 +67,13 @@ export class ShapeTool implements ToolDefinition {
       const dy = payload.world.y - this.drawStartWorld.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (this.type !== 'freehand' && this.type !== 'text' && distance < 2) {
+      if (this.shapeType !== 'freehand' && this.shapeType !== 'text' && distance < 2) {
         api.deleteShape(this.currentShapeId);
         api.setSelection([]);
       } else {
         // Final update at exact release position so bindings are detected correctly
-        if (PluginRegistry.hasPlugin(this.type)) {
-          const plugin = PluginRegistry.getPlugin(this.type);
+        if (PluginRegistry.hasPlugin(this.shapeType)) {
+          const plugin = PluginRegistry.getPlugin(this.shapeType);
           if (plugin.onDrawUpdate) {
             const state = api.getState();
             const shape = state.shapes.find(s => s.id === this.currentShapeId);

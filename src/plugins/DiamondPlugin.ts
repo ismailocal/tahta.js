@@ -2,46 +2,53 @@ import type { Shape, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
+function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
+  const n = pts.length;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
+    const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const t1 = d1 > 0 ? Math.min(r / d1, 0.45) : 0;
+    const t2 = d2 > 0 ? Math.min(r / d2, 0.45) : 0;
+    // p1: point on incoming edge, t1 fraction from curr back toward prev
+    const p1x = curr.x + (prev.x - curr.x) * t1;
+    const p1y = curr.y + (prev.y - curr.y) * t1;
+    // p2: point on outgoing edge, t2 fraction from curr toward next
+    const p2x = curr.x + (next.x - curr.x) * t2;
+    const p2y = curr.y + (next.y - curr.y) * t2;
+    if (i === 0) ctx.moveTo(p1x, p1y); else ctx.lineTo(p1x, p1y);
+    ctx.quadraticCurveTo(curr.x, curr.y, p2x, p2y);
+  }
+  ctx.closePath();
+}
+
 export class DiamondPlugin extends BaseRectPlugin {
   type = 'diamond';
-  customSelectionBrackets = true;
   defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'fill', 'layer', 'action'];
+
+  getCornerRadius(shape: Shape): number {
+    const w = shape.width || 0, h = shape.height || 0;
+    return Math.min(w, h) * 0.15;
+  }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
-    const r = Math.min(10, w * 0.12, h * 0.12);
-
-    // 4 tips: N, E, S, W
-    const pts = [
-      { x: cx,           y: shape.y      },
-      { x: shape.x + w,  y: cy           },
-      { x: cx,           y: shape.y + h  },
-      { x: shape.x,      y: cy           },
-    ];
+    const r = this.getCornerRadius(shape);
 
     ctx.save();
-    ctx.beginPath();
-    const n = pts.length;
-    for (let i = 0; i < n; i++) {
-      const prev = pts[(i - 1 + n) % n];
-      const curr = pts[i];
-      const next = pts[(i + 1) % n];
-      const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
-      const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
-      const t1 = Math.min(r / d1, 0.4);
-      const t2 = Math.min(r / d2, 0.4);
-      const p1x = curr.x + (prev.x - curr.x) * t1;
-      const p1y = curr.y + (prev.y - curr.y) * t1;
-      const p2x = curr.x + (next.x - curr.x) * t2;
-      const p2y = curr.y + (next.y - curr.y) * t2;
-      if (i === 0) ctx.moveTo(p1x, p1y); else ctx.lineTo(p1x, p1y);
-      ctx.quadraticCurveTo(curr.x, curr.y, p2x, p2y);
-    }
-    ctx.closePath();
+    buildDiamondPath(ctx, [
+      { x: cx,          y: shape.y     },
+      { x: shape.x + w, y: cy          },
+      { x: cx,          y: shape.y + h },
+      { x: shape.x,     y: cy          },
+    ], r);
 
     if (shape.fill && shape.fill !== 'transparent') {
       ctx.fillStyle = shape.fill;
@@ -57,19 +64,37 @@ export class DiamondPlugin extends BaseRectPlugin {
     ctx.restore();
   }
 
-  /** 4-point handle hit test at N/E/S/W diamond tips. */
+  drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const cx = x + w / 2, cy = y + h / 2;
+    buildDiamondPath(ctx, [
+      { x: cx,    y      },
+      { x: x + w, y: cy  },
+      { x: cx,    y: y+h },
+      { x,        y: cy  },
+    ], this.getCornerRadius(shape));
+    ctx.stroke();
+  }
+
+  /** 4-point handle hit test at the actual rendered tip positions (matching bracket locations). */
   getHandleAtPoint(shape: Shape, point: Point): string | null {
     const d = 14;
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
-    const pad = 6;
+    const hyp = Math.hypot(w / 2, h / 2);
+    const t = hyp > 0 ? Math.min(this.getCornerRadius(shape) / hyp, 0.45) : 0;
 
-    if (Math.abs(point.x - cx)               <= d && Math.abs(point.y - (shape.y - pad))     <= d) return 'n';
-    if (Math.abs(point.x - (shape.x + w + pad)) <= d && Math.abs(point.y - cy)               <= d) return 'e';
-    if (Math.abs(point.x - cx)               <= d && Math.abs(point.y - (shape.y + h + pad)) <= d) return 's';
-    if (Math.abs(point.x - (shape.x - pad))  <= d && Math.abs(point.y - cy)                  <= d) return 'w';
+    const nTipY = shape.y     + (h / 4) * t;
+    const eTipX = shape.x + w - (w / 4) * t;
+    const sTipY = shape.y + h - (h / 4) * t;
+    const wTipX = shape.x     + (w / 4) * t;
+
+    if (Math.abs(point.x - cx)    <= d && Math.abs(point.y - nTipY) <= d) return 'n';
+    if (Math.abs(point.x - eTipX) <= d && Math.abs(point.y - cy)    <= d) return 'e';
+    if (Math.abs(point.x - cx)    <= d && Math.abs(point.y - sTipY) <= d) return 's';
+    if (Math.abs(point.x - wTipX) <= d && Math.abs(point.y - cy)    <= d) return 'w';
     return null;
   }
 
@@ -83,86 +108,50 @@ export class DiamondPlugin extends BaseRectPlugin {
     return dx + dy <= 1;
   }
 
-  drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
+  getResizeHandlePositions(shape: Shape) {
     const { x, y, width: w, height: h } = this.getBounds(shape);
     const cx = x + w / 2, cy = y + h / 2;
-    const r = Math.min(10, w * 0.12, h * 0.12);
-    const pts = [
-      { x: cx,      y },
-      { x: x + w,   y: cy },
-      { x: cx,      y: y + h },
-      { x,          y: cy },
+    const r = this.getCornerRadius(shape);
+    const hyp = Math.hypot(w / 2, h / 2);
+    // t: fraction setback along each edge — determines where rendered tip peak lands
+    const t = hyp > 0 ? Math.min(r / hyp, 0.45) : 0;
+
+    // Quadratic bezier peak (rendered tip) = midpoint(p1,p2) * 0.5 + ctrl * 0.5
+    // peak_y for N = y + (h/2)*t*0.5 = y + (h*t)/4
+    const nTipY  = y     + (h / 4) * t;
+    const eTipX  = x + w - (w / 4) * t;
+    const sTipY  = y + h - (h / 4) * t;
+    const wTipX  = x     + (w / 4) * t;
+
+    // Setback points for the bracket bezier (same geometry as buildDiamondPath)
+    const hw = w / 2, hh = h / 2;
+    const nP1x = cx - hw * t, nP1y = y  + hh * t;
+    const nP2x = cx + hw * t, nP2y = nP1y;
+    const eP1x = x+w - hw*t,  eP1y = cy - hh * t;
+    const eP2x = eP1x,        eP2y = cy + hh * t;
+    const sP1x = cx + hw * t, sP1y = y+h - hh * t;
+    const sP2x = cx - hw * t, sP2y = sP1y;
+    const wP1x = x  + hw * t, wP1y = cy + hh * t;
+    const wP2x = wP1x,        wP2y = cy - hh * t;
+
+    const bezier = (p1x: number, p1y: number, ctrlX: number, ctrlY: number, p2x: number, p2y: number) =>
+      (ctx: CanvasRenderingContext2D) => {
+        ctx.beginPath();
+        ctx.moveTo(p1x, p1y);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, p2x, p2y);
+        ctx.stroke();
+      };
+
+    return [
+      { x: cx,    y: nTipY, angle: -Math.PI / 2, draw: bezier(nP1x, nP1y, cx,   y,    nP2x, nP2y) },
+      { x: eTipX, y: cy,    angle:  0,            draw: bezier(eP1x, eP1y, x+w,  cy,   eP2x, eP2y) },
+      { x: cx,    y: sTipY, angle:  Math.PI / 2,  draw: bezier(sP1x, sP1y, cx,   y+h,  sP2x, sP2y) },
+      { x: wTipX, y: cy,    angle:  Math.PI,       draw: bezier(wP1x, wP1y, x,    cy,   wP2x, wP2y) },
     ];
-    ctx.beginPath();
-    const n = pts.length;
-    for (let i = 0; i < n; i++) {
-      const prev = pts[(i - 1 + n) % n];
-      const curr = pts[i];
-      const next = pts[(i + 1) % n];
-      const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
-      const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
-      const t1 = Math.min(r / d1, 0.4), t2 = Math.min(r / d2, 0.4);
-      const p1x = curr.x + (prev.x - curr.x) * t1, p1y = curr.y + (prev.y - curr.y) * t1;
-      const p2x = curr.x + (next.x - curr.x) * t2, p2y = curr.y + (next.y - curr.y) * t2;
-      if (i === 0) ctx.moveTo(p1x, p1y); else ctx.lineTo(p1x, p1y);
-      ctx.quadraticCurveTo(curr.x, curr.y, p2x, p2y);
-    }
-    ctx.closePath();
-    ctx.stroke();
   }
 
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
     const bounds = this.getBounds(shape);
-    if (shape.locked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-    }
-
-    // V-shape brackets at diamond tips (N/E/S/W)
-    const w = bounds.width;
-    const h = bounds.height;
-    const cx = bounds.x + w / 2;
-    const cy = bounds.y + h / 2;
-    const arm = Math.min(14, w * 0.18, h * 0.18);
-    const color = shape.stroke || '#ffffff';
-    const hw = w / 2, hh = h / 2;
-    const lenNE = Math.hypot(hw, hh);
-    const ux = hw / lenNE, uy = hh / lenNE;
-
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-
-    // N tip
-    ctx.beginPath();
-    ctx.moveTo(cx - ux * arm, cy - hh + uy * arm);
-    ctx.lineTo(cx, cy - hh);
-    ctx.lineTo(cx + ux * arm, cy - hh + uy * arm);
-    ctx.stroke();
-
-    // S tip
-    ctx.beginPath();
-    ctx.moveTo(cx - ux * arm, cy + hh - uy * arm);
-    ctx.lineTo(cx, cy + hh);
-    ctx.lineTo(cx + ux * arm, cy + hh - uy * arm);
-    ctx.stroke();
-
-    // E tip
-    ctx.beginPath();
-    ctx.moveTo(cx + hw - ux * arm, cy - uy * arm);
-    ctx.lineTo(cx + hw, cy);
-    ctx.lineTo(cx + hw - ux * arm, cy + uy * arm);
-    ctx.stroke();
-
-    // W tip
-    ctx.beginPath();
-    ctx.moveTo(cx - hw + ux * arm, cy - uy * arm);
-    ctx.lineTo(cx - hw, cy);
-    ctx.lineTo(cx - hw + ux * arm, cy + uy * arm);
-    ctx.stroke();
-
-    ctx.restore();
+    if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
   }
 }

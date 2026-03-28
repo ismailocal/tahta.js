@@ -4,7 +4,6 @@ import { BaseRectPlugin } from './BaseRectPlugin';
 
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
-  customSelectionBrackets = true;
   defaultStyle: Partial<Shape> = { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'fill', 'layer', 'action'];
 
@@ -60,32 +59,33 @@ export class EllipsePlugin extends BaseRectPlugin {
     ctx.stroke();
   }
 
+  getResizeHandlePositions(shape: Shape) {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const ecx = x + w / 2, ecy = y + h / 2;
+    const rx = w / 2, ry = h / 2;
+    const arcLen = 14; // fixed pixel arc length at each handle
+
+    const arcDraw = (angle: number) => {
+      // Local radius of ellipse at this angle for arc-length → span conversion
+      const localR = Math.abs(Math.sin(angle)) > 0.5 ? rx : ry;
+      const span = localR > 0 ? arcLen / (2 * localR) : 0.15;
+      return (ctx: CanvasRenderingContext2D) => {
+        ctx.beginPath();
+        ctx.ellipse(ecx, ecy, rx, ry, 0, angle - span, angle + span);
+        ctx.stroke();
+      };
+    };
+
+    return [
+      { x: ecx,    y,       angle: -Math.PI / 2, draw: arcDraw(-Math.PI / 2) }, // N
+      { x: x + w,  y: ecy,  angle: 0,            draw: arcDraw(0)            }, // E
+      { x: ecx,    y: y+h,  angle: Math.PI / 2,  draw: arcDraw(Math.PI / 2) }, // S
+      { x,         y: ecy,  angle: Math.PI,       draw: arcDraw(Math.PI)     }, // W
+    ];
+  }
+
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
     const bounds = this.getBounds(shape);
-    if (shape.locked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-    }
-
-    // Small arc indicators at N/E/S/W handle positions on the ellipse
-    const cx = bounds.x + bounds.width / 2;
-    const cy = bounds.y + bounds.height / 2;
-    const rx = bounds.width / 2;
-    const ry = bounds.height / 2;
-    const span = 0.13;
-    const color = shape.stroke || '#ffffff';
-
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-
-    [-Math.PI / 2, 0, Math.PI / 2, Math.PI].forEach(angle => {
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, angle - span, angle + span);
-      ctx.stroke();
-    });
-
-    ctx.restore();
+    if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
   }
 }

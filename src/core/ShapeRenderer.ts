@@ -99,10 +99,8 @@ export function renderShape(
   if ((isSelected || isHovered) && plugin.renderSelection) {
     plugin.renderSelection(ctx, shape, allShapes);
   }
-  if ((isSelected || isHovered) && !plugin.isConnector && !plugin.customSelectionBrackets && plugin.getBounds) {
-    const bounds = plugin.getBounds(shape);
-    const bracketRadius = plugin.getBracketRadius ? plugin.getBracketRadius(shape) : 0;
-    renderCornerBrackets(ctx, bounds, !!plugin.cornersOnly, bracketRadius);
+  if ((isSelected || isHovered) && !plugin.isConnector && plugin.getResizeHandlePositions) {
+    renderHandleBrackets(ctx, plugin.getResizeHandlePositions(shape));
   }
   if (isHovered || isSelected) {
     renderHoverBorder(ctx, shape, plugin);
@@ -183,69 +181,29 @@ function renderHoverBorder(ctx: CanvasRenderingContext2D, shape: Shape, plugin: 
   ctx.restore();
 }
 
-function renderCornerBrackets(
+/**
+ * Central bracket renderer. Each handle provides a `draw` closure that renders
+ * its own indicator (arc, L-bracket, tick, ellipse arc…). The renderer only
+ * sets up shared canvas state and dispatches — no shape-specific logic here.
+ */
+function renderHandleBrackets(
   ctx: CanvasRenderingContext2D,
-  bounds: { x: number; y: number; width: number; height: number },
-  cornersOnly = false,
-  radius = 0
+  handles: Array<{ x: number; y: number; angle: number; draw?: (ctx: CanvasRenderingContext2D) => void }>
 ) {
-  const { x, y, width: w, height: h } = bounds;
-  const arm = Math.min(12, w * 0.2, h * 0.2); // bracket arm length
-  const color = '#60a5fa';
+  if (!handles.length) return;
 
   ctx.save();
-  ctx.strokeStyle = color;
+  ctx.strokeStyle = '#60a5fa';
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  if (radius > 0) {
-    // Arc brackets at each rounded corner
-    const r = Math.min(radius, w / 2, h / 2);
-    const span = Math.min(arm / r, Math.PI / 4);
-    // midpoint angles (clockwise canvas arcs): NW=5π/4, NE=7π/4, SW=3π/4, SE=π/4
-    [
-      { cx: x + r,     cy: y + r,     mid: 5 * Math.PI / 4 }, // NW
-      { cx: x + w - r, cy: y + r,     mid: 7 * Math.PI / 4 }, // NE
-      { cx: x + r,     cy: y + h - r, mid: 3 * Math.PI / 4 }, // SW
-      { cx: x + w - r, cy: y + h - r, mid: 1 * Math.PI / 4 }, // SE
-    ].forEach(({ cx, cy, mid }) => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, mid - span, mid + span, false);
-      ctx.stroke();
-    });
-  } else {
-    const corners = [
-      { cx: x,     cy: y,     dx:  1, dy:  1 }, // NW
-      { cx: x + w, cy: y,     dx: -1, dy:  1 }, // NE
-      { cx: x,     cy: y + h, dx:  1, dy: -1 }, // SW
-      { cx: x + w, cy: y + h, dx: -1, dy: -1 }, // SE
-    ];
-
-    corners.forEach(({ cx, cy, dx, dy }) => {
-      ctx.beginPath();
-      ctx.moveTo(cx + dx * arm, cy);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(cx, cy + dy * arm);
-      ctx.stroke();
-    });
-  }
-
-  if (!cornersOnly) {
-    // Edge midpoint ticks
-    const tick = Math.min(8, arm);
-    [
-      { px: x + w / 2, py: y,         horiz: true  }, // N
-      { px: x + w / 2, py: y + h,     horiz: true  }, // S
-      { px: x,         py: y + h / 2, horiz: false }, // W
-      { px: x + w,     py: y + h / 2, horiz: false }, // E
-    ].forEach(({ px, py, horiz }) => {
-      ctx.beginPath();
-      if (horiz) { ctx.moveTo(px - tick, py); ctx.lineTo(px + tick, py); }
-      else       { ctx.moveTo(px, py - tick); ctx.lineTo(px, py + tick); }
-      ctx.stroke();
-    });
+  for (const h of handles) {
+    if (h.draw) {
+      h.draw(ctx);
+    }
   }
 
   ctx.restore();

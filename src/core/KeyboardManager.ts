@@ -53,6 +53,7 @@ export function setupKeyboard(
       if (e.key === 'h') api.setTool('hand');
       if (e.key === 'r') api.setTool('rectangle');
       if (e.key === 'e') api.setTool('ellipse');
+      if (e.key === 'd') api.setTool('diamond');
       if (e.key === 'l') api.setTool('line');
       if (e.key === 'a') api.setTool('arrow');
       if (e.key === 'p') api.setTool('freehand');

@@ -23,7 +23,7 @@ export class DbViewPlugin extends BaseRectPlugin {
   protected minWidth = 80;
   protected minHeight = 40;
 
-  getBracketRadius(): number { return 6; }
+  getCornerRadius(): number { return 6; }
 
   getBounds(shape: Shape) {
     return { x: shape.x, y: shape.y, width: shape.width ?? DEFAULT_WIDTH, height: shape.height ?? DEFAULT_HEIGHT };
