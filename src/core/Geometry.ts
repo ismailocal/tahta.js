@@ -1,5 +1,4 @@
 import type { Point, Shape, CanvasState } from './types';
-import { clamp, getTextMetrics } from './Utils';
 
 import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance } from './GeometryUtils';
 

@@ -3,19 +3,7 @@ import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
 import { getPathMidpoint, renderEndpointHandles } from '../core/lineUtils';
-import { PluginRegistry } from './PluginRegistry';
-import { findNearestPort } from './ArrowPlugin';
-
-function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
-  if (portId && PluginRegistry.hasPlugin(shape.type)) {
-    const plugin = PluginRegistry.getPlugin(shape.type);
-    if (plugin.getConnectionPoints) {
-      const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
-      if (port) return { x: port.x, y: port.y };
-    }
-  }
-  return { x: shape.x + (shape.width || 0) / 2, y: shape.y + (shape.height || 0) / 2 };
-}
+import { findNearestPort, getBindingPoint } from './ArrowPlugin';
 
 export class LinePlugin implements IShapePlugin {
   type = 'line';

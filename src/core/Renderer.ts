@@ -142,8 +142,6 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   
   lastDragState = state.isDraggingSelection;
 
-  lastDragState = state.isDraggingSelection;
-
   renderOverlays(ctx, state);
 
   ctx.restore();

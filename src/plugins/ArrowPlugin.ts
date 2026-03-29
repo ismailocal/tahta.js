@@ -44,7 +44,7 @@ function getCurvedControlPoint(p1: Point, p2: Point): Point {
 }
 
 
-function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
+export function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
   if (portId && PluginRegistry.hasPlugin(shape.type)) {
     const plugin = PluginRegistry.getPlugin(shape.type);
     if (plugin.getConnectionPoints) {

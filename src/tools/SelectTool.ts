@@ -5,7 +5,7 @@ import { updateBoxSelection } from './SelectBoxHelper';
 import { dragHandle, translateSelection } from './SelectDragHelper';
 import { openDbTableEditor } from '../ui/DbTableEditor';
 import { PluginRegistry } from '../plugins/index';
-import { createId } from '../core/Utils';
+import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
 
 const PORT_HIT_RADIUS = 12;
@@ -69,7 +69,7 @@ export class SelectTool implements ToolDefinition {
             type: 'arrow',
             x: port.x,
             y: port.y,
-            seed: Math.floor(Math.random() * 2 ** 31),
+            seed: randomSeed(),
             points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
             startBinding: { elementId: hoveredShape.id, portId: port.id },
           } as unknown as Shape;
@@ -282,7 +282,11 @@ export class SelectTool implements ToolDefinition {
     const hit = [...state.shapes].reverse().find(s => {
       if (!PluginRegistry.hasPlugin(s.type)) return false;
       const plugin = PluginRegistry.getPlugin(s.type);
-      if (plugin.isConnector || !plugin.getBounds) return false;
+      if (!plugin.getBounds) return false;
+      // Connectors (arrow/line): use isPointInside (distance-to-path check)
+      if (plugin.isConnector) {
+        return plugin.isPointInside ? plugin.isPointInside(pt, s, state.shapes) : false;
+      }
       const b = plugin.getBounds(s);
       return pt.x >= b.x && pt.x <= b.x + b.width && pt.y >= b.y && pt.y <= b.y + b.height;
     });

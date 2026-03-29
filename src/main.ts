@@ -1,5 +1,8 @@
 import { mountCanvas } from './index';
 
+// Preload handwriting font so canvas ctx.font renders correctly from the start
+document.fonts.load("20px 'Architects Daughter'");
+
 const root = document.getElementById('app');
 if (root) {
   const canvas = document.createElement('canvas');

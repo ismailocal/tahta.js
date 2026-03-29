@@ -3,6 +3,8 @@ import { PluginRegistry } from '../plugins/index';
 
 export const createId = () => Math.random().toString(36).slice(2, 10);
 
+export const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
+
 export function hexToRgba(hex: string, alpha = 1): string {
   const safe = hex.replace('#', '');
   const [r, g, b] = safe.length === 3

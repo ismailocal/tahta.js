@@ -1,6 +1,6 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
 import { getStylePreset } from '../core/constants';
-import { createId } from '../core/Utils';
+import { createId, randomSeed } from '../core/Utils';
 import { getTopShapeAtPoint } from '../core/Geometry';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 
@@ -81,7 +81,7 @@ export class LineTool implements ToolDefinition {
       y: payload.world.y,
       // points[0] = confirmed origin, points[1] = pending preview (follows mouse)
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      seed: Math.floor(Math.random() * 2 ** 31),
+      seed: randomSeed(),
       startBinding: hitShape ? {
         elementId: hitShape.id,
         offsetX: payload.world.x - hitShape.x,

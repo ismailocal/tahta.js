@@ -1,5 +1,5 @@
 import type { Shape, Point } from '../core/types';
-import { createId } from '../core/Utils';
+import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
 
 // ─── Core data model ──────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ function s_arrow(
     points: [{ x: 0, y: 0 }, { x: to.x - from.x, y: to.y - from.y }],
     startBinding: { elementId: from.shapeId, portId: from.id },
     endBinding:   { elementId: to.shapeId,   portId: to.id   },
-    seed: Math.floor(Math.random() * 2 ** 31),
+    seed: randomSeed(),
     ...opts,
   } as TemplateShape;
 }
@@ -122,7 +122,7 @@ function s_rect(x: number, y: number, w: number, h: number,
   return {
     ...getStylePreset('rectangle'),
     _tid: createId(), type: 'rectangle', x, y, width: w, height: h, zIndex: 0,
-    text, seed: Math.floor(Math.random() * 2 ** 31), ...opts,
+    text, seed: randomSeed(), ...opts,
   } as TemplateShape;
 }
 
@@ -131,7 +131,7 @@ function s_oval(x: number, y: number, w: number, h: number,
   return {
     ...getStylePreset('ellipse'),
     _tid: createId(), type: 'ellipse', x, y, width: w, height: h, zIndex: 0,
-    text, seed: Math.floor(Math.random() * 2 ** 31), ...opts,
+    text, seed: randomSeed(), ...opts,
   } as TemplateShape;
 }
 
@@ -140,7 +140,7 @@ function s_diamond(x: number, y: number, w: number, h: number,
   return {
     ...getStylePreset('diamond'),
     _tid: createId(), type: 'diamond', x, y, width: w, height: h, zIndex: 0,
-    text, seed: Math.floor(Math.random() * 2 ** 31), ...opts,
+    text, seed: randomSeed(), ...opts,
   } as TemplateShape;
 }
 
@@ -154,7 +154,7 @@ function s_dbTable(x: number, y: number, tableName: string,
     ...getStylePreset('db-table'),
     _tid: createId(), type: 'db-table', x, y, width: 220, height, zIndex: 0,
     data: { tableName, columns },
-    seed: Math.floor(Math.random() * 2 ** 31), ...opts,
+    seed: randomSeed(), ...opts,
   } as TemplateShape;
 }
 
