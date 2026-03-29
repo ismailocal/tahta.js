@@ -17,10 +17,12 @@ function getShapeVersionHash(shape: Shape): string {
     strokeStyle: shape.strokeStyle,
     fill: shape.fill,
     fillStyle: shape.fillStyle,
+    roughness: shape.roughness,
     roundness: shape.roundness,
     edgeStyle: shape.edgeStyle,
     startArrowhead: shape.startArrowhead,
-    endArrowhead: shape.endArrowhead
+    endArrowhead: shape.endArrowhead,
+    data: shape.data,
   });
 }
 

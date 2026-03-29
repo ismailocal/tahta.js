@@ -6,7 +6,7 @@ import { pointToSegmentDistance } from '../core/Geometry';
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
   defaultStyle: Partial<Shape> = { stroke: '#f59e0b', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
     const pts = shape.points || [];

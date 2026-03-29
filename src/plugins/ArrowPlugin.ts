@@ -60,7 +60,7 @@ export class ArrowPlugin implements IShapePlugin {
   isConnector = true;
   canBind = true;
   defaultStyle: Partial<Shape> = { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
-  defaultProperties = ['stroke', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'layer', 'action'];
 
   getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
     const pts = shape.points || [];

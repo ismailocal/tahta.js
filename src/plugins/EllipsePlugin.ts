@@ -5,7 +5,7 @@ import { BaseRectPlugin } from './BaseRectPlugin';
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
   defaultStyle: Partial<Shape> = { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'fill', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
 
   render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
     const w = shape.width || 0;

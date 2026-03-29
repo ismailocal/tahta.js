@@ -13,10 +13,8 @@ function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number
     const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
     const t1 = d1 > 0 ? Math.min(r / d1, 0.45) : 0;
     const t2 = d2 > 0 ? Math.min(r / d2, 0.45) : 0;
-    // p1: point on incoming edge, t1 fraction from curr back toward prev
     const p1x = curr.x + (prev.x - curr.x) * t1;
     const p1y = curr.y + (prev.y - curr.y) * t1;
-    // p2: point on outgoing edge, t2 fraction from curr toward next
     const p2x = curr.x + (next.x - curr.x) * t2;
     const p2y = curr.y + (next.y - curr.y) * t2;
     if (i === 0) ctx.moveTo(p1x, p1y); else ctx.lineTo(p1x, p1y);
@@ -25,43 +23,64 @@ function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number
   ctx.closePath();
 }
 
+function buildDiamondSvgPath(pts: Point[], r: number): string {
+  const n = pts.length;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
+    const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const t1 = d1 > 0 ? Math.min(r / d1, 0.45) : 0;
+    const t2 = d2 > 0 ? Math.min(r / d2, 0.45) : 0;
+    const p1x = curr.x + (prev.x - curr.x) * t1;
+    const p1y = curr.y + (prev.y - curr.y) * t1;
+    const p2x = curr.x + (next.x - curr.x) * t2;
+    const p2y = curr.y + (next.y - curr.y) * t2;
+    d += i === 0 ? `M ${p1x} ${p1y}` : ` L ${p1x} ${p1y}`;
+    d += ` Q ${curr.x} ${curr.y} ${p2x} ${p2y}`;
+  }
+  return d + ' Z';
+}
+
 export class DiamondPlugin extends BaseRectPlugin {
   type = 'diamond';
   defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'fill', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
 
   getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;
     return Math.min(w, h) * 0.15;
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
     const r = this.getCornerRadius(shape);
 
-    ctx.save();
-    buildDiamondPath(ctx, [
+    const tips: Point[] = [
       { x: cx,          y: shape.y     },
       { x: shape.x + w, y: cy          },
       { x: cx,          y: shape.y + h },
       { x: shape.x,     y: cy          },
-    ], r);
+    ];
 
-    if (shape.fill && shape.fill !== 'transparent') {
-      ctx.fillStyle = shape.fill;
-      ctx.fill();
-    }
+    const hasFill = shape.fill && shape.fill !== 'transparent';
+    const options: any = {
+      stroke: shape.stroke || '#f8fafc',
+      fill: hasFill ? shape.fill : undefined,
+      strokeWidth: shape.strokeWidth || 1,
+      roughness: shape.roughness ?? 0,
+      fillStyle: shape.fillStyle || 'hachure',
+      seed: shape.seed ?? 1,
+    };
+    if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
+    else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
 
-    ctx.strokeStyle = shape.stroke || '#f8fafc';
-    ctx.lineWidth = shape.strokeWidth || 1;
-    if (shape.strokeStyle === 'dashed') ctx.setLineDash([8, 8]);
-    else if (shape.strokeStyle === 'dotted') ctx.setLineDash([2, 6]);
-    else ctx.setLineDash([]);
-    ctx.stroke();
-    ctx.restore();
+    rc.path(buildDiamondSvgPath(tips, r), options);
   }
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
@@ -99,7 +118,8 @@ export class DiamondPlugin extends BaseRectPlugin {
   }
 
   getConnectionPoints(shape: Shape): ConnectionPoint[] {
-    const { x, y, width: w, height: h } = shape;
+    const { x, y } = shape;
+    const w = shape.width ?? 0, h = shape.height ?? 0;
     const cx = x + w / 2, cy = y + h / 2;
     const r = this.getCornerRadius(shape);
     // Half-diagonal of one edge (e.g. top-left edge from left-tip to top-tip)
