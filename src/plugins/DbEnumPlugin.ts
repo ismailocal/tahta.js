@@ -18,7 +18,7 @@ function getEnumData(shape: Shape): DbEnumData {
 export class DbEnumPlugin extends BaseRectPlugin {
   type = 'db-enum';
   defaultStyle: Partial<Shape> = { stroke: '#f472b6', opacity: 1 };
-  defaultProperties = ['layer', 'action'];
+  defaultProperties = ['stroke', 'opacity', 'layer', 'action'];
   protected minWidth = 80;
   protected minHeight = 40;
 

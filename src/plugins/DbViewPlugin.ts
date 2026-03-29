@@ -19,7 +19,7 @@ function getViewData(shape: Shape): DbViewData {
 export class DbViewPlugin extends BaseRectPlugin {
   type = 'db-view';
   defaultStyle: Partial<Shape> = { stroke: '#34d399', opacity: 1 };
-  defaultProperties = ['layer', 'action'];
+  defaultProperties = ['stroke', 'opacity', 'layer', 'action'];
   protected minWidth = 80;
   protected minHeight = 40;
 

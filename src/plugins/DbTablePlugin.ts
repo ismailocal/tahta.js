@@ -30,7 +30,7 @@ function getTableData(shape: Shape): DbTableData {
 export class DbTablePlugin extends BaseRectPlugin {
   type = 'db-table';
   defaultStyle: Partial<Shape> = { stroke: '#60a5fa', opacity: 1 };
-  defaultProperties = ['layer', 'action'];
+  defaultProperties = ['stroke', 'opacity', 'layer', 'action'];
   protected minWidth = 80;
   protected minHeight = 40;
 
