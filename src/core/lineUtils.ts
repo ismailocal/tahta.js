@@ -1,6 +1,8 @@
-import type { Shape, Point, ArrowheadStyle } from './types';
+import type { Shape, Point, ArrowheadStyle, PointerPayload, ICanvasAPI } from './types';
 import { getRayEllipseIntersection } from './GeometryUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
+import { getThemeAdjustedStroke } from './Utils';
+export { getThemeAdjustedStroke };
 
 /** Draws an open path with quadratic-curve rounding at each interior bend point. */
 export function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[], radius: number) {
@@ -23,12 +25,12 @@ export function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[], 
 }
 
 /** Draws small diamond-shaped handle indicators at line/arrow endpoints. */
-export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, p2: Point, stroke?: string) {
-  const color = stroke || '#ffffff';
+export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, p2: Point, stroke?: string, theme: 'light' | 'dark' = 'dark') {
+  const color = getThemeAdjustedStroke(stroke, theme);
   const r = 5;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.fillStyle = '#1e1e24';
+  ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24';
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
@@ -43,6 +45,18 @@ export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, 
     ctx.stroke();
   });
   ctx.restore();
+}
+
+export function onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+  const theme = api.getState().theme || 'dark';
+  const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
+  return {
+    x: payload.world.x,
+    y: payload.world.y,
+    points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
+    stroke: defaultColor,
+    strokeWidth: 1.8
+  };
 }
 
 export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1: Point, p2: Point } {
@@ -248,7 +262,7 @@ export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Poin
   // Manhattan distance heuristic
   const h = (i: number, j: number) => Math.abs(xs[i] - d2.x) + Math.abs(ys[j] - d2.y);
 
-  // Turn penalty: proportional to total distance (same approach as Excalidraw)
+  // Turn penalty: proportional to total distance (same approach as Tahta)
   const totalDist = Math.abs(d1.x - d2.x) + Math.abs(d1.y - d2.y);
   const BEND = Math.max(totalDist * totalDist, 1);
 
@@ -307,7 +321,7 @@ export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Poin
   return collapseCollinear([p1, ...mid, p2]);
 }
 
-export function drawArrowhead(rc: any, ctx: CanvasRenderingContext2D, point: Point, angle: number, style: ArrowheadStyle, options: any) {
+export function drawArrowhead(rc: any, ctx: CanvasRenderingContext2D, point: Point, angle: number, style: ArrowheadStyle, options: any, theme: 'light' | 'dark' = 'dark') {
   if (style === 'none') return;
   const size = Math.max(12, Math.min(30, (options.strokeWidth || 1) * 6 + 8));
 
@@ -322,11 +336,11 @@ export function drawArrowhead(rc: any, ctx: CanvasRenderingContext2D, point: Poi
     rc.polygon([[point.x, point.y], [p1.x, p1.y], [p2.x, p2.y]], { ...options, fill: options.stroke, fillStyle: 'solid' });
   } else if (style === 'circle') {
     const cx = point.x - (size/2) * Math.cos(angle), cy = point.y - (size/2) * Math.sin(angle);
-    rc.ellipse(cx, cy, size, size, { ...options, fill: '#1e1e24', fillStyle: 'solid' });
+    rc.ellipse(cx, cy, size, size, { ...options, fill: theme === 'light' ? '#ffffff' : '#1e1e24', fillStyle: 'solid' });
   } else if (style === 'diamond') {
     const cx = point.x - (size/2) * Math.cos(angle), cy = point.y - (size/2) * Math.sin(angle), hw = size / 2.5;
     const p1 = point, p2 = { x: cx - hw * Math.sin(angle), y: cy + hw * Math.cos(angle) }, p3 = { x: point.x - size * Math.cos(angle), y: point.y - size * Math.sin(angle) }, p4 = { x: cx + hw * Math.sin(angle), y: cy - hw * Math.cos(angle) };
-    rc.polygon([[p1.x, p1.y], [p2.x, p2.y], [p3.x, p3.y], [p4.x, p4.y]], { ...options, fill: '#1e1e24', fillStyle: 'solid' });
+    rc.polygon([[p1.x, p1.y], [p2.x, p2.y], [p3.x, p3.y], [p4.x, p4.y]], { ...options, fill: theme === 'light' ? '#ffffff' : '#1e1e24', fillStyle: 'solid' });
   } else if (style === 'bar') {
     const hw = size / 2;
     const p1 = { x: point.x - hw * Math.sin(angle), y: point.y + hw * Math.cos(angle) }, p2 = { x: point.x + hw * Math.sin(angle), y: point.y - hw * Math.cos(angle) };

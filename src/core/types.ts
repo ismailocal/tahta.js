@@ -63,6 +63,7 @@ export interface CanvasState {
   selectedIds: string[];
   activeTool: string;
   viewport: { x: number; y: number; zoom: number };
+  userToFollow?: { socketId: string; username: string } | null;
   hoveredShapeId: string | null;
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
@@ -75,6 +76,8 @@ export interface CanvasState {
   erasingShapeIds?: string[];
   editingShapeId?: string | null;
   snapLines?: { x1: number; y1: number; x2: number; y2: number }[];
+  theme?: 'light' | 'dark';
+  version: number;
 }
 
 export interface PointerPayload {
@@ -90,8 +93,9 @@ export interface PointerPayload {
 }
 
 export interface ICanvasAPI {
+  bus: any;
   getState: () => CanvasState;
-  setState: (updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)) => void;
+  setState: (updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState), forceVersion?: number) => void;
   addShape: (shape: Shape) => void;
   updateShape: (id: string, patch: Partial<Shape>, force?: boolean) => void;
   replaceShape: (id: string, shape: Shape) => void;

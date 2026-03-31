@@ -1,4 +1,4 @@
-import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
@@ -48,21 +48,22 @@ export class DbEnumPlugin extends BaseRectPlugin {
     return points;
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const { enumName, values } = getEnumData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;
     const h = shape.height ?? this.getDefaultHeight(shape);
-    const accent = shape.stroke || '#f472b6';
+    const isLight = theme === 'light';
+    const accent = shape.stroke || (isLight ? '#475569' : '#cbd5e0');
 
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, 6);
     ctx.clip();
 
-    ctx.fillStyle = '#1a0a1e'; ctx.fill();
-
-    ctx.fillStyle = '#2d0a2e';
+    ctx.fillStyle = isLight ? '#ffffff' : '#1a0a1e'; ctx.fill();
+ 
+    ctx.fillStyle = isLight ? '#fdf2f8' : '#2d0a2e';
     ctx.beginPath(); ctx.rect(x, y, w, HEADER_HEIGHT); ctx.fill();
 
     ctx.fillStyle = accent;
@@ -73,7 +74,7 @@ export class DbEnumPlugin extends BaseRectPlugin {
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText('ENUM', x + 10, y + 10);
 
-    ctx.fillStyle = '#fdf4ff';
+    ctx.fillStyle = isLight ? '#be185d' : '#fdf4ff';
     ctx.font = 'bold 13px "Inter", system-ui, sans-serif';
     ctx.fillText(enumName, x + 10, y + HEADER_HEIGHT / 2 + 6, w - 20);
 
@@ -81,13 +82,13 @@ export class DbEnumPlugin extends BaseRectPlugin {
       const rowY = y + HEADER_HEIGHT + BADGE_HEIGHT + i * ROW_HEIGHT;
       if (rowY >= y + h) return;
 
-      ctx.strokeStyle = '#3d1045'; ctx.lineWidth = 1;
+      ctx.strokeStyle = isLight ? '#fce7f3' : '#3d1045'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x, rowY); ctx.lineTo(x + w, rowY); ctx.stroke();
 
       ctx.fillStyle = accent;
       ctx.beginPath(); ctx.arc(x + 14, rowY + ROW_HEIGHT / 2, 3, 0, Math.PI * 2); ctx.fill();
 
-      ctx.fillStyle = '#f9a8d4';
+      ctx.fillStyle = isLight ? '#be185d' : '#f9a8d4';
       ctx.font = '12px "Inter", system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(val, x + 24, rowY + ROW_HEIGHT / 2, w - 34);
@@ -99,16 +100,19 @@ export class DbEnumPlugin extends BaseRectPlugin {
     ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.stroke();
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const bounds = this.getBounds(shape);
     if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
     const defaultValues = ['ACTIVE', 'INACTIVE', 'PENDING'];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
-      data: { enumName: 'Status', values: defaultValues } as DbEnumData,
+      stroke: defaultColor,
+      data: { enumName: 'Status', values: defaultValues } as any,
     };
   }
 }

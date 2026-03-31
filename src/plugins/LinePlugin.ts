@@ -1,28 +1,28 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
-import { getPathMidpoint, renderEndpointHandles } from '../core/lineUtils';
+import { getPathMidpoint, renderEndpointHandles, getThemeAdjustedStroke } from '../core/lineUtils';
 import { findNearestPort, getBindingPoint } from './ArrowPlugin';
 
 export class LinePlugin implements IShapePlugin {
   type = 'line';
   isConnector = true;
   canBind = true;
-  defaultStyle: Partial<Shape> = { stroke: '#f8fafc', strokeWidth: 1, roughness: 0, opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#1e293b', strokeWidth: 1.8, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'roughness', 'layer', 'action'];
 
   private worldPoints(shape: Shape): Point[] {
     return (shape.points || []).map(p => ({ x: shape.x + p.x, y: shape.y + p.y }));
   }
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return;
-
+    
     const options: any = {
-      stroke: shape.stroke || '#f8fafc',
-      strokeWidth: shape.strokeWidth || 1,
+      stroke: getThemeAdjustedStroke(shape.stroke, theme),
+      strokeWidth: shape.strokeWidth || 1.8,
       roughness: shape.roughness ?? 0,
       seed: shape.seed ?? 1,
     };
@@ -36,11 +36,11 @@ export class LinePlugin implements IShapePlugin {
     }
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark') {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return;
     if (shape.locked) drawLockIcon(ctx, wpts[0].x, wpts[0].y);
-    renderEndpointHandles(ctx, wpts[0], wpts[wpts.length - 1], shape.stroke);
+    renderEndpointHandles(ctx, wpts[0], wpts[wpts.length - 1], shape.stroke, theme);
   }
 
   getBounds(shape: Shape) {
@@ -76,13 +76,15 @@ export class LinePlugin implements IShapePlugin {
     return false;
   }
 
-  onDrawInit(payload: PointerPayload, allShapes: Shape[]): Partial<Shape> {
-    const snap = findNearestPort(payload.world, allShapes);
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
     return {
-      x: snap ? snap.x : payload.world.x,
-      y: snap ? snap.y : payload.world.y,
+      x: payload.world.x,
+      y: payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      startBinding: snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined,
+      stroke: defaultColor,
+      strokeWidth: 1.8
     };
   }
 

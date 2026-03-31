@@ -110,9 +110,9 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   if (has('strokeWidth')) {
     html += section('Kalınlık',
       btnGroup(
-        iconBtn('strokeWidth', '1', I.strokeThin,   sw <= 1,  'İnce'),
-        iconBtn('strokeWidth', '2', I.strokeMed,    sw === 2, 'Orta'),
-        iconBtn('strokeWidth', '4', I.strokeThick,  sw >= 4,  'Kalın'),
+        iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'İnce'),
+        iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Orta'),
+        iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Kalın'),
       )
     );
   }

@@ -1,7 +1,9 @@
 import { WhiteboardStore } from './core/Store';
+import type { CanvasState } from './core/types';
 import { EventBus } from './core/EventBus';
 import { InputManager } from './core/InputManager';
-import { renderScene } from './core/Renderer';
+import { renderScene, clearRendererState } from './core/Renderer';
+import { clearImageCache } from './plugins/ImagePlugin';
 
 import { SelectTool } from './tools/SelectTool';
 import { HandTool } from './tools/HandTool';
@@ -16,9 +18,9 @@ import './styles.css';
 
 
 
-export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
+export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initialState: Partial<CanvasState> = {}) {
   const bus = new EventBus();
-  const store = new WhiteboardStore({}, bus);
+  const store = new WhiteboardStore(initialState, bus);
   const api = store.createAPI();
 
   const tools = {
@@ -62,7 +64,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
     'template-mind-map':      new TemplateTool('mind-map'),
   });
 
-  createUI(root, store, canvas, api);
+  const disposeUI = createUI(root, store, canvas, api);
   const inputManager = new InputManager(canvas, api, tools);
 
   let renderPending = false;
@@ -75,18 +77,29 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement) {
       });
     }
   };
-  store.subscribe(render);
+  const unsubRender = store.subscribe(render);
   window.addEventListener('resize', render);
   window.addEventListener('tuval-force-render', render);
+  
+  // Re-render when fonts are loaded to ensure 'Architects Daughter' is applied
+  document.fonts.ready.then(() => {
+    if (renderPending) return;
+    render();
+  });
+
   render();
 
   return {
     store,
     bus,
     destroy: () => {
+      unsubRender();
+      disposeUI();
       window.removeEventListener('resize', render);
       window.removeEventListener('tuval-force-render', render);
       inputManager.destroy();
+      clearRendererState();
+      clearImageCache();
     },
   };
 }

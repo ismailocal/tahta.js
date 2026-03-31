@@ -1,5 +1,6 @@
-import type { Shape } from '../core/types';
+import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
+import { getThemeAdjustedStroke } from '../core/lineUtils';
 
 function getRoundRectPath(x: number, y: number, w: number, h: number, r: number) {
   return `M ${x + r} ${y} h ${w - 2 * r} a ${r} ${r} 0 0 1 ${r} ${r} v ${h - 2 * r} a ${r} ${r} 0 0 1 -${r} ${r} h -${w - 2 * r} a ${r} ${r} 0 0 1 -${r} -${r} v -${h - 2 * r} a ${r} ${r} 0 0 1 ${r} -${r} Z`;
@@ -15,13 +16,14 @@ export class RectanglePlugin extends BaseRectPlugin {
     return shape.roundness === 'round' ? Math.min(16, w / 2, h / 2) : 0;
   }
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
+    const isLight = theme === 'light';
     const options: any = {
-      stroke: shape.stroke || '#f8fafc',
+      stroke: getThemeAdjustedStroke(shape.stroke, theme),
       fill: shape.fill && shape.fill !== 'transparent' ? shape.fill : undefined,
-      strokeWidth: shape.strokeWidth || 2,
+      strokeWidth: shape.strokeWidth || 1.8,
       roughness: shape.roughness ?? 1,
       fillStyle: shape.fillStyle || 'hachure',
       seed: shape.seed ?? 1,
@@ -37,4 +39,6 @@ export class RectanglePlugin extends BaseRectPlugin {
       rc.rectangle(shape.x, shape.y, w, h, options);
     }
   }
+ 
+
 }

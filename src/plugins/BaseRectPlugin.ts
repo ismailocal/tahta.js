@@ -1,5 +1,5 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 
 /**
@@ -10,7 +10,7 @@ import { drawLockIcon } from '../core/Utils';
  */
 export abstract class BaseRectPlugin implements IShapePlugin {
   abstract type: string;
-  abstract render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[]): void;
+  abstract render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
 
   defaultStyle?: Partial<Shape>;
   defaultProperties?: string[];
@@ -147,15 +147,17 @@ export abstract class BaseRectPlugin implements IShapePlugin {
     return inOuter && !inInner;
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const bounds = this.getBounds(shape);
     if (shape.locked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
     }
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0 };
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
+    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, stroke: defaultColor, strokeWidth: 1.8 };
   }
 
   onDrawUpdate(_shape: Shape, payload: PointerPayload, dragStart: Pick<Point, 'x' | 'y'>): Partial<Shape> {

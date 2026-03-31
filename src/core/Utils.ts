@@ -3,7 +3,27 @@ import { PluginRegistry } from '../plugins/index';
 
 export const createId = () => Math.random().toString(36).slice(2, 10);
 
-export const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
+export function randomSeed() {
+  return Math.floor(Math.random() * 2 ** 31);
+}
+
+export function getThemeAdjustedStroke(stroke: string | undefined, theme: 'light' | 'dark'): string {
+  const isLight = theme === 'light';
+  
+  if (!stroke) return isLight ? '#1e293b' : '#f8fafc';
+  
+  // If the stored stroke is too light for light mode, or too dark for dark mode, adjust it for visibility.
+  // This helps when shapes are created in one mode and viewed in another.
+  const s = stroke.toLowerCase();
+  
+  const lightColors = ['#cbd5e0', '#e2e8f0', '#f8fafc', '#f1f5f9', '#ffffff', '#e5e7eb', '#d1d5db'];
+  const darkColors = ['#1e293b', '#0f172a', '#111827', '#131316', '#1e1e24', '#000000'];
+  
+  if (isLight && lightColors.includes(s)) return '#1e293b'; // Slate 800
+  if (!isLight && darkColors.includes(s)) return '#f8fafc'; // Off-white
+  
+  return stroke;
+}
 
 export function hexToRgba(hex: string, alpha = 1): string {
   const safe = hex.replace('#', '');

@@ -53,7 +53,10 @@ export class InputManager {
     if (!tool) return;
 
     if (kind === 'down' && tool.onPointerDown) tool.onPointerDown(payload, this.api);
-    if (kind === 'move' && tool.onPointerMove) tool.onPointerMove(payload, this.api);
+    if (kind === 'move') {
+      this.api.bus.emit('pointer:update', { pointer: payload.world, button: payload.button });
+      if (tool.onPointerMove) tool.onPointerMove(payload, this.api);
+    }
     if (kind === 'up' && tool.onPointerUp) tool.onPointerUp(payload, this.api);
   }
 

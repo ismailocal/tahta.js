@@ -1,20 +1,21 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
+import { getThemeAdjustedStroke } from '../core/lineUtils';
 
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
   defaultStyle: Partial<Shape> = { stroke: '#f59e0b', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'];
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean) {
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
 
     const options: any = {
-      stroke: shape.stroke || '#f8fafc',
-      strokeWidth: shape.strokeWidth || 1,
+      stroke: getThemeAdjustedStroke(shape.stroke, theme),
+      strokeWidth: shape.strokeWidth || 1.8,
       roughness: shape.roughness ?? 0,
       seed: shape.seed ?? 1,
     };
@@ -24,12 +25,9 @@ export class FreehandPlugin implements IShapePlugin {
     rc.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options);
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
-    const pts = shape.points || [];
-    if (pts.length < 2) return;
-    const bounds = this.getBounds(shape);
-    if (shape.locked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
+    if (shape.locked && shape.points && shape.points.length > 0) {
+      drawLockIcon(ctx, shape.x + shape.points[0].x, shape.y + shape.points[0].y);
     }
   }
 
@@ -74,8 +72,10 @@ export class FreehandPlugin implements IShapePlugin {
     );
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, points: [{ x: 0, y: 0 }] };
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
+    return { x: payload.world.x, y: payload.world.y, stroke: defaultColor, points: [{ x: 0, y: 0 }] };
   }
 
   onDrawUpdate(shape: Shape, payload: PointerPayload): Partial<Shape> {

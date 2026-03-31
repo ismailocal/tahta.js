@@ -15,6 +15,21 @@ let lastDragState = false;
 let lastViewport = { x: 0, y: 0, zoom: 1 };
 let lastEditingShapeId: string | null = null;
 
+/** Call on canvas destroy to release the off-screen static canvas pixel buffer. */
+export function clearRendererState() {
+  if (staticCanvas) {
+    // Setting width/height to 0 immediately releases the pixel buffer —
+    // don't rely on GC to free it eventually.
+    staticCanvas.width = 0;
+    staticCanvas.height = 0;
+  }
+  staticCanvas = null;
+  isStaticValid = false;
+  lastDragState = false;
+  lastViewport = { x: 0, y: 0, zoom: 1 };
+  lastEditingShapeId = null;
+}
+
 export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   // clearElbowCache(); // DISABLED: Clearing cache every frame makes it useless. Rely on the robust cache key instead.
   setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
@@ -77,7 +92,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
       renderGrid(sCtx, state, rect.width, rect.height);
 
       if (!state.shapes.length) {
-        renderWelcome(staticCanvas, sCtx);
+        renderWelcome(staticCanvas, sCtx, state.theme);
       }
 
       sCtx.save();
@@ -89,7 +104,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
 
       staticShapes.forEach((shape) => {
         if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
-          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts);
+          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts, state.theme);
         }
       });
       sCtx.restore();
@@ -98,7 +113,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
 
     // Main draw
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#131316';
+    ctx.fillStyle = state.theme === 'light' ? '#f8fafc' : '#131316';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(staticCanvas!, 0, 0, canvas.width, canvas.height);
 
@@ -111,20 +126,20 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
       .filter(s => dynamicIds.has(s.id));
 
     dynamicShapes.forEach((shape) => {
-      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts);
+      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
     });
 
   } else {
     isStaticValid = false;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#131316';
+    ctx.fillStyle = state.theme === 'light' ? '#f8fafc' : '#131316';
     ctx.fillRect(0, 0, rect.width, rect.height);
 
     renderGrid(ctx, state, rect.width, rect.height);
 
     if (!state.shapes.length) {
-      renderWelcome(canvas, ctx);
+      renderWelcome(canvas, ctx, state.theme);
     }
 
     ctx.save();
@@ -135,7 +150,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
     sortedShapes.forEach((shape) => {
       if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
         const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
-        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts);
+        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
       }
     });
   }

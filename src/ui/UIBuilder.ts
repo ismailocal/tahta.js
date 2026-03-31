@@ -84,7 +84,8 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.style.display = 'none');
   }
 
-  document.addEventListener('click', () => closeAllDropdowns());
+  const onDocumentClick = () => closeAllDropdowns();
+  document.addEventListener('click', onDocumentClick);
 
   const selectedShape = () => {
     const state = store.getState();
@@ -212,7 +213,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     }
   };
 
-  store.subscribe((state) => {
+  const unsubUI = store.subscribe((state) => {
     requestAnimationFrame(() => {
       renderToolbar(state);
       renderProperties();
@@ -223,4 +224,9 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   renderToolbar(store.getState());
   renderProperties();
   renderCursor(store.getState());
+
+  return () => {
+    unsubUI();
+    document.removeEventListener('click', onDocumentClick);
+  };
 }

@@ -1,13 +1,14 @@
-import type { Shape, ConnectionPoint } from '../core/types';
+import type { Shape, ConnectionPoint } from './types';
 import { PluginRegistry } from '../plugins/index';
+import { drawLockIcon, getThemeAdjustedStroke } from './Utils';
 
 const roughCache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
 
-function getShapeVersionHash(shape: Shape): string {
-  // Only include properties that affect the core path/geometry of the Rough shape
-  // x, y are handled by relative translation in the cache logic below.
+function getShapeVersionHash(shape: Shape, theme: string): string {
+  // Include theme in hash to ensure re-render when switching light/dark mode
   return JSON.stringify({
     type: shape.type,
+    theme,
     seed: shape.seed,
     width: shape.width,
     height: shape.height,
@@ -35,8 +36,10 @@ export function renderShape(
   allShapes: Shape[] = [],
   isEditingText: boolean = false,
   isHovered: boolean = false,
-  showPorts: boolean = false
+  showPorts: boolean = false,
+  theme: 'light' | 'dark' = 'light' // Changed default from 'dark' to 'light'
 ) {
+  // if (theme === 'dark') console.error('[tahta.js] THEME IS DARK! State:', theme);
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
   const plugin = PluginRegistry.getPlugin(shape.type);
@@ -46,7 +49,15 @@ export function renderShape(
   if (isErasing) alpha *= 0.3;
   ctx.globalAlpha = alpha;
 
-  const currentVersion = getShapeVersionHash(shape);
+  // Force re-render on selection, hover or theme change
+  const options: any = {
+    stroke: getThemeAdjustedStroke(shape.stroke, theme),
+    strokeWidth: shape.strokeWidth || 1.8,
+    roughness: shape.roughness ?? 0,
+    seed: shape.seed ?? 1,
+  };
+
+  const currentVersion = getShapeVersionHash(shape, theme);
   const cacheEntry = roughCache.get(shape.id);
   
   let callIdx = 0;
@@ -86,7 +97,7 @@ export function renderShape(
     polygon:    (...args: any[]) => rcProxy.wrap('polygon', ...args),
   };
 
-  plugin.render(rcProxy, ctx, shape, isSelected, isErasing, allShapes);
+  plugin.render(rcProxy, ctx, shape, isSelected, isErasing, allShapes, theme);
   
   if (!isCacheValid && nextCache.length > 0) {
     roughCache.set(shape.id, { 
@@ -97,14 +108,18 @@ export function renderShape(
     });
   }
 
-  renderShapeText(ctx, shape, plugin, allShapes, isEditingText);
+  renderShapeText(ctx, shape, plugin, allShapes, isEditingText, theme);
 
   if ((isSelected || isHovered) && plugin.renderSelection) {
-    plugin.renderSelection(ctx, shape, allShapes);
+    ctx.save();
+    const handles = plugin.getResizeHandlePositions ? plugin.getResizeHandlePositions(shape) : [];
+    renderHandleBrackets(ctx, handles, shape.stroke, theme);
+    plugin.renderSelection(ctx, shape, allShapes, theme);
+    ctx.restore();
   }
   // Hover border intentionally omitted — shape color/style must not change on hover
   if (isHovered && !isSelected && plugin.getConnectionPoints && showPorts) {
-    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke);
+    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke, theme);
   }
   ctx.restore();
 }
@@ -114,7 +129,8 @@ function renderShapeText(
   shape: Shape, 
   plugin: any, 
   allShapes: Shape[], 
-  isEditingText: boolean
+  isEditingText: boolean,
+  theme: 'light' | 'dark'
 ) {
   if (shape.type === 'text' || !shape.text || isEditingText) return;
 
@@ -145,11 +161,12 @@ function renderShapeText(
       if (w > maxWidth) maxWidth = w;
     });
     const padding = 4;
-    ctx.fillStyle = '#131316'; // background mask
+    ctx.fillStyle = theme === 'light' ? '#f8fafc' : '#131316'; // background mask matches canvas
     ctx.fillRect(cx - maxWidth / 2 - padding, cy - totalHeight / 2 - padding, maxWidth + padding * 2, totalHeight + padding * 2);
   }
 
-  ctx.fillStyle = shape.stroke || '#f8fafc';
+  const textColor = getThemeAdjustedStroke(shape.stroke, theme); // text color matches shape stroke
+  ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
@@ -187,12 +204,13 @@ function renderHoverBorder(ctx: CanvasRenderingContext2D, shape: Shape, plugin: 
 function renderHandleBrackets(
   ctx: CanvasRenderingContext2D,
   handles: Array<{ x: number; y: number; angle: number; draw?: (ctx: CanvasRenderingContext2D) => void }>,
-  shapeStroke?: string
+  shapeStroke?: string,
+  theme: 'light' | 'dark' = 'dark'
 ) {
   if (!handles.length) return;
 
   ctx.save();
-  ctx.strokeStyle = shapeStroke || '#f8fafc';
+  ctx.strokeStyle = shapeStroke || (theme === 'light' ? '#475569' : '#cbd5e0');
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -208,10 +226,10 @@ function renderHandleBrackets(
   ctx.restore();
 }
 
-function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[], shapeStroke?: string) {
+function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: ConnectionPoint[], shapeStroke?: string, theme: 'light' | 'dark' = 'dark') {
   const s = 5; // half-size of the diamond icon
   ctx.setLineDash([]);
-  ctx.strokeStyle = shapeStroke || '#f8fafc';
+  ctx.strokeStyle = shapeStroke || (theme === 'light' ? '#475569' : '#cbd5e0');
   ctx.lineWidth = 1.5;
   points.forEach(cp => {
     ctx.beginPath();
@@ -220,7 +238,9 @@ function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: Connectio
     ctx.lineTo(cp.x,     cp.y + s);
     ctx.lineTo(cp.x - s, cp.y    );
     ctx.closePath();
-    ctx.fillStyle = '#1e1e24';
+    ctx.fillStyle = theme === 'light' ? '#ebf2ff' : '#1e1e24'; // Light blue for ports in light mode
+    ctx.strokeStyle = theme === 'light' ? '#2563eb' : '#cbd5e0'; // Prominent blue/grey stroke
+    ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
   });

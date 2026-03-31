@@ -1,5 +1,6 @@
-import type { Shape, Point, ConnectionPoint } from '../core/types';
+import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
+import { getThemeAdjustedStroke } from '../core/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
@@ -54,13 +55,13 @@ export class DiamondPlugin extends BaseRectPlugin {
     return Math.min(w, h) * 0.15;
   }
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
     const r = this.getCornerRadius(shape);
-
+    const isLight = theme === 'light';
     const tips: Point[] = [
       { x: cx,          y: shape.y     },
       { x: shape.x + w, y: cy          },
@@ -70,9 +71,9 @@ export class DiamondPlugin extends BaseRectPlugin {
 
     const hasFill = shape.fill && shape.fill !== 'transparent';
     const options: any = {
-      stroke: shape.stroke || '#f8fafc',
+      stroke: getThemeAdjustedStroke(shape.stroke, theme),
       fill: hasFill ? shape.fill : undefined,
-      strokeWidth: shape.strokeWidth || 1,
+      strokeWidth: shape.strokeWidth || 1.8,
       roughness: shape.roughness ?? 0,
       fillStyle: shape.fillStyle || 'hachure',
       seed: shape.seed ?? 1,
@@ -133,6 +134,8 @@ export class DiamondPlugin extends BaseRectPlugin {
       { id: 'left',   x: x     + (w / 4) * t, y: cy,             side: 'left'   },
     ];
   }
+
+
 
   isPointInside(point: Point, shape: Shape): boolean {
     const w = shape.width || 0;
@@ -196,7 +199,7 @@ export class DiamondPlugin extends BaseRectPlugin {
     ];
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const bounds = this.getBounds(shape);
     if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
   }

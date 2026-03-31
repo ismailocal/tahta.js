@@ -20,6 +20,8 @@ export const DEFAULT_STATE: CanvasState = {
   showGrid: false,
   gridSize: 20,
   editingShapeId: null,
+  theme: 'light',
+  version: 0,
 };
 
 export class WhiteboardStore {
@@ -58,7 +60,10 @@ export class WhiteboardStore {
   }
 
   reorderShape(shapeId: string, direction: 'forward' | 'backward' | 'front' | 'back') {
-    this.state = { ...this.state, shapes: ShapeManager.reorder(this.state.shapes, shapeId, direction) };
+    this.state = { 
+      ...this.state, 
+      shapes: ShapeManager.reorder(this.state.shapes, shapeId, direction)
+    };
     this.notify();
   }
 
@@ -67,8 +72,17 @@ export class WhiteboardStore {
     return () => this.subscribers.delete(listener);
   }
 
-  notify() {
+  notify(forceVersion?: number) {
     if (this.batchDepth > 0) return;
+    
+    // If a specific version is forced (from remote sync), use it.
+    // Otherwise, increment the version only if it's not being explicitly set in the state.
+    if (forceVersion !== undefined) {
+      this.state.version = forceVersion;
+    } else {
+      this.state.version++;
+    }
+
     this.spatialIndex = null;
     this.subscribers.forEach((listener) => listener(this.state));
     this.bus.emit('document:changed', { state: this.state });
@@ -169,6 +183,7 @@ export class WhiteboardStore {
 
   createAPI(): ICanvasAPI {
     return {
+      bus: this.bus,
       getState: () => this.getState(),
       setState: (updater) => this.setState(updater),
       addShape: (shape) => this.addShape(shape),

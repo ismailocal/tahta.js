@@ -1,16 +1,21 @@
 import type { CanvasState } from './types';
 import { getShapeBounds } from './Geometry';
 
-export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, theme: 'light' | 'dark' = 'light') {
   const { width, height } = canvas.getBoundingClientRect();
+  const isLight = theme === 'light';
+  
   ctx.save();
-  ctx.fillStyle = '#ffffff';
+  // Using Slate 900 (#0f172a) for prominent contrast in light mode
+  // and Slate 300 (#cbd5e0) for dark mode
+  ctx.fillStyle = isLight ? '#0f172a' : '#cbd5e0';
   ctx.textAlign = 'center';
-  ctx.font = '600 32px Inter, Arial, sans-serif';
+  ctx.font = `600 42px 'Architects Daughter', cursive`;
   ctx.fillText('Welcome to your whiteboard', width / 2, height / 2 - 10);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = '16px Inter, Arial, sans-serif';
-  ctx.fillText('Bir araç seçin ve çizime başlayın.', width / 2, height / 2 + 26);
+  
+  ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(203, 213, 224, 0.6)';
+  ctx.font = `20px 'Architects Daughter', cursive`;
+  ctx.fillText('Bir araç seçin ve çizime başlayın.', width / 2, height / 2 + 40);
   ctx.restore();
 }
 

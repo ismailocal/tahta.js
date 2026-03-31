@@ -15,7 +15,7 @@ export function renderGrid(ctx: CanvasRenderingContext2D, state: CanvasState, wi
     patternCanvas.height = size;
     const pCtx = patternCanvas.getContext('2d')!;
     
-    pCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+    pCtx.strokeStyle = state.theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
     pCtx.lineWidth = 1;
     pCtx.beginPath();
     pCtx.moveTo(size, 0);

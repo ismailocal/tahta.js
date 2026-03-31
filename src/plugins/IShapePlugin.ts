@@ -42,8 +42,8 @@ export interface IShapePlugin {
   defaultProperties?: string[];
 
   // 1. Rendering
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[]): void;
-  renderSelection?(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[]): void;
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
+  renderSelection?(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): void;
 
   // 2. Geometry
   getBounds(shape: Shape): { x: number, y: number, width: number, height: number };

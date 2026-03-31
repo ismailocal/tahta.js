@@ -1,23 +1,24 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { getTextMetrics, drawLockIcon } from '../core/Utils';
 
 export class TextPlugin implements IShapePlugin {
   type = 'text';
-  defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fontSize: 24, opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#94a3b8', fontSize: 24, opacity: 1 };
   defaultProperties = ['stroke', 'layer', 'action'];
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean) {
+  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     if (!shape.text) return;
     const fontSize = shape.fontSize || 20;
-    ctx.fillStyle = shape.stroke || '#f8fafc';
-    ctx.font = `${fontSize}px ${shape.fontFamily || "'Architects Daughter', cursive"}`;
+    const isLight = theme === 'light';
+    ctx.fillStyle = shape.stroke || (isLight ? '#475569' : '#cbd5e0');
+    ctx.font = `${fontSize}px 'Architects Daughter', cursive`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     shape.text.split('\n').forEach((line, index) => ctx.fillText(line, shape.x, shape.y + index * fontSize * 1.2));
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const bounds = this.getBounds(shape);
     if (shape.locked) {
       drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
@@ -52,8 +53,10 @@ export class TextPlugin implements IShapePlugin {
     );
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, width: 200, height: 40 };
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
+    return { x: payload.world.x, y: payload.world.y, width: 200, height: 40, stroke: defaultColor };
   }
 
   onDrawUpdate(): Partial<Shape> {

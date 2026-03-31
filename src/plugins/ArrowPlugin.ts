@@ -1,8 +1,8 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point } from '../core/types';
+import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../core/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath } from '../core/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, getThemeAdjustedStroke } from '../core/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 
 const PORT_SNAP_RADIUS = 40;
@@ -59,7 +59,7 @@ export class ArrowPlugin implements IShapePlugin {
   type = 'arrow';
   isConnector = true;
   canBind = true;
-  defaultStyle: Partial<Shape> = { stroke: '#e5e7eb', strokeWidth: 1, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#1e293b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'layer', 'action'];
 
   getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
@@ -80,13 +80,14 @@ export class ArrowPlugin implements IShapePlugin {
     return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
   }
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[]) {
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
-
+    
+    const isLight = theme === 'light';
     const options: any = {
-      stroke: shape.stroke || '#f8fafc',
-      strokeWidth: shape.strokeWidth || 1,
+      stroke: getThemeAdjustedStroke(shape.stroke, theme),
+      strokeWidth: shape.strokeWidth || 1.8,
       roughness: shape.roughness ?? 0,
       seed: shape.seed ?? 1,
     };
@@ -115,13 +116,13 @@ export class ArrowPlugin implements IShapePlugin {
       const lastP2 = path[path.length - 1];
       const angle = Math.atan2(lastP2.y - lastP1.y, lastP2.x - lastP1.x);
       if (shape.endArrowhead !== 'none') {
-        drawArrowhead(rc, ctx, lastP2, angle, shape.endArrowhead || 'arrow', options);
+        drawArrowhead(rc, ctx, lastP2, angle, shape.endArrowhead || 'arrow', options, theme);
       }
       if (shape.startArrowhead && shape.startArrowhead !== 'none') {
         const firstP1 = path[1];
         const firstP0 = path[0];
         const startAngle = Math.atan2(firstP0.y - firstP1.y, firstP0.x - firstP1.x);
-        drawArrowhead(rc, ctx, firstP0, startAngle, shape.startArrowhead, options);
+        drawArrowhead(rc, ctx, firstP0, startAngle, shape.startArrowhead, options, theme);
       }
     } else if (shape.edgeStyle === 'curved') {
       const cp = getCurvedControlPoint(p1, p2);
@@ -141,33 +142,33 @@ export class ArrowPlugin implements IShapePlugin {
 
       if (shape.endArrowhead !== 'none') {
         const endAngle = Math.atan2(p2.y - cp.y, p2.x - cp.x);
-        drawArrowhead(rc, ctx, p2, endAngle, shape.endArrowhead || 'arrow', options);
+        drawArrowhead(rc, ctx, p2, endAngle, shape.endArrowhead || 'arrow', options, theme);
       }
       if (shape.startArrowhead && shape.startArrowhead !== 'none') {
         const startAngle = Math.atan2(p1.y - cp.y, p1.x - cp.x);
-        drawArrowhead(rc, ctx, p1, startAngle, shape.startArrowhead, options);
+        drawArrowhead(rc, ctx, p1, startAngle, shape.startArrowhead, options, theme);
       }
     } else {
       rc.line(p1.x, p1.y, p2.x, p2.y, options);
 
       const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       if (shape.endArrowhead !== 'none') {
-        drawArrowhead(rc, ctx, p2, angle, shape.endArrowhead || 'arrow', options);
+        drawArrowhead(rc, ctx, p2, angle, shape.endArrowhead || 'arrow', options, theme);
       }
 
       if (shape.startArrowhead && shape.startArrowhead !== 'none') {
         const startAngle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
-        drawArrowhead(rc, ctx, p1, startAngle, shape.startArrowhead, options);
+        drawArrowhead(rc, ctx, p1, startAngle, shape.startArrowhead, options, theme);
       }
     }
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[]) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
     if (shape.locked) drawLockIcon(ctx, p1.x, p1.y);
-    renderEndpointHandles(ctx, p1, p2, shape.stroke);
+    renderEndpointHandles(ctx, p1, p2, shape.stroke, theme);
   }
 
   getBounds(shape: Shape) {
@@ -214,12 +215,16 @@ export class ArrowPlugin implements IShapePlugin {
     return pointToSegmentDistance(point, p1, p2) <= Math.max(8, (shape.strokeWidth || 2) + 4);
   }
 
-  onDrawInit(payload: PointerPayload, allShapes: Shape[], _api: any): Partial<Shape> {
+  onDrawInit(payload: PointerPayload, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
     const snap = findNearestPort(payload.world, allShapes);
+    const theme = api.getState().theme || 'dark';
+    const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
     return {
       x: snap ? snap.x : payload.world.x,
       y: snap ? snap.y : payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
+      stroke: defaultColor,
+      strokeWidth: 1.8,
       startBinding: snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined
     };
   }

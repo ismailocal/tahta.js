@@ -1,12 +1,12 @@
-// Constants for Excalidraw-like colors
+// Constants for Tahta brand colors
 export const STROKE_COLORS = ['#e5e7eb', '#ff8a8a', '#4ade80', '#60a5fa', '#eab308', '#8b5cf6'];
 export const FILL_COLORS = ['transparent', '#7f1d1d', '#14532d', '#1e3a8a', '#713f12', '#4c1d95'];
 
 export const ICONS = {
   strokeWidth: [
-    { val: '1', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="1"/></svg>` },
-    { val: '3', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2.5"/></svg>` },
-    { val: '6', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="4"/></svg>` }
+    { val: '1.8', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="1.2"/></svg>` },
+    { val: '3.5', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2.5"/></svg>` },
+    { val: '6',   svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="4"/></svg>` }
   ],
   strokeStyle: [
     { val: 'solid', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2"/></svg>` },

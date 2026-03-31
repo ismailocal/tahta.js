@@ -1,8 +1,13 @@
-import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 export const imageCache = new Map<string, HTMLImageElement>();
+
+/** Release all cached HTMLImageElement objects (call on canvas destroy). */
+export function clearImageCache() {
+  imageCache.clear();
+}
 
 export class ImagePlugin extends BaseRectPlugin {
   type = 'image';
@@ -28,7 +33,7 @@ export class ImagePlugin extends BaseRectPlugin {
     ];
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape) {
+  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const { x, y, width = 100, height = 100, imageSrc } = shape;
     if (imageSrc) {
       let img = imageCache.get(imageSrc);
@@ -44,7 +49,7 @@ export class ImagePlugin extends BaseRectPlugin {
     }
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape) {
+  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const { x, y, width = 100, height = 100 } = shape;
     if (shape.locked) drawLockIcon(ctx, x + width + 6, y - 6);
   }
@@ -85,7 +90,7 @@ export class ImagePlugin extends BaseRectPlugin {
     return null;
   }
 
-  onDrawInit(payload: PointerPayload): Partial<Shape> {
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
     return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, imageSrc: '' };
   }
 
