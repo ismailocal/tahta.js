@@ -209,8 +209,13 @@ function renderHandleBrackets(
 ) {
   if (!handles.length) return;
 
+  const fallback = theme === 'light' ? '#475569' : '#cbd5e0';
+  const effectiveStroke = (!shapeStroke || shapeStroke === 'transparent' || shapeStroke === 'none')
+    ? fallback
+    : shapeStroke;
+
   ctx.save();
-  ctx.strokeStyle = shapeStroke || (theme === 'light' ? '#475569' : '#cbd5e0');
+  ctx.strokeStyle = effectiveStroke;
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

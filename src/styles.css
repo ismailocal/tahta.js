@@ -172,14 +172,20 @@ button {
 
 .tool-dropdown-arrow {
   font-size: 8px;
-  opacity: 0.6;
+  opacity: 0.4;
   line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.tool-dropdown-wrap:hover .tool-dropdown-arrow {
+  opacity: 0.9;
 }
 
 .tool-dropdown-menu {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
+  display: none;
   flex-direction: column;
   background: var(--dropdown-bg);
   border: 1px solid var(--dropdown-border);
@@ -189,6 +195,10 @@ button {
   min-width: 140px;
   box-shadow: var(--shadow);
   gap: 2px;
+}
+
+.tool-dropdown-menu.open {
+  display: flex;
 }
 
 .tool-dropdown-item {

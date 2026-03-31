@@ -40,14 +40,19 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       if (tool.key === 'redo') disabled = !store.canRedo;
 
       if (tool.isDropdown && tool.children) {
-        const groupActive = tool.children.some(c => c.key === state.activeTool);
+        const activeChild = tool.children.find(c => c.key === state.activeTool);
+        const displayIcon = (activeChild || tool.children[0]).icon;
+        const displayLabel = activeChild ? activeChild.label : tool.label;
+        const groupActive = !!activeChild;
+        // The parent button sets the currently active child tool (or first child)
+        const parentToolKey = (activeChild || tool.children[0]).key;
         return `
           <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
-            <button class="tool-button ${groupActive ? 'active' : ''}" data-dropdown-toggle="${tool.key}" title="${tool.label} (${tool.shortcut})">
-              <span class="tool-icon">${tool.icon}</span>
+            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool="${parentToolKey}" title="${displayLabel}">
+              <span class="tool-icon">${displayIcon}</span>
               <span class="tool-dropdown-arrow">▾</span>
             </button>
-            <div class="tool-dropdown-menu" id="dropdown-${tool.key}" style="display:none;">
+            <div class="tool-dropdown-menu" id="dropdown-${tool.key}">
               ${tool.children.map(child => `
                 <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}">
                   <span class="tool-icon">${child.icon}</span>
@@ -66,22 +71,31 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       `;
     }).join('');
 
-    // Attach dropdown toggle listeners after render
-    toolbar.querySelectorAll<HTMLButtonElement>('[data-dropdown-toggle]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key = btn.getAttribute('data-dropdown-toggle')!;
-        const menu = document.getElementById(`dropdown-${key}`);
-        if (!menu) return;
-        const isOpen = menu.style.display !== 'none';
+    // Hover-based dropdown open/close
+    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-wrap').forEach(wrap => {
+      const menu = wrap.querySelector<HTMLElement>('.tool-dropdown-menu');
+      if (!menu) return;
+      let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+      wrap.addEventListener('mouseenter', () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
         closeAllDropdowns();
-        if (!isOpen) menu.style.display = 'flex';
+        menu.classList.add('open');
+      });
+      wrap.addEventListener('mouseleave', () => {
+        closeTimer = setTimeout(() => menu.classList.remove('open'), 120);
+      });
+      menu.addEventListener('mouseenter', () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      });
+      menu.addEventListener('mouseleave', () => {
+        closeTimer = setTimeout(() => menu.classList.remove('open'), 120);
       });
     });
   };
 
   function closeAllDropdowns() {
-    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.style.display = 'none');
+    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
   }
 
   const onDocumentClick = () => closeAllDropdowns();

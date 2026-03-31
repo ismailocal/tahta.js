@@ -12,7 +12,7 @@ export function clearImageCache() {
 export class ImagePlugin extends BaseRectPlugin {
   type = 'image';
   defaultStyle: Partial<Shape> = {};
-  defaultProperties = ['layer', 'action'];
+  defaultProperties = ['opacity', 'layer', 'action'];
 
   getResizeHandlePositions(shape: Shape) {
     const { x, y, width: w, height: h } = this.getBounds(shape);
