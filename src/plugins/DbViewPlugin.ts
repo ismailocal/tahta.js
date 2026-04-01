@@ -18,7 +18,7 @@ function getViewData(shape: Shape): DbViewData {
 
 export class DbViewPlugin extends BaseRectPlugin {
   type = 'db-view';
-  defaultStyle: Partial<Shape> = { stroke: '#4ade80', opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', opacity: 1 };
   defaultProperties = ['stroke', 'opacity', 'layer', 'action'];
   protected minWidth = 80;
   protected minHeight = 40;
@@ -113,7 +113,7 @@ export class DbViewPlugin extends BaseRectPlugin {
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
     const theme = api.getState().theme || 'dark';
-    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
+    const defaultColor = '#64748b';
     const defaultColumns = [{ name: 'id', type: 'INT' }, { name: 'name', type: 'VARCHAR' }];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,

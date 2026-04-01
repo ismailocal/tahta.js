@@ -29,7 +29,7 @@ function getTableData(shape: Shape): DbTableData {
 
 export class DbTablePlugin extends BaseRectPlugin {
   type = 'db-table';
-  defaultStyle: Partial<Shape> = { stroke: '#60a5fa', opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', opacity: 1 };
   defaultProperties = ['stroke', 'opacity', 'layer', 'action'];
   protected minWidth = 80;
   protected minHeight = 40;
@@ -139,7 +139,7 @@ export class DbTablePlugin extends BaseRectPlugin {
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
     const theme = api.getState().theme || 'dark';
-    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
+    const defaultColor = '#64748b';
     const defaultColumns = [
       { name: 'id', type: 'INT', pk: true },
       { name: 'name', type: 'VARCHAR' },
