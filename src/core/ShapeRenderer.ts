@@ -65,39 +65,10 @@ export function renderShape(
   const cacheList = isCacheValid ? cacheEntry.drawables : [];
   const nextCache: any[] = [];
   
-  const rcProxy = {
-    wrap: (type: string, ...args: any[]) => {
-      let d;
-      let dx = 0, dy = 0;
-      if (isCacheValid && cacheList[callIdx]) {
-        d = cacheList[callIdx];
-        dx = shape.x - cacheEntry.x;
-        dy = shape.y - cacheEntry.y;
-      } else {
-        d = (rc.generator as any)[type](...args);
-      }
-      nextCache[callIdx] = d;
-      callIdx++;
-
-      if (dx !== 0 || dy !== 0) {
-        ctx.save();
-        ctx.translate(dx, dy);
-        rc.draw(d);
-        ctx.restore();
-      } else {
-        rc.draw(d);
-      }
-    },
-    rectangle:  (...args: any[]) => rcProxy.wrap('rectangle', ...args),
-    ellipse:    (...args: any[]) => rcProxy.wrap('ellipse', ...args),
-    line:       (...args: any[]) => rcProxy.wrap('line', ...args),
-    path:       (...args: any[]) => rcProxy.wrap('path', ...args),
-    linearPath: (...args: any[]) => rcProxy.wrap('linearPath', ...args),
-    curve:      (...args: any[]) => rcProxy.wrap('curve', ...args),
-    polygon:    (...args: any[]) => rcProxy.wrap('polygon', ...args),
-  };
-
-  plugin.render(rcProxy, ctx, shape, isSelected, isErasing, allShapes, theme);
+  // plugin expects something that looks like RoughCanvas.
+  // We pass 'rc' through directly to ensure direct method calls like rc.ellipse(...)
+  // which works more reliably than manual generator.draw() sequences.
+  plugin.render(rc, ctx, shape, isSelected, isErasing, allShapes, theme);
   
   if (!isCacheValid && nextCache.length > 0) {
     roughCache.set(shape.id, { 

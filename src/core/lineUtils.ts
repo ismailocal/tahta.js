@@ -14,8 +14,9 @@ export function buildRoughOptions(shape: Shape, theme: 'light' | 'dark'): Record
     fill: shape.fill && shape.fill !== 'transparent' ? shape.fill : undefined,
     strokeWidth: shape.strokeWidth || 1.8,
     roughness: shape.roughness ?? 1,
-    fillStyle: shape.fillStyle || 'hachure',
-    fillWeight: 1.5,
+    fillStyle: shape.fillStyle || 'none',
+    fillWeight: 1,
+    hachureGap: 4,
     seed: shape.seed ?? 1,
   };
   if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
