@@ -214,9 +214,9 @@ function renderConnectionPoints(ctx: CanvasRenderingContext2D, points: Connectio
     ctx.lineTo(cp.x,     cp.y + s);
     ctx.lineTo(cp.x - s, cp.y    );
     ctx.closePath();
-    ctx.fillStyle = theme === 'light' ? '#ebf2ff' : '#1e1e24'; // Light blue for ports in light mode
-    ctx.strokeStyle = theme === 'light' ? '#2563eb' : '#cbd5e0'; // Prominent blue/grey stroke
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24'; 
+    ctx.strokeStyle = getThemeAdjustedStroke(shapeStroke, theme);
+    ctx.lineWidth = 1.2;
     ctx.fill();
     ctx.stroke();
   });
