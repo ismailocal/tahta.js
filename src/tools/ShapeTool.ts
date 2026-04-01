@@ -63,7 +63,9 @@ export class ShapeTool implements ToolDefinition {
         if (shape) {
           const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
           
-          api.updateShape(this.currentShapeId, patch);
+          if (Object.keys(patch).length > 0) {
+            api.updateShape(this.currentShapeId, patch);
+          }
         }
       }
     }

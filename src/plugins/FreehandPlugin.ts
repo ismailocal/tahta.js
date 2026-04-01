@@ -70,7 +70,17 @@ export class FreehandPlugin implements IShapePlugin {
 
   onDrawUpdate(shape: Shape, payload: PointerPayload): Partial<Shape> {
     const pts = shape.points || [];
-    return { points: [...pts, { x: payload.world.x - shape.x, y: payload.world.y - shape.y }] };
+    const next = { x: payload.world.x - shape.x, y: payload.world.y - shape.y };
+
+    if (pts.length > 0) {
+      const last = pts[pts.length - 1];
+      const dx = next.x - last.x;
+      const dy = next.y - last.y;
+      // Skip redundant points that are too close to reduce serialized data size
+      if (dx * dx + dy * dy < 4) return {};
+    }
+
+    return { points: [...pts, next] };
   }
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload, dragStart: Point): Partial<Shape> {
