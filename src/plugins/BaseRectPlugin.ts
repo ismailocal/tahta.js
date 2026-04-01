@@ -154,10 +154,8 @@ export abstract class BaseRectPlugin implements IShapePlugin {
     }
   }
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    const theme = api.getState().theme || 'dark';
-    const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
-    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, stroke: defaultColor, strokeWidth: 1.8 };
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
+    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, stroke: '#64748b', strokeWidth: 1.8 };
   }
 
   onDrawUpdate(_shape: Shape, payload: PointerPayload, dragStart: Pick<Point, 'x' | 'y'>): Partial<Shape> {

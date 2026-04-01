@@ -2,14 +2,14 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../core/Geometry';
-import { getPathMidpoint, renderEndpointHandles, getThemeAdjustedStroke } from '../core/lineUtils';
+import { getPathMidpoint, renderEndpointHandles, buildRoughOptions } from '../core/lineUtils';
 import { findNearestPort, getBindingPoint } from './ArrowPlugin';
 
 export class LinePlugin implements IShapePlugin {
   type = 'line';
   isConnector = true;
   canBind = true;
-  defaultStyle: Partial<Shape> = { stroke: '#1e293b', strokeWidth: 1.8, roughness: 0, opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'roughness', 'layer', 'action'];
 
   private worldPoints(shape: Shape): Point[] {
@@ -19,15 +19,8 @@ export class LinePlugin implements IShapePlugin {
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return;
-    
-    const options: any = {
-      stroke: getThemeAdjustedStroke(shape.stroke, theme),
-      strokeWidth: shape.strokeWidth || 1.8,
-      roughness: shape.roughness ?? 0,
-      seed: shape.seed ?? 1,
-    };
-    if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
-    else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
+
+    const options = buildRoughOptions(shape, theme);
 
     if (wpts.length === 2) {
       rc.line(wpts[0].x, wpts[0].y, wpts[1].x, wpts[1].y, options);
@@ -76,14 +69,12 @@ export class LinePlugin implements IShapePlugin {
     return false;
   }
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    const theme = api.getState().theme || 'dark';
-    const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
     return {
       x: payload.world.x,
       y: payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      stroke: defaultColor,
+      stroke: '#64748b',
       strokeWidth: 1.8
     };
   }

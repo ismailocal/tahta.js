@@ -8,20 +8,18 @@ export function randomSeed() {
 }
 
 export function getThemeAdjustedStroke(stroke: string | undefined, theme: 'light' | 'dark'): string {
-  const isLight = theme === 'light';
-  
-  if (!stroke) return isLight ? '#1e293b' : '#f8fafc';
-  
-  // If the stored stroke is too light for light mode, or too dark for dark mode, adjust it for visibility.
-  // This helps when shapes are created in one mode and viewed in another.
+  if (!stroke) return '#64748b'; // neutral grey, visible in both modes
+
+  // Adjust strokes that are too light for light mode or too dark for dark mode.
   const s = stroke.toLowerCase();
-  
-  const lightColors = ['#cbd5e0', '#e2e8f0', '#f8fafc', '#f1f5f9', '#ffffff', '#e5e7eb', '#d1d5db'];
-  const darkColors = ['#1e293b', '#0f172a', '#111827', '#131316', '#1e1e24', '#000000'];
-  
-  if (isLight && lightColors.includes(s)) return '#1e293b'; // Slate 800
-  if (!isLight && darkColors.includes(s)) return '#f8fafc'; // Off-white
-  
+  const isLight = theme === 'light';
+
+  const tooLightForLight = ['#cbd5e0', '#e2e8f0', '#f8fafc', '#f1f5f9', '#ffffff', '#e5e7eb', '#d1d5db'];
+  const tooDarkForDark   = ['#1e293b', '#0f172a', '#111827', '#131316', '#1e1e24', '#000000'];
+
+  if (isLight && tooLightForLight.includes(s)) return '#475569'; // slate-600
+  if (!isLight && tooDarkForDark.includes(s))  return '#94a3b8'; // slate-400
+
   return stroke;
 }
 

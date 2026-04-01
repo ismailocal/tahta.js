@@ -1,6 +1,6 @@
 import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { getThemeAdjustedStroke } from '../core/lineUtils';
+import { buildRoughOptions } from '../core/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
@@ -47,7 +47,7 @@ function buildDiamondSvgPath(pts: Point[], r: number): string {
 
 export class DiamondPlugin extends BaseRectPlugin {
   type = 'diamond';
-  defaultStyle: Partial<Shape> = { stroke: '#f8fafc', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
 
   getCornerRadius(shape: Shape): number {
@@ -61,7 +61,6 @@ export class DiamondPlugin extends BaseRectPlugin {
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
     const r = this.getCornerRadius(shape);
-    const isLight = theme === 'light';
     const tips: Point[] = [
       { x: cx,          y: shape.y     },
       { x: shape.x + w, y: cy          },
@@ -69,18 +68,7 @@ export class DiamondPlugin extends BaseRectPlugin {
       { x: shape.x,     y: cy          },
     ];
 
-    const hasFill = shape.fill && shape.fill !== 'transparent';
-    const options: any = {
-      stroke: getThemeAdjustedStroke(shape.stroke, theme),
-      fill: hasFill ? shape.fill : undefined,
-      strokeWidth: shape.strokeWidth || 1.8,
-      roughness: shape.roughness ?? 0,
-      fillStyle: shape.fillStyle || 'hachure',
-      seed: shape.seed ?? 1,
-    };
-    if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
-    else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
-
+    const options = buildRoughOptions(shape, theme);
     rc.path(buildDiamondSvgPath(tips, r), options);
   }
 
@@ -172,30 +160,57 @@ export class DiamondPlugin extends BaseRectPlugin {
     const sTipY  = y + h - (h / 4) * t;
     const wTipX  = x     + (w / 4) * t;
 
-    // Setback points for the bracket bezier (same geometry as buildDiamondPath)
+    // Compute sub-arc of each tip's bezier via de Casteljau, capped to ARM pixels half-chord.
+    // This guarantees the handle brackets lie exactly on the rendered diamond outline.
     const hw = w / 2, hh = h / 2;
-    const nP1x = cx - hw * t, nP1y = y  + hh * t;
-    const nP2x = cx + hw * t, nP2y = nP1y;
-    const eP1x = x+w - hw*t,  eP1y = cy - hh * t;
-    const eP2x = eP1x,        eP2y = cy + hh * t;
-    const sP1x = cx + hw * t, sP1y = y+h - hh * t;
-    const sP2x = cx - hw * t, sP2y = sP1y;
-    const wP1x = x  + hw * t, wP1y = cy + hh * t;
-    const wP2x = wP1x,        wP2y = cy - hh * t;
+    const ARM = 11;
 
-    const bezier = (p1x: number, p1y: number, ctrlX: number, ctrlY: number, p2x: number, p2y: number) =>
+    // subArc: returns {q0, ctrl, q2} for a symmetric quadratic bezier sub-arc capped to halfChordCap.
+    // Original bezier: P0=(p0x,p0y), Ctrl=(cx,cy), P2=(p2x,p2y) — symmetric about the ctrl point.
+    // halfFull: half-chord of the full arc (hw*t for N/S, hh*t for E/W in their dominant axis).
+    const subArcH = (
+      fullHalfH: number, fullHalfV: number, ctrl: [number, number], sign: 1 | -1
+    ) => {
+      const cap = Math.min(fullHalfH, ARM);
+      const s = fullHalfH > 0 ? cap / fullHalfH : 0;
+      const s2 = s * s;
+      // Sub-arc endpoints (on the original bezier)
+      const q0x = ctrl[0] - cap,          q0y = ctrl[1] + sign * fullHalfV * (1 + s2) / 2;
+      const q2x = ctrl[0] + cap,          q2y = q0y;
+      const qcx = ctrl[0],                qcy = ctrl[1] + sign * fullHalfV * (1 - s2) / 2;
+      return { q0x, q0y, qcx, qcy, q2x, q2y };
+    };
+    const subArcV = (
+      fullHalfV: number, fullHalfH: number, ctrl: [number, number], xDir: 1 | -1
+    ) => {
+      // xDir: -1 for E tip (inward = negative x from ctrl), +1 for W tip (inward = positive x)
+      const cap = Math.min(fullHalfV, ARM);
+      const s = fullHalfV > 0 ? cap / fullHalfV : 0;
+      const s2 = s * s;
+      const q0x = ctrl[0] + xDir * fullHalfH * (1 + s2) / 2, q0y = ctrl[1] - cap;
+      const q2x = q0x,                                         q2y = ctrl[1] + cap;
+      const qcx = ctrl[0] + xDir * fullHalfH * (1 - s2) / 2, qcy = ctrl[1];
+      return { q0x, q0y, qcx, qcy, q2x, q2y };
+    };
+
+    const n = subArcH(hw * t, hh * t, [cx,   y    ],  1);
+    const e = subArcV(hh * t, hw * t, [x + w, cy   ], -1);
+    const s = subArcH(hw * t, hh * t, [cx,   y + h], -1);
+    const ww = subArcV(hh * t, hw * t, [x,    cy   ],  1);
+
+    const arc = (q0x: number, q0y: number, qcx: number, qcy: number, q2x: number, q2y: number) =>
       (ctx: CanvasRenderingContext2D) => {
         ctx.beginPath();
-        ctx.moveTo(p1x, p1y);
-        ctx.quadraticCurveTo(ctrlX, ctrlY, p2x, p2y);
+        ctx.moveTo(q0x, q0y);
+        ctx.quadraticCurveTo(qcx, qcy, q2x, q2y);
         ctx.stroke();
       };
 
     return [
-      { x: cx,    y: nTipY, angle: -Math.PI / 2, draw: bezier(nP1x, nP1y, cx,   y,    nP2x, nP2y) },
-      { x: eTipX, y: cy,    angle:  0,            draw: bezier(eP1x, eP1y, x+w,  cy,   eP2x, eP2y) },
-      { x: cx,    y: sTipY, angle:  Math.PI / 2,  draw: bezier(sP1x, sP1y, cx,   y+h,  sP2x, sP2y) },
-      { x: wTipX, y: cy,    angle:  Math.PI,       draw: bezier(wP1x, wP1y, x,    cy,   wP2x, wP2y) },
+      { x: cx,    y: nTipY, angle: -Math.PI / 2, draw: arc(n.q0x,  n.q0y,  n.qcx,  n.qcy,  n.q2x,  n.q2y)  },
+      { x: eTipX, y: cy,    angle:  0,            draw: arc(e.q0x,  e.q0y,  e.qcx,  e.qcy,  e.q2x,  e.q2y)  },
+      { x: cx,    y: sTipY, angle:  Math.PI / 2,  draw: arc(s.q0x,  s.q0y,  s.qcx,  s.qcy,  s.q2x,  s.q2y)  },
+      { x: wTipX, y: cy,    angle:  Math.PI,      draw: arc(ww.q0x, ww.q0y, ww.qcx, ww.qcy, ww.q2x, ww.q2y) },
     ];
   }
 

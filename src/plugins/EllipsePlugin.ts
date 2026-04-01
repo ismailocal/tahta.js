@@ -1,28 +1,17 @@
 import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
-import { getThemeAdjustedStroke } from '../core/lineUtils';
+import { buildRoughOptions } from '../core/lineUtils';
 
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
-  defaultStyle: Partial<Shape> = { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
 
   render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
-    const isLight = theme === 'light';
-    const options: any = {
-      stroke: getThemeAdjustedStroke(shape.stroke, theme),
-      fill: shape.fill && shape.fill !== 'transparent' ? shape.fill : undefined,
-      strokeWidth: shape.strokeWidth || 1.8,
-      roughness: shape.roughness ?? 1,
-      fillStyle: shape.fillStyle || 'hachure',
-      seed: shape.seed ?? 1,
-    };
-
-    if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
-    else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
+    const options = buildRoughOptions(shape, theme);
 
     rc.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w), Math.abs(h), options);
   }

@@ -2,20 +2,20 @@ import { PluginRegistry } from '../plugins/PluginRegistry';
 import type { Shape } from './types';
 
 export const STYLE_PRESETS: Record<string, any> = {
-  rectangle: { stroke: '#8b5cf6', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'sharp', opacity: 1 },
-  ellipse: { stroke: '#06b6d4', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
-  line:        { stroke: '#f8fafc', strokeWidth: 1.8, roughness: 0, opacity: 1 },
-  'line-dashed': { stroke: '#f8fafc', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dashed' },
-  'line-dotted': { stroke: '#f8fafc', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dotted' },
-  arrow:         { stroke: '#e5e7eb', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
-  'arrow-double': { stroke: '#e5e7eb', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'arrow',   endArrowhead: 'arrow',    opacity: 1 },
-  'arrow-elbow':  { stroke: '#e5e7eb', strokeWidth: 1.8, roughness: 0, edgeStyle: 'elbow',    startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
-  'arrow-curved': { stroke: '#e5e7eb', strokeWidth: 1.8, roughness: 0, edgeStyle: 'curved',   startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
-  'arrow-filled': { stroke: '#e5e7eb', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none',    endArrowhead: 'triangle', opacity: 1 },
-  freehand:               { stroke: '#f59e0b', strokeWidth: 1,  roughness: 0, opacity: 1 },
-  'freehand-thick':       { stroke: '#f59e0b', strokeWidth: 4,  roughness: 0, opacity: 1 },
+  rectangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'sharp', opacity: 1 },
+  ellipse: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
+  line:        { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1 },
+  'line-dashed': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dashed' },
+  'line-dotted': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dotted' },
+  arrow:         { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
+  'arrow-double': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'arrow',   endArrowhead: 'arrow',    opacity: 1 },
+  'arrow-elbow':  { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'elbow',    startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
+  'arrow-curved': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'curved',   startArrowhead: 'none',    endArrowhead: 'arrow',    opacity: 1 },
+  'arrow-filled': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none',    endArrowhead: 'triangle', opacity: 1 },
+  freehand:               { stroke: '#64748b', strokeWidth: 1,  roughness: 0, opacity: 1 },
+  'freehand-thick':       { stroke: '#64748b', strokeWidth: 4,  roughness: 0, opacity: 1 },
   'freehand-highlighter': { stroke: '#fde047', strokeWidth: 14, roughness: 0, opacity: 0.35 },
-  text: { stroke: '#94a3b8', fontSize: 24, opacity: 1 },
+  text: { stroke: '#64748b', fontSize: 24, opacity: 1 },
 };
 
 export type ToolbarItem = {

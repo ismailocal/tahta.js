@@ -1,6 +1,15 @@
-// Constants for Tahta brand colors
-export const STROKE_COLORS = ['#e5e7eb', '#ff8a8a', '#4ade80', '#60a5fa', '#eab308', '#8b5cf6'];
-export const FILL_COLORS = ['transparent', '#7f1d1d', '#14532d', '#1e3a8a', '#713f12', '#4c1d95'];
+// ─── Colour palettes (single source of truth) ─────────────────────────────────
+// #64748b (slate-500) is the first entry: neutral grey visible in both dark and light mode.
+export const STROKE_COLORS = [
+  '#64748b', '#f87171', '#4ade80', '#60a5fa',
+  '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
+];
+
+export const FILL_COLORS = [
+  'transparent',
+  '#7f1d1d', '#14532d', '#1e3a8a', '#713f12',
+  '#4c1d95', '#831843', '#1e293b',
+];
 
 export const ICONS = {
   strokeWidth: [

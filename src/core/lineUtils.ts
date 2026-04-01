@@ -4,6 +4,24 @@ import { PluginRegistry } from '../plugins/PluginRegistry';
 import { getThemeAdjustedStroke } from './Utils';
 export { getThemeAdjustedStroke };
 
+/**
+ * Builds the RoughJS options object for a shape, shared across all shape plugins.
+ * Includes fill/fillStyle (undefined for connector shapes, which is safely ignored by RoughJS).
+ */
+export function buildRoughOptions(shape: Shape, theme: 'light' | 'dark'): Record<string, unknown> {
+  const options: Record<string, unknown> = {
+    stroke: getThemeAdjustedStroke(shape.stroke, theme),
+    fill: shape.fill && shape.fill !== 'transparent' ? shape.fill : undefined,
+    strokeWidth: shape.strokeWidth || 1.8,
+    roughness: shape.roughness ?? 1,
+    fillStyle: shape.fillStyle || 'hachure',
+    seed: shape.seed ?? 1,
+  };
+  if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
+  else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
+  return options;
+}
+
 /** Draws an open path with quadratic-curve rounding at each interior bend point. */
 export function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[], radius: number) {
   const n = points.length;
@@ -48,13 +66,11 @@ export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, 
 }
 
 export function onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-  const theme = api.getState().theme || 'dark';
-  const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
   return {
     x: payload.world.x,
     y: payload.world.y,
     points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-    stroke: defaultColor,
+    stroke: '#64748b',
     strokeWidth: 1.8
   };
 }

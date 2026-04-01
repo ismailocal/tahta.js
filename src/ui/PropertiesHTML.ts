@@ -1,18 +1,5 @@
 import type { Shape, ICanvasAPI } from '../core/types';
-import { getShapePropertyKeys } from './PropertyConstants';
-
-// ─── Palettes ──────────────────────────────────────────────────────────────────
-
-const STROKE_COLORS = [
-  '#e5e7eb', '#f87171', '#4ade80', '#60a5fa',
-  '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
-];
-
-const FILL_COLORS = [
-  'transparent',
-  '#7f1d1d', '#14532d', '#1e3a8a', '#713f12',
-  '#4c1d95', '#831843', '#1e293b',
-];
+import { getShapePropertyKeys, STROKE_COLORS, FILL_COLORS } from './PropertyConstants';
 
 // ─── SVGs ─────────────────────────────────────────────────────────────────────
 

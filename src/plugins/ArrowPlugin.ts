@@ -2,7 +2,7 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../core/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, getThemeAdjustedStroke } from '../core/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../core/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 
 const PORT_SNAP_RADIUS = 40;
@@ -59,7 +59,7 @@ export class ArrowPlugin implements IShapePlugin {
   type = 'arrow';
   isConnector = true;
   canBind = true;
-  defaultStyle: Partial<Shape> = { stroke: '#1e293b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'layer', 'action'];
 
   getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
@@ -84,15 +84,7 @@ export class ArrowPlugin implements IShapePlugin {
     const pts = shape.points || [];
     if (pts.length < 2) return;
     
-    const isLight = theme === 'light';
-    const options: any = {
-      stroke: getThemeAdjustedStroke(shape.stroke, theme),
-      strokeWidth: shape.strokeWidth || 1.8,
-      roughness: shape.roughness ?? 0,
-      seed: shape.seed ?? 1,
-    };
-    if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];
-    else if (shape.strokeStyle === 'dotted') options.strokeLineDash = [2, 6];
+    const options = buildRoughOptions(shape, theme);
 
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
 
