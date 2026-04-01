@@ -15,6 +15,7 @@ export function buildRoughOptions(shape: Shape, theme: 'light' | 'dark'): Record
     strokeWidth: shape.strokeWidth || 1.8,
     roughness: shape.roughness ?? 1,
     fillStyle: shape.fillStyle || 'hachure',
+    fillWeight: 1.5,
     seed: shape.seed ?? 1,
   };
   if (shape.strokeStyle === 'dashed') options.strokeLineDash = [8, 8];

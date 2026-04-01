@@ -155,7 +155,7 @@ export abstract class BaseRectPlugin implements IShapePlugin {
   }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, stroke: '#64748b', strokeWidth: 1.8 };
+    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, strokeWidth: 1.8 };
   }
 
   onDrawUpdate(_shape: Shape, payload: PointerPayload, dragStart: Pick<Point, 'x' | 'y'>): Partial<Shape> {

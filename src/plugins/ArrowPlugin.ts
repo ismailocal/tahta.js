@@ -207,15 +207,13 @@ export class ArrowPlugin implements IShapePlugin {
     return pointToSegmentDistance(point, p1, p2) <= Math.max(8, (shape.strokeWidth || 2) + 4);
   }
 
-  onDrawInit(payload: PointerPayload, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+  onDrawInit(payload: PointerPayload, allShapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
     const snap = findNearestPort(payload.world, allShapes);
-    const theme = api.getState().theme || 'dark';
-    const defaultColor = theme === 'light' ? '#1e293b' : '#f1f5f9';
     return {
       x: snap ? snap.x : payload.world.x,
       y: snap ? snap.y : payload.world.y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      stroke: defaultColor,
+      stroke: '#64748b',
       strokeWidth: 1.8,
       startBinding: snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined
     };
