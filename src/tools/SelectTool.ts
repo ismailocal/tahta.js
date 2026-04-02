@@ -248,7 +248,12 @@ export class SelectTool implements ToolDefinition {
     }
     if (api.getState().isDraggingSelection) {
       api.setState({ isDraggingSelection: false, snapLines: undefined });
-      if (this.dragStartWorld) api.commitState();
+      if (this.dragStartWorld) {
+        const dx = payload.world.x - this.dragStartWorld.x;
+        const dy = payload.world.y - this.dragStartWorld.y;
+        const moved = Math.hypot(dx, dy) > 3;
+        if (moved) api.commitState();
+      }
     }
     this.dragStartWorld = null;
     this.initialSnapshot = [];
