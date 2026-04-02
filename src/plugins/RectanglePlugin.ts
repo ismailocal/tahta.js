@@ -28,6 +28,35 @@ export class RectanglePlugin extends BaseRectPlugin {
       rc.rectangle(shape.x, shape.y, w, h, options);
     }
   }
- 
 
+  renderFast(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void {
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+    const options = buildRoughOptions(shape, theme);
+    ctx.save();
+    ctx.strokeStyle = options.stroke as string;
+    ctx.lineWidth = (options.strokeWidth as number) || 1.8;
+    if (shape.roundness === 'round') {
+      const r = Math.min(16, Math.abs(w) / 2, Math.abs(h) / 2);
+      ctx.beginPath();
+      ctx.roundRect(shape.x, shape.y, w, h, r);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(shape.x, shape.y, w, h);
+    }
+    ctx.restore();
+  }
+
+  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+    const options = buildRoughOptions(shape, theme);
+
+    if (shape.roundness === 'round') {
+      const r = Math.min(16, Math.abs(w) / 2, Math.abs(h) / 2);
+      return [generator.path(getRoundRectPath(shape.x, shape.y, w, h, r), options)];
+    } else {
+      return [generator.rectangle(shape.x, shape.y, w, h, options)];
+    }
+  }
 }

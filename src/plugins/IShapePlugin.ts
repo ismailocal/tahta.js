@@ -43,6 +43,10 @@ export interface IShapePlugin {
 
   // 1. Rendering
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
+  /** Lightweight, zero-latency rendering used while the shape is actively being drawn. */
+  renderFast?(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void;
+  /** Generate Rough.js drawables for caching. If not implemented, render() is used directly every frame. */
+  getDrawable?(generator: any, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): any[];
   renderSelection?(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): void;
 
   // 2. Geometry

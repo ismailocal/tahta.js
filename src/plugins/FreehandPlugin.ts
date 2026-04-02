@@ -17,6 +17,31 @@ export class FreehandPlugin implements IShapePlugin {
     rc.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options);
   }
 
+  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+    const pts = shape.points || [];
+    if (pts.length < 2) return [];
+    const options = buildRoughOptions(shape, theme);
+    return [generator.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options)];
+  }
+
+  renderFast(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void {
+    const pts = shape.points || [];
+    if (pts.length < 2) return;
+    const options = buildRoughOptions(shape, theme);
+    ctx.save();
+    ctx.strokeStyle = options.stroke as string;
+    ctx.lineWidth = (options.strokeWidth as number) || 1.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(shape.x + pts[0].x, shape.y + pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(shape.x + pts[i].x, shape.y + pts[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   getResizeHandlePositions(_shape: Shape): Array<any> {
     return [];
   }
@@ -74,8 +99,9 @@ export class FreehandPlugin implements IShapePlugin {
       const last = pts[pts.length - 1];
       const dx = next.x - last.x;
       const dy = next.y - last.y;
-      // Skip redundant points that are too close to reduce serialized data size
-      if (dx * dx + dy * dy < 4) return {};
+      // Increased threshold to 9 (3 pixels) to further reduce point density
+      // and improve rendering speed without sacrificing visual quality.
+      if (dx * dx + dy * dy < 9) return {};
     }
 
     return { points: [...pts, next] };

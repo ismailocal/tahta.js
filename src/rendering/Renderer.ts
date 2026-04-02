@@ -70,8 +70,10 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
     lastEditingShapeId = state.editingShapeId || null;
   }
 
-  if (state.isDraggingSelection) {
+  if (state.isDraggingSelection || state.drawingShapeId) {
     const dynamicIds = new Set(state.selectedIds);
+    if (state.drawingShapeId) dynamicIds.add(state.drawingShapeId);
+    
     state.shapes.forEach(s => {
       if (PluginRegistry.hasPlugin(s.type) && PluginRegistry.getPlugin(s.type).isConnector) {
         if ((s.startBinding && dynamicIds.has(s.startBinding.elementId)) ||
@@ -129,7 +131,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
       .filter(s => dynamicIds.has(s.id));
 
     dynamicShapes.forEach((shape) => {
-      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
+      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId);
       renderedCount++;
     });
 
@@ -154,13 +156,13 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
     sortedShapes.forEach((shape) => {
       if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
         const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
-        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
+        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId);
         renderedCount++;
       }
     });
   }
   
-  lastDragState = state.isDraggingSelection;
+  lastDragState = state.isDraggingSelection || !!state.drawingShapeId;
 
   renderOverlays(ctx, state);
 

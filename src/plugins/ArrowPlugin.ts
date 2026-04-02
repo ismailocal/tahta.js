@@ -2,7 +2,7 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../geometry/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 
 const PORT_SNAP_RADIUS = 40;
@@ -85,7 +85,6 @@ export class ArrowPlugin implements IShapePlugin {
     if (pts.length < 2) return;
     
     const options = buildRoughOptions(shape, theme);
-
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
 
     if (useSmartRouting(shape)) {
@@ -153,6 +152,57 @@ export class ArrowPlugin implements IShapePlugin {
         drawArrowhead(rc, ctx, p1, startAngle, shape.startArrowhead, options, theme);
       }
     }
+  }
+
+  getDrawable(generator: any, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+    const pts = shape.points || [];
+    if (pts.length < 2) return [];
+    
+    const options = buildRoughOptions(shape, theme);
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+    const drawables: any[] = [];
+
+    // Note: Elbow and Curved paths use direct Canvas API for the line part which isn't a Rough.js Drawable,
+    // but the arrowheads ARE Rough.js Drawables and can be cached.
+    if (useSmartRouting(shape)) {
+      const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
+      const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
+      const path = getElbowPath(p1, p2, b1, b2);
+      
+      const lastP1 = path[path.length - 2];
+      const lastP2 = path[path.length - 1];
+      const angle = Math.atan2(lastP2.y - lastP1.y, lastP2.x - lastP1.x);
+      if (shape.endArrowhead !== 'none') {
+        drawables.push(...getArrowheadDrawable(generator, lastP2, angle, shape.endArrowhead || 'arrow', options, theme));
+      }
+      if (shape.startArrowhead && shape.startArrowhead !== 'none') {
+        const firstP1 = path[1];
+        const firstP0 = path[0];
+        const startAngle = Math.atan2(firstP0.y - firstP1.y, firstP0.x - firstP1.x);
+        drawables.push(...getArrowheadDrawable(generator, firstP0, startAngle, shape.startArrowhead, options, theme));
+      }
+    } else if (shape.edgeStyle === 'curved') {
+      const cp = getCurvedControlPoint(p1, p2);
+      if (shape.endArrowhead !== 'none') {
+        const endAngle = Math.atan2(p2.y - cp.y, p2.x - cp.x);
+        drawables.push(...getArrowheadDrawable(generator, p2, endAngle, shape.endArrowhead || 'arrow', options, theme));
+      }
+      if (shape.startArrowhead && shape.startArrowhead !== 'none') {
+        const startAngle = Math.atan2(p1.y - cp.y, p1.x - cp.x);
+        drawables.push(...getArrowheadDrawable(generator, p1, startAngle, shape.startArrowhead, options, theme));
+      }
+    } else {
+      drawables.push(generator.line(p1.x, p1.y, p2.x, p2.y, options));
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      if (shape.endArrowhead !== 'none') {
+        drawables.push(...getArrowheadDrawable(generator, p2, angle, shape.endArrowhead || 'arrow', options, theme));
+      }
+      if (shape.startArrowhead && shape.startArrowhead !== 'none') {
+        const startAngle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
+        drawables.push(...getArrowheadDrawable(generator, p1, startAngle, shape.startArrowhead, options, theme));
+      }
+    }
+    return drawables;
   }
 
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark') {

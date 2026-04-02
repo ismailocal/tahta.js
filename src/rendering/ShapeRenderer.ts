@@ -11,25 +11,13 @@ const roughCache = new Map<string, { drawables: any[], version: string, x: numbe
  * needs a re-render. Handles theme changes.
  */
 function getShapeVersionHash(shape: Shape, theme: string): string {
-  return JSON.stringify({
-    type: shape.type,
-    theme,
-    seed: shape.seed,
-    width: shape.width,
-    height: shape.height,
-    points: shape.points,
-    stroke: shape.stroke,
-    strokeWidth: shape.strokeWidth,
-    strokeStyle: shape.strokeStyle,
-    fill: shape.fill,
-    fillStyle: shape.fillStyle,
-    roughness: shape.roughness,
-    roundness: shape.roundness,
-    edgeStyle: shape.edgeStyle,
-    startArrowhead: shape.startArrowhead,
-    endArrowhead: shape.endArrowhead,
-    data: shape.data,
-  });
+  // Performance optimization: Avoid JSON.Stringify on massive points arrays.
+  // Instead, use length and last point coordinates as a version proxy.
+  const pointsHash = shape.points && shape.points.length > 0
+    ? `${shape.points.length}-${shape.points[shape.points.length - 1].x}-${shape.points[shape.points.length - 1].y}`
+    : 'no-pts';
+
+  return `${shape.type}-${theme}-${shape.seed}-${shape.width}-${shape.height}-${shape.stroke}-${shape.strokeWidth}-${shape.strokeStyle}-${shape.fill}-${shape.fillStyle}-${shape.roughness}-${shape.roundness}-${shape.edgeStyle}-${shape.startArrowhead}-${shape.endArrowhead}-${pointsHash}-${shape.x}-${shape.y}`;
 }
 
 /**
@@ -47,7 +35,8 @@ export function renderShape(
   isEditingText: boolean = false,
   isHovered: boolean = false,
   showPorts: boolean = false,
-  theme: 'light' | 'dark' = 'light'
+  theme: 'light' | 'dark' = 'light',
+  isDrawing: boolean = false
 ) {
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
@@ -58,13 +47,21 @@ export function renderShape(
   if (isErasing) alpha *= 0.3;
   ctx.globalAlpha = alpha;
 
-  // Versions are tracked to permit caching if expensive generator calls are needed.
-  // Note: current implementation directly calls plugin.render which bypasses generator cache,
-  // but we maintain the structure for future performance optimizations.
   const currentVersion = getShapeVersionHash(shape, theme);
-  const _cacheEntry = roughCache.get(shape.id);
+  const cacheEntry = roughCache.get(shape.id);
   
-  plugin.render(rc, ctx, shape, isSelected, isErasing, allShapes, theme);
+  if (isDrawing && plugin.renderFast) {
+    plugin.renderFast(ctx, shape, theme);
+  } else if (cacheEntry && cacheEntry.version === currentVersion) {
+    cacheEntry.drawables.forEach(d => rc.draw(d));
+  } else if (plugin.getDrawable) {
+    const drawables = plugin.getDrawable(rc.generator, shape, allShapes, theme);
+    roughCache.set(shape.id, { drawables, version: currentVersion, x: shape.x, y: shape.y });
+    drawables.forEach(d => rc.draw(d));
+  } else {
+    // Fallback for plugins that don't implement getDrawable yet
+    plugin.render(rc, ctx, shape, isSelected, isErasing, allShapes, theme);
+  }
   
   renderShapeText(ctx, shape, plugin, allShapes, isEditingText, theme);
 

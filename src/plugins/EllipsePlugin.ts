@@ -8,12 +8,31 @@ export class EllipsePlugin extends BaseRectPlugin {
   defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const options = buildRoughOptions(shape, theme);
-
     rc.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w), Math.abs(h), options);
+  }
+
+  renderFast(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void {
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+    const options = buildRoughOptions(shape, theme);
+    ctx.save();
+    ctx.strokeStyle = options.stroke as string;
+    ctx.lineWidth = (options.strokeWidth as number) || 1.8;
+    ctx.beginPath();
+    ctx.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w) / 2, Math.abs(h) / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+    const options = buildRoughOptions(shape, theme);
+    return [generator.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w), Math.abs(h), options)];
   }
 
   /** 4-point handle hit test at N/E/S/W on the actual ellipse outline. */

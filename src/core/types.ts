@@ -64,6 +64,7 @@ export interface CanvasState {
   activeTool: string;
   viewport: { x: number; y: number; zoom: number };
   userToFollow?: { socketId: string; username: string } | null;
+  collaborators?: Map<string, any>;
   hoveredShapeId: string | null;
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
@@ -109,6 +110,8 @@ export interface ICanvasAPI {
   redo: () => void;
   batchUpdate: (fn: () => void) => void;
   getSpatialIndex: () => any;
+  /** Subscribe to state changes. Returns an unsubscribe function. */
+  subscribe: (fn: (state: CanvasState) => void) => () => void;
 }
 
 export interface ToolDefinition {

@@ -29,6 +29,7 @@ export function createWhiteboardAPI(store: WhiteboardStore): ICanvasAPI {
     undo: () => store.undo(),
     redo: () => store.redo(),
     batchUpdate: (fn: () => void) => store.batchUpdate(fn),
-    getSpatialIndex: () => store.getSpatialIndex()
+    getSpatialIndex: () => store.getSpatialIndex(),
+    subscribe: (fn) => store.subscribe(fn)
   };
 }
