@@ -278,235 +278,188 @@ button {
 
 .properties-panel {
   position: absolute;
-  top: 20px;
-  right: 16px;
-  z-index: 20;
-  width: 268px;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow);
+  z-index: 900; /* Above regular elements but below some overlays */
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .properties-panel.hidden {
   display: none;
 }
 
-.panel-header {
+/* ─── Properties Toolbar ─────────────────────────────────────────────────── */
+
+.pp-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  pointer-events: auto;
+}
+
+.pp--locked {
+  opacity: 0.6;
+}
+
+/* Dropdown Wrap */
+.pp-dropdown-wrap {
+  position: relative;
+}
+
+/* Dropdown Button (Action Toggle) */
+.pp-dbat {
+  height: 32px;
+  padding: 0 6px 0 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--panel-header);
-  text-transform: capitalize;
-}
-
-.icon-action {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  border: none;
-  font-size: 13px;
-  transition: background 0.1s;
-}
-
-.icon-action:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.field-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
   gap: 4px;
-  color: var(--ui-text);
-  font-size: 12px;
-}
-
-.field-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.field strong {
-  color: var(--ui-text);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.color-field input[type='color'] {
-  width: 100%;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
   background: transparent;
-  cursor: pointer;
-}
-
-.field input[type='range'] {
-  width: 100%;
-  height: 4px;
-  accent-color: #8b5cf6;
-}
-
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 12px;
+  border: none;
   border-radius: 6px;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pp-dbat:hover {
+  background: var(--ui-hover-bg);
   color: var(--ui-text-active);
 }
 
-.field textarea {
-  min-height: 60px;
-  resize: vertical;
-}
-
-@media (max-width: 900px) {
-  .toolbar-wrap {
-    width: calc(100% - 24px);
-    top: 12px;
-  }
-
-  .toolbar {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-
-  .properties-panel {
-    top: auto;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    width: auto;
-  }
-
-  .toolbar-hint {
-    font-size: 12px;
-  }
-}
-
-/* ─── Properties Panel ───────────────────────────────────────────────────── */
-
-.pp {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.pp--locked>.pp-section {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-/* Labeled section */
-.pp-section {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.pp-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.pp-controls {
+.pp-dbat-icon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
 }
 
-/* Color swatch row */
-.pp-swatches {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+.pp-dbat-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
-.pp-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.1s, border-color 0.1s;
+/* Color Preview Circle */
+.pp-color-preview {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
+/* Dropdown Menu */
+.pp-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--dropdown-border);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 1000;
+  min-width: 120px;
+  box-shadow: var(--shadow);
+  gap: 4px;
+}
+
+.pp-dropdown-menu.open {
+  display: flex;
+  animation: pp-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pp-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.pp-dropdown-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 4px;
+}
+
+.pp-dropdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Color Swatches */
+.pp-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 2px;
+}
+
+.pp-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
 .pp-swatch:hover {
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 
 .pp-swatch.active {
-  border-color: #818cf8;
-  box-shadow: 0 0 0 1px #818cf8;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px #6366f1;
 }
 
 .pp-swatch--trans {
-  background-image:
-    linear-gradient(45deg, var(--input-bg) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--input-bg) 25%, var(--panel-bg) 25%, var(--panel-bg) 75%, var(--input-bg) 75%),
-    linear-gradient(45deg, transparent 75%, var(--input-bg) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--panel-bg) 75%);
+  background-image: 
+    linear-gradient(45deg, #e2e8f0 25%, transparent 25%), 
+    linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
   background-size: 6px 6px;
   background-position: 0 0, 0 3px, 3px -3px, -3px 0;
+  background-color: #fff;
 }
 
-/* Button group */
+/* Button Groups */
 .pp-btn-group {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   background: var(--input-bg);
-  border-radius: 7px;
-  padding: 3px;
+  border-radius: 6px;
+  padding: 2px;
 }
 
 .pp-ibtn {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 30px;
+  width: 30px;
+  height: 28px;
   border: none;
   background: transparent;
   color: var(--ui-text);
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-  padding: 0;
-  flex-shrink: 0;
+  transition: all 0.12s;
 }
 
 .pp-ibtn svg {
-  width: 18px;
-  height: 18px;
-  display: block;
-  overflow: visible;
+  width: 16px;
+  height: 16px;
 }
 
 .pp-ibtn:hover {
@@ -515,18 +468,19 @@ button {
 }
 
 .pp-ibtn.active {
-  background: #4f46e5;
+  background: #6366f1;
   color: #fff;
 }
 
+/* Special icons */
 .pp-ibtn--danger:hover {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .pp-ibtn--lock.active {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: #e0e7ff;
+  color: #6366f1;
 }
 
 .pp-ibtn--dim {
@@ -534,42 +488,37 @@ button {
   pointer-events: none;
 }
 
-/* Horizontal divider */
-.pp-divider {
-  height: 1px;
-  background: var(--ui-border);
-  margin: 4px 0;
-}
-
-/* Opacity */
+/* Opacity Slider */
 .pp-opacity-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+  padding: 4px 0;
 }
 
 .pp-opacity-slider {
-  flex: 1;
-  height: 4px;
-  accent-color: #4f46e5;
+  width: 100%;
+  height: 6px;
+  accent-color: #6366f1;
   cursor: pointer;
-  border-radius: 2px;
 }
 
-.pp-opacity-val {
-  font-size: 11px;
-  color: #64748b;
-  width: 34px;
-  text-align: right;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Bottom bar */
-.pp-bottom-bar {
+/* Actions Grid Extensions */
+.pp-actions-grid {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 768px) {
+  .pp-toolbar {
+    padding: 2px;
+  }
+  .pp-dbat {
+    height: 36px;
+    padding: 0 8px;
+  }
 }

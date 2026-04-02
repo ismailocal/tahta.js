@@ -17,6 +17,10 @@ export class FreehandPlugin implements IShapePlugin {
     rc.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options);
   }
 
+  getResizeHandlePositions(_shape: Shape): Array<any> {
+    return [];
+  }
+
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
     if (shape.locked && shape.points && shape.points.length > 0) {
       drawLockIcon(ctx, shape.x + shape.points[0].x, shape.y + shape.points[0].y);
@@ -36,32 +40,26 @@ export class FreehandPlugin implements IShapePlugin {
     return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }
 
-  getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 12;
-    const bounds = this.getBounds(shape);
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
-
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - b.y) <= d) return 'nw';
-    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - b.y) <= d) return 'n';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - b.y) <= d) return 'ne';
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'w';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'e';
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'sw';
-    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 's';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'se';
+  getHandleAtPoint(_shape: Shape, _point: Point): string | null {
     return null;
   }
 
   isPointInside(point: Point, shape: Shape): boolean {
-    const bounds = this.getBounds(shape);
-    // Expand hit area slightly to match the visual frame (which is bounds - 6)
-    const margin = 6;
-    return (
-      point.x >= bounds.x - margin &&
-      point.x <= bounds.x + bounds.width + margin &&
-      point.y >= bounds.y - margin &&
-      point.y <= bounds.y + bounds.height + margin
-    );
+    const pts = shape.points || [];
+    if (pts.length < 2) return false;
+
+    // Hit radius in pixels — slightly larger for easier selection of thin lines
+    const hitRadius = 10;
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = { x: shape.x + pts[i].x, y: shape.y + pts[i].y };
+      const p2 = { x: shape.x + pts[i + 1].x, y: shape.y + pts[i + 1].y };
+      
+      const d = pointToSegmentDistance(point, p1, p2);
+      if (d <= hitRadius) return true;
+    }
+
+    return false;
   }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
@@ -83,43 +81,7 @@ export class FreehandPlugin implements IShapePlugin {
     return { points: [...pts, next] };
   }
 
-  onDragHandle(shape: Shape, handle: string, payload: PointerPayload, dragStart: Point): Partial<Shape> {
-    const dx = payload.world.x - dragStart.x;
-    const dy = payload.world.y - dragStart.y;
-
-    const bounds = this.getBounds(shape);
-    let { x, y, width: w, height: h } = bounds;
-
-    if (handle.includes('n')) { y += dy; h -= dy; }
-    if (handle.includes('s')) { h += dy; }
-    if (handle.includes('w')) { x += dx; w -= dx; }
-    if (handle.includes('e')) { w += dx; }
-
-    let flipX = false;
-    let flipY = false;
-
-    if (w < 0) { x += w; w = Math.abs(w); flipX = true; }
-    if (h < 0) { y += h; h = Math.abs(h); flipY = true; }
-
-    const oldBounds = this.getBounds(shape);
-    if (oldBounds.width === 0 || oldBounds.height === 0) return {};
-
-    const newPoints = (shape.points || []).map(p => {
-      const absX = shape.x + p.x;
-      const absY = shape.y + p.y;
-
-      let normX = (absX - oldBounds.x) / oldBounds.width;
-      let normY = (absY - oldBounds.y) / oldBounds.height;
-
-      if (flipX) normX = 1 - normX;
-      if (flipY) normY = 1 - normY;
-
-      const newAbsX = x + normX * w;
-      const newAbsY = y + normY * h;
-
-      return { x: newAbsX - x, y: newAbsY - y };
-    });
-
-    return { x, y, points: newPoints };
+  onDragHandle(_shape: Shape, _handle: string, _payload: PointerPayload, _dragStart: Point): Partial<Shape> {
+    return {};
   }
 }

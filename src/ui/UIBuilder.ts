@@ -101,28 +101,86 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const onDocumentClick = () => closeAllDropdowns();
   document.addEventListener('click', onDocumentClick);
 
-  const selectedShape = () => {
-    const state = store.getState();
-    return state.shapes.find((shape) => shape.id === state.selectedIds[0]) || null;
-  };
+  const renderProperties = (state: any) => {
+    const selectedShapes = state.selectedIds
+      .map((id: string) => state.shapes.find((s: any) => s.id === id))
+      .filter((s: any) => !!s);
 
-  const renderProperties = () => {
-    const shape = selectedShape();
-    if (!shape) {
+    if (selectedShapes.length === 0) {
       properties.classList.add('hidden');
       properties.innerHTML = '';
       return;
     }
+    
     properties.classList.remove('hidden');
     properties.innerHTML = renderPropertiesPanelHTML(api);
+
+    // Dynamic positioning above selection
+    const bounds = getSelectionBounds(selectedShapes);
+    const zoom = state.viewport.zoom;
+    const vx = state.viewport.x;
+    const vy = state.viewport.y;
+
+    const screenTop = (bounds.minY * zoom) + vy;
+    const screenLeft = (bounds.minX * zoom) + vx;
+    const screenRight = (bounds.maxX * zoom) + vx;
+    const screenCenterX = (screenLeft + screenRight) / 2;
+
+    // Position panel
+    properties.style.top = `${screenTop - 54}px`; // 44px height + 10px gap
+    properties.style.left = `${screenCenterX}px`;
+    properties.style.right = 'auto'; // Reset right: 16px from CSS
+    properties.style.transform = 'translateX(-50%)';
+
+    // Hover-based dropdown for property panel
+    properties.querySelectorAll<HTMLElement>('.pp-dropdown-wrap').forEach(wrap => {
+      const menu = wrap.querySelector<HTMLElement>('.pp-dropdown-menu');
+      if (!menu) return;
+      let closeTimer: ReturnType<typeof setTimeout> | null = null;
+      wrap.addEventListener('mouseenter', () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        properties.querySelectorAll('.pp-dropdown-menu').forEach(m => m.classList.remove('open'));
+        menu.classList.add('open');
+      });
+      wrap.addEventListener('mouseleave', () => {
+        closeTimer = setTimeout(() => menu.classList.remove('open'), 150);
+      });
+    });
   };
+
+  function getSelectionBounds(shapes: any[]) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    shapes.forEach(s => {
+      if (s.points && Array.isArray(s.points)) {
+        s.points.forEach((p: any) => {
+          const px = s.x + (p.x !== undefined ? p.x : p[0]);
+          const py = s.y + (p.y !== undefined ? p.y : p[1]);
+          minX = Math.min(minX, px);
+          minY = Math.min(minY, py);
+          maxX = Math.max(maxX, px);
+          maxY = Math.max(maxY, py);
+        });
+      } else {
+        const w = s.width || 0;
+        const h = s.height || 0;
+        minX = Math.min(minX, s.x);
+        minY = Math.min(minY, s.y);
+        maxX = Math.max(maxX, s.x + w);
+        maxY = Math.max(maxY, s.y + h);
+      }
+    });
+    return { minX, minY, maxX, maxY };
+  }
 
   initPropertiesPanel(properties, api);
 
   root.querySelector('.app-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
-    // Close dropdown if clicked inside dropdown item
-    if (target.closest('.tool-dropdown-item')) closeAllDropdowns();
+    // Close dropdowns if clicked
+    if (target.closest('.tool-dropdown-item') || target.closest('.pp-ibtn') || target.closest('.pp-swatch')) {
+      closeAllDropdowns();
+      properties.querySelectorAll('.pp-dropdown-menu').forEach(m => m.classList.remove('open'));
+    }
     const btn = target.closest('[data-tool]') as HTMLButtonElement | null;
     if (btn?.disabled) return;
 
@@ -230,13 +288,13 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const unsubUI = store.subscribe((state) => {
     requestAnimationFrame(() => {
       renderToolbar(state);
-      renderProperties();
+      renderProperties(state);
       renderCursor(state);
     });
   });
 
   renderToolbar(store.getState());
-  renderProperties();
+  renderProperties(store.getState());
   renderCursor(store.getState());
 
   return () => {

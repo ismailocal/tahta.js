@@ -63,6 +63,25 @@ function btnGroup(...btns: string[]): string {
 
 // ─── Main render ───────────────────────────────────────────────────────────────
 
+function dropdown(label: string, icon: string, content: string, title: string): string {
+  return `<div class="pp-dropdown-wrap">
+    <button class="pp-dbat" title="${title}">
+      <span class="pp-dbat-icon">${icon}</span>
+      <span class="tool-dropdown-arrow">▾</span>
+    </button>
+    <div class="pp-dropdown-menu">
+      <div class="pp-dropdown-label">${label}</div>
+      <div class="pp-dropdown-content">${content}</div>
+    </div>
+  </div>`;
+}
+
+function colorIcon(color: string): string {
+  const isTrans = color === 'transparent';
+  return `<div class="pp-color-preview${isTrans ? ' pp-swatch--trans' : ''}" 
+    style="${isTrans ? '' : `background:${color}; border: 1px solid rgba(0,0,0,0.1);`}"></div>`;
+}
+
 export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   const state = api.getState();
   const selectedShapes = state.selectedIds
@@ -84,127 +103,86 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   const sw = shape.strokeWidth ?? 2;
   const opacity = Math.round((shape.opacity ?? 1) * 100);
 
-  let html = `<div class="pp${isLocked ? ' pp--locked' : ''}">`;
+  let html = `<div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">`;
 
   // Stroke color
   if (has('stroke')) {
-    html += section('Kontur rengi',
-      `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`
+    html += dropdown('Kontur rengi', colorIcon(shape.stroke || '#000'),
+      `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`,
+      'Kontur Rengi'
     );
   }
 
   // Stroke width
   if (has('strokeWidth')) {
-    html += section('Kalınlık',
+    const icon = sw <= 2 ? I.strokeThin : (sw >= 5 ? I.strokeThick : I.strokeMed);
+    html += dropdown('Kalınlık', icon,
       btnGroup(
         iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'İnce'),
         iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Orta'),
         iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Kalın'),
-      )
+      ),
+      'Kalınlık'
     );
   }
 
   // Stroke style
   if (has('strokeStyle')) {
-    html += section('Çizgi stili',
+    const s = shape.strokeStyle || 'solid';
+    const icon = s === 'dashed' ? I.styleDashed : (s === 'dotted' ? I.styleDotted : I.styleSolid);
+    html += dropdown('Çizgi stili', icon,
       btnGroup(
-        iconBtn('strokeStyle', 'solid',  I.styleSolid,  (shape.strokeStyle ?? 'solid') === 'solid',  'Düz'),
-        iconBtn('strokeStyle', 'dashed', I.styleDashed, shape.strokeStyle === 'dashed', 'Kesik'),
-        iconBtn('strokeStyle', 'dotted', I.styleDotted, shape.strokeStyle === 'dotted', 'Noktalı'),
-      )
+        iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Düz'),
+        iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Kesik'),
+        iconBtn('strokeStyle', 'dotted', I.styleDotted, s === 'dotted', 'Noktalı'),
+      ),
+      'Çizgi Stili'
     );
   }
 
   // Fill color
   if (has('fill')) {
-    html += section('Dolgu rengi',
-      `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`
+    html += dropdown('Dolgu rengi', colorIcon(shape.fill || 'transparent'),
+      `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`,
+      'Dolgu Rengi'
     );
   }
 
-  // Fill style (hachure / solid)
+  // Fill style
   if (has('fillStyle')) {
-    html += section('Dolgu stili',
+    const s = shape.fillStyle || 'hachure';
+    const icon = s === 'solid' ? I.fillSolid : (s === 'cross-hatch' ? I.fillCrossHatch : I.fillHachure);
+    html += dropdown('Dolgu stili', icon,
       btnGroup(
-        iconBtn('fillStyle', 'solid',       I.fillSolid,      (shape.fillStyle ?? 'hachure') === 'solid',      'Düz dolgu'),
-        iconBtn('fillStyle', 'hachure',     I.fillHachure,    (shape.fillStyle ?? 'hachure') === 'hachure',    'Çizgili'),
-        iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, shape.fillStyle === 'cross-hatch', 'Çapraz çizgili'),
-      )
+        iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Düz dolgu'),
+        iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Çizgili'),
+        iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, s === 'cross-hatch', 'Çapraz çizgili'),
+      ),
+      'Dolgu Stili'
     );
   }
 
-  // Roughness
-  if (has('roughness')) {
-    html += section('Çizim stili',
-      btnGroup(
-        iconBtn('roughness', '0', I.roughNone, (shape.roughness ?? 1) === 0, 'Düzgün'),
-        iconBtn('roughness', '1', I.roughLow,  (shape.roughness ?? 1) === 1, 'Hafif'),
-        iconBtn('roughness', '2', I.roughHigh, (shape.roughness ?? 1) >= 2,  'Karalamış'),
-      )
-    );
-  }
+  // Opacity removed as per user request
 
-  // Roundness
-  if (has('roundness')) {
-    html += section('Köşeler',
-      btnGroup(
-        iconBtn('roundness', 'sharp', I.roundSharp, (shape.roundness ?? 'round') === 'sharp', 'Keskin'),
-        iconBtn('roundness', 'round', I.roundRound, (shape.roundness ?? 'round') === 'round', 'Yuvarlak'),
-      )
-    );
-  }
+  html += `<div class="toolbar-separator"></div>`;
 
-  // Opacity
-  if (has('opacity')) {
-    html += section('Opaklık',
-      `<div class="pp-opacity-row">
-        <input class="pp-opacity-slider" type="range" min="0" max="100" value="${opacity}" data-prop="opacity">
-        <span class="pp-opacity-val">${opacity}%</span>
-      </div>`
-    );
-  }
+  // Main actions on toolbar
+  html += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Çoğalt',       isLocked ? 'pp-ibtn--dim' : '');
+  html += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Kilidi aç' : 'Kilitle', 'pp-ibtn--lock');
+  html += iconBtn('action', 'delete',      I.delete,                      false,     'Sil',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
 
-  // Arrow: edge style
-  if (has('edgeStyle')) {
-    html += section('Ok yolu',
-      btnGroup(
-        iconBtn('edgeStyle', 'straight', I.edgeStraight, (shape.edgeStyle ?? 'straight') === 'straight', 'Düz'),
-        iconBtn('edgeStyle', 'elbow',    I.edgeElbow,    shape.edgeStyle === 'elbow',    'Dirsek'),
-        iconBtn('edgeStyle', 'curved',   I.edgeCurved,   shape.edgeStyle === 'curved',   'Eğrisel'),
-      )
-    );
-  }
+  html += `<div class="toolbar-separator"></div>`;
 
-  // Arrow: arrowhead
-  if (has('endArrowhead')) {
-    html += section('Ok ucu',
-      btnGroup(
-        iconBtn('endArrowhead', 'none',     I.ahNone,     (shape.endArrowhead ?? 'arrow') === 'none',     'Yok'),
-        iconBtn('endArrowhead', 'arrow',    I.ahArrow,    (shape.endArrowhead ?? 'arrow') === 'arrow',    'Ok'),
-        iconBtn('endArrowhead', 'triangle', I.ahTriangle, shape.endArrowhead === 'triangle', 'Üçgen'),
-        iconBtn('endArrowhead', 'circle',   I.ahCircle,   shape.endArrowhead === 'circle',   'Daire'),
-        iconBtn('endArrowhead', 'bar',      I.ahBar,      shape.endArrowhead === 'bar',      'Çubuk'),
-      )
-    );
-  }
-
-  // ── Bottom bar: Layers + Actions ──────────────────────────────────────────
-  html += `<div class="pp-divider"></div>`;
-
-  const isLocked2 = isLocked;
-  html += `<div class="pp-bottom-bar">
-    <div class="pp-btn-group">
+  // Layers Dropdown
+  html += dropdown('Katmanlar', I.layerFront,
+    `<div class="pp-btn-group">
       ${iconBtn('layer', 'back',     I.layerBack,  false, 'En alta')}
       ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Bir aşağı')}
       ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Bir yukarı')}
       ${iconBtn('layer', 'front',    I.layerFront, false, 'En üste')}
-    </div>
-    <div class="pp-btn-group">
-      ${iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Çoğalt',       isLocked2 ? 'pp-ibtn--dim' : '')}
-      ${iconBtn('action', 'toggle-lock', isLocked2 ? I.unlock : I.lock, isLocked2, isLocked2 ? 'Kilidi aç' : 'Kilitle', 'pp-ibtn--lock')}
-      ${iconBtn('action', 'delete',      I.delete,                      false,     'Sil',           `pp-ibtn--danger${isLocked2 ? ' pp-ibtn--dim' : ''}`)}
-    </div>
-  </div>`;
+    </div>`,
+    'Katmanlar'
+  );
 
   html += `</div>`;
   return html;
@@ -213,3 +191,4 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
 // backward compat exports (referenced by PropertiesPanel.ts re-export)
 export function renderColorSwatches(): string { return ''; }
 export function renderBtnGroup(): string { return ''; }
+
