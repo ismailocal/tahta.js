@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./react": "./src/react/index.ts"
   },
   "scripts": {
     "dev": "vite",
@@ -21,7 +22,10 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "lucide-react": "^0.577.0",
     "mermaid": "^11.13.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "roughjs": "^4.6.6"
   }
 }

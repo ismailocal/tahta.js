@@ -1,2 +1,3 @@
-export * from './hooks';
-// Future React components (Canvas, etc.) will be exported here.
+export * from './context';
+export * from './hooks/useTahta';
+export * from './components/LayersPanel';

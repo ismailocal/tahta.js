@@ -109,6 +109,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
   return {
     store,
     bus,
+    api,
     getPerformanceMetrics: () => perf.getMetrics(),
     destroy: () => {
       unsubRender();
