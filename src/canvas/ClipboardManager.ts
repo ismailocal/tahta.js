@@ -1,5 +1,5 @@
-import type { ICanvasAPI } from './types';
-import { screenToWorld } from './Geometry';
+import type { ICanvasAPI, ShapeType } from '../core/types';
+import { screenToWorld } from '../geometry/Geometry';
 
 export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file: File, clientX: number, clientY: number) {
   if (!file.type.startsWith('image/')) return;
@@ -28,7 +28,7 @@ export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file
       const id = Math.random().toString(36).slice(2, 10);
       api.addShape({
         id,
-        type: 'image',
+        type: 'image' as ShapeType,
         x: world.x - w / 2,
         y: world.y - h / 2,
         width: w,

@@ -1,4 +1,4 @@
-import type { ICanvasAPI, Shape } from '../core/types';
+import type { ICanvasAPI, Shape } from '../../core/types';
 export { renderPropertiesPanelHTML } from './PropertiesHTML';
 
 export function initPropertiesPanel(container: HTMLElement, api: ICanvasAPI) {

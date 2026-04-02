@@ -1,5 +1,5 @@
-import type { CanvasState } from './types';
-import { getShapeBounds } from './Geometry';
+import type { CanvasState } from '../core/types';
+import { getShapeBounds } from '../geometry/Geometry';
 
 export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, theme: 'light' | 'dark' = 'light') {
   const { width, height } = canvas.getBoundingClientRect();

@@ -1,5 +1,5 @@
 import type { ICanvasAPI, Shape, PointerPayload } from '../core/types';
-import { getShapeBounds } from '../core/Geometry';
+import { getShapeBounds } from '../geometry/Geometry';
 
 export function updateBoxSelection(api: ICanvasAPI, payload: PointerPayload, dragStartWorld: { x: number, y: number }) {
   const state = api.getState();

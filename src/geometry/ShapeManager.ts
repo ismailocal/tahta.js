@@ -1,4 +1,4 @@
-import type { Shape } from './types';
+import type { Shape } from '../core/types';
 
 export class ShapeManager {
   private static ensureSorted(shapes: Shape[]): Shape[] {

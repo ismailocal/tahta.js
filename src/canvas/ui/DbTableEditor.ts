@@ -1,7 +1,7 @@
-import type { ICanvasAPI } from '../core/types';
-import type { DbTableData, DbColumn } from '../plugins/DbTablePlugin';
-import type { DbViewData } from '../plugins/DbViewPlugin';
-import type { DbEnumData } from '../plugins/DbEnumPlugin';
+import type { ICanvasAPI } from '../../core/types';
+import type { DbTableData, DbColumn } from '../../plugins/DbTablePlugin';
+import type { DbViewData } from '../../plugins/DbViewPlugin';
+import type { DbEnumData } from '../../plugins/DbEnumPlugin';
 
 let activeEditor: HTMLElement | null = null;
 
@@ -12,9 +12,9 @@ export function openDbTableEditor(shapeId: string, api: ICanvasAPI, _canvas: HTM
   const shape = state.shapes.find(s => s.id === shapeId);
   if (!shape) return;
 
-  if (shape.type === 'db-table') openTableEditor(shapeId, shape.data as DbTableData, api);
-  else if (shape.type === 'db-view') openViewEditor(shapeId, shape.data as DbViewData, api);
-  else if (shape.type === 'db-enum') openEnumEditor(shapeId, shape.data as DbEnumData, api);
+  if (shape.type === 'db-table') openTableEditor(shapeId, shape.data as unknown as DbTableData, api);
+  else if (shape.type === 'db-view') openViewEditor(shapeId, shape.data as unknown as DbViewData, api);
+  else if (shape.type === 'db-enum') openEnumEditor(shapeId, shape.data as unknown as DbEnumData, api);
 }
 
 // ─── shared helpers ────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ function openTableEditor(shapeId: string, rawData: DbTableData | undefined, api:
     dialog.querySelectorAll<HTMLButtonElement>('.dbe-fk').forEach(btn => { btn.onclick = () => { const i = +btn.dataset.i!; columns[i].fk = !columns[i].fk; if (columns[i].fk) columns[i].pk = false; render(); }; });
     dialog.querySelectorAll<HTMLButtonElement>('.dbe-del').forEach(btn => { btn.onclick = () => { columns.splice(+btn.dataset.i!, 1); render(); }; });
     (dialog.querySelector('#dbe-add') as HTMLElement).onclick = () => { columns.push({ name: '', type: 'VARCHAR' }); render(); setTimeout(() => { const els = dialog.querySelectorAll<HTMLInputElement>('.dbe-col-name'); els[els.length - 1]?.focus(); }, 0); };
-    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { tableName, columns } as DbTableData }); api.commitState(); close(); };
+    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { tableName, columns } as unknown as Record<string, unknown> }); api.commitState(); close(); };
   }
 
   function close() { overlay.remove(); activeEditor = null; }
@@ -145,7 +145,7 @@ function openViewEditor(shapeId: string, rawData: DbViewData | undefined, api: I
     dialog.querySelectorAll<HTMLInputElement>('.dbe-col-type').forEach(el => { el.oninput = () => { columns[+el.dataset.i!].type = el.value; }; });
     dialog.querySelectorAll<HTMLButtonElement>('.dbe-del').forEach(btn => { btn.onclick = () => { columns.splice(+btn.dataset.i!, 1); render(); }; });
     (dialog.querySelector('#dbe-add') as HTMLElement).onclick = () => { columns.push({ name: '', type: 'VARCHAR' }); render(); setTimeout(() => { const els = dialog.querySelectorAll<HTMLInputElement>('.dbe-col-name'); els[els.length - 1]?.focus(); }, 0); };
-    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { viewName, columns } as DbViewData }); api.commitState(); close(); };
+    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { viewName, columns } as unknown as Record<string, unknown> }); api.commitState(); close(); };
   }
 
   function close() { overlay.remove(); activeEditor = null; }
@@ -193,7 +193,7 @@ function openEnumEditor(shapeId: string, rawData: DbEnumData | undefined, api: I
     dialog.querySelectorAll<HTMLInputElement>('.dbe-val').forEach(el => { el.oninput = () => { values[+el.dataset.i!] = el.value; }; });
     dialog.querySelectorAll<HTMLButtonElement>('.dbe-del').forEach(btn => { btn.onclick = () => { values.splice(+btn.dataset.i!, 1); render(); }; });
     (dialog.querySelector('#dbe-add') as HTMLElement).onclick = () => { values.push(''); render(); setTimeout(() => { const els = dialog.querySelectorAll<HTMLInputElement>('.dbe-val'); els[els.length - 1]?.focus(); }, 0); };
-    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { enumName, values } as DbEnumData }); api.commitState(); close(); };
+    (dialog.querySelector('#dbe-save') as HTMLElement).onclick = () => { api.updateShape(shapeId, { data: { enumName, values } as unknown as Record<string, unknown> }); api.commitState(); close(); };
   }
 
   function close() { overlay.remove(); activeEditor = null; }

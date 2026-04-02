@@ -1,4 +1,4 @@
-import type { ICanvasAPI, ToolDefinition, Shape } from './types';
+import type { ICanvasAPI, ToolDefinition, Shape } from '../core/types';
 
 export function setupKeyboard(
   api: ICanvasAPI,

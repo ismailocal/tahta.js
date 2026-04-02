@@ -1,8 +1,8 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance, getTopShapeAtPoint } from '../core/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../core/lineUtils';
+import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 
 const PORT_SNAP_RADIUS = 40;
@@ -93,8 +93,8 @@ export class ArrowPlugin implements IShapePlugin {
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
       const path = getElbowPath(p1, p2, b1, b2);
       ctx.save();
-      ctx.strokeStyle = options.stroke;
-      ctx.lineWidth = options.strokeWidth || 1;
+      ctx.strokeStyle = options.stroke as string;
+      ctx.lineWidth = (options.strokeWidth as number) || 1;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       if (shape.strokeStyle === 'dashed') ctx.setLineDash([8, 8]);
@@ -119,8 +119,8 @@ export class ArrowPlugin implements IShapePlugin {
     } else if (shape.edgeStyle === 'curved') {
       const cp = getCurvedControlPoint(p1, p2);
       ctx.save();
-      ctx.strokeStyle = options.stroke;
-      ctx.lineWidth = options.strokeWidth || 1;
+      ctx.strokeStyle = options.stroke as string;
+      ctx.lineWidth = (options.strokeWidth as number) || 1;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       if (shape.strokeStyle === 'dashed') ctx.setLineDash([8, 8]);

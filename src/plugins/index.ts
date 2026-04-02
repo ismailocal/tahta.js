@@ -11,16 +11,16 @@ import { DbTablePlugin } from './DbTablePlugin';
 import { DbViewPlugin } from './DbViewPlugin';
 import { DbEnumPlugin } from './DbEnumPlugin';
 
-PluginRegistry.register(new RectanglePlugin());
-PluginRegistry.register(new EllipsePlugin());
-PluginRegistry.register(new LinePlugin());
-PluginRegistry.register(new ArrowPlugin());
-PluginRegistry.register(new FreehandPlugin());
-PluginRegistry.register(new TextPlugin());
-PluginRegistry.register(new ImagePlugin());
-PluginRegistry.register(new DiamondPlugin());
-PluginRegistry.register(new DbTablePlugin());
-PluginRegistry.register(new DbViewPlugin());
-PluginRegistry.register(new DbEnumPlugin());
+PluginRegistry.registerShape(new RectanglePlugin());
+PluginRegistry.registerShape(new EllipsePlugin());
+PluginRegistry.registerShape(new LinePlugin());
+PluginRegistry.registerShape(new ArrowPlugin());
+PluginRegistry.registerShape(new FreehandPlugin());
+PluginRegistry.registerShape(new TextPlugin());
+PluginRegistry.registerShape(new ImagePlugin());
+PluginRegistry.registerShape(new DiamondPlugin());
+PluginRegistry.registerShape(new DbTablePlugin());
+PluginRegistry.registerShape(new DbViewPlugin());
+PluginRegistry.registerShape(new DbEnumPlugin());
 
 export { PluginRegistry };

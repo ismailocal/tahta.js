@@ -1,7 +1,7 @@
-import type { Shape, Point, ArrowheadStyle, PointerPayload, ICanvasAPI } from './types';
+import type { Shape, Point, ArrowheadStyle, PointerPayload, ICanvasAPI } from '../core/types';
 import { getRayEllipseIntersection } from './GeometryUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
-import { getThemeAdjustedStroke } from './Utils';
+import { getThemeAdjustedStroke } from '../core/Utils';
 export { getThemeAdjustedStroke };
 
 /**

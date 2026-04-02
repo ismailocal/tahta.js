@@ -1,6 +1,6 @@
-import { WhiteboardStore } from '../core/Store';
-import { getShapeBounds, getArrowClippedEndpoints } from '../core/Geometry';
-import { getElbowPath, getPathMidpoint } from '../core/lineUtils';
+import { WhiteboardStore } from '../../core/Store';
+import { getShapeBounds, getArrowClippedEndpoints } from '../../geometry/Geometry';
+import { getElbowPath, getPathMidpoint } from '../../geometry/lineUtils';
 
 export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
   const overlay = document.createElement('div');

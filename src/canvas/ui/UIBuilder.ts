@@ -1,10 +1,10 @@
-import { WhiteboardStore } from '../core/Store';
-import { TOOLBAR_ITEMS } from '../core/constants';
-import { hexToRgba } from '../core/Utils';
+import { WhiteboardStore } from '../../core/Store';
+import { TOOLBAR_ITEMS } from '../../core/constants';
+import { hexToRgba } from '../../core/Utils';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
-import { imageCache } from '../plugins/ImagePlugin';
-import type { ICanvasAPI } from '../core/types';
+import { imageCache } from '../../plugins/ImagePlugin';
+import type { ICanvasAPI } from '../../core/types';
 
 export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
   root.innerHTML = `
@@ -48,13 +48,13 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         const parentToolKey = (activeChild || tool.children[0]).key;
         return `
           <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
-            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool="${parentToolKey}" title="${displayLabel}">
+            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool="${parentToolKey}" title="${displayLabel}" aria-label="${displayLabel}">
               <span class="tool-icon">${displayIcon}</span>
               <span class="tool-dropdown-arrow">▾</span>
             </button>
             <div class="tool-dropdown-menu" id="dropdown-${tool.key}">
               ${tool.children.map(child => `
-                <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}">
+                <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}" aria-label="${child.label}">
                   <span class="tool-icon">${child.icon}</span>
                   <span>${child.label}</span>
                 </button>
@@ -65,7 +65,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       }
 
       return `
-        <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${disabled ? 'disabled' : ''}>
+        <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${disabled ? 'disabled' : ''} aria-label="${tool.label}">
           <span class="tool-icon">${tool.icon}</span>
         </button>
       `;

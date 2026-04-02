@@ -1,4 +1,4 @@
-import type { Shape } from './types';
+import type { Shape } from '../core/types';
 
 export const clone = (shapes: Shape[]): Shape[] => [...shapes];
 

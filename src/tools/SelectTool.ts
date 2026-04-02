@@ -1,9 +1,9 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, Shape } from '../core/types';
-import { getTopShapeAtPoint, getHandleAtPoint } from '../core/Geometry';
-import type { HandleType } from '../core/Geometry';
+import { getTopShapeAtPoint, getHandleAtPoint } from '../geometry/Geometry';
+import type { HandleType } from '../geometry/Geometry';
 import { updateBoxSelection } from './SelectBoxHelper';
 import { dragHandle, translateSelection } from './SelectDragHelper';
-import { openDbTableEditor } from '../ui/DbTableEditor';
+import { openDbTableEditor } from '../canvas/ui/DbTableEditor';
 import { PluginRegistry } from '../plugins/index';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
@@ -15,7 +15,7 @@ function isBindingPlugin(type: string): boolean {
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
-  w:  'w-resize',                 e:  'e-resize',
+  w: 'w-resize', e: 'e-resize',
   sw: 'sw-resize', s: 's-resize', se: 'se-resize',
   start: 'crosshair', end: 'crosshair',
 };
@@ -244,7 +244,7 @@ export class SelectTool implements ToolDefinition {
       this.isBoxSelecting = false;
     }
     if (api.getState().hoveredShapeId) {
-       api.setState({ hoveredShapeId: null });
+      api.setState({ hoveredShapeId: null });
     }
     if (api.getState().isDraggingSelection) {
       api.setState({ isDraggingSelection: false, snapLines: undefined });

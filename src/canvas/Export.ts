@@ -1,5 +1,5 @@
 import type { Shape } from './types';
-import { getShapeBounds } from './Geometry';
+import { getShapeBounds } from '../geometry/Geometry';
 
 export function exportToJson(shapes: Shape[]): string {
   return JSON.stringify(shapes, null, 2);

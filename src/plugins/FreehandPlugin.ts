@@ -1,8 +1,8 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance } from '../core/Geometry';
-import { buildRoughOptions } from '../core/lineUtils';
+import { pointToSegmentDistance } from '../geometry/Geometry';
+import { buildRoughOptions } from '../geometry/lineUtils';
 
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';

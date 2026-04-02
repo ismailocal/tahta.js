@@ -1,6 +1,6 @@
 import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
-import { buildRoughOptions } from '../core/lineUtils';
+import { buildRoughOptions } from '../geometry/lineUtils';
 
 function getRoundRectPath(x: number, y: number, w: number, h: number, r: number) {
   return `M ${x + r} ${y} h ${w - 2 * r} a ${r} ${r} 0 0 1 ${r} ${r} v ${h - 2 * r} a ${r} ${r} 0 0 1 -${r} ${r} h -${w - 2 * r} a ${r} ${r} 0 0 1 -${r} -${r} v -${h - 2 * r} a ${r} ${r} 0 0 1 ${r} -${r} Z`;

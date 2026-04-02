@@ -1,4 +1,4 @@
-import type { CanvasState } from './types';
+import type { CanvasState } from '../core/types';
 
 let gridPattern: CanvasPattern | null = null;
 let lastGridSize = -1;

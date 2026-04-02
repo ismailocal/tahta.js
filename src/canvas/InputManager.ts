@@ -1,6 +1,6 @@
-import type { CanvasState, ICanvasAPI, PointerPayload, ToolDefinition } from './types';
-import { screenToWorld } from './Geometry';
-import { clamp } from './Utils';
+import type { CanvasState, ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
+import { screenToWorld } from '../geometry/Geometry';
+import { clamp } from '../core/Utils';
 import { setupKeyboard } from './KeyboardManager';
 import { setupClipboard } from './ClipboardManager';
 

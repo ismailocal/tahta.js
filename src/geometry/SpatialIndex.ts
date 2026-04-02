@@ -1,4 +1,4 @@
-import type { Shape, Point } from './types';
+import type { Shape, Point } from '../core/types';
 
 interface Bounds {
   x: number;
@@ -14,7 +14,10 @@ export class Quadtree {
   private depth = 0;
   private maxDepth = 5;
 
-  constructor(private bounds: Bounds, depth = 0) {
+  private bounds: Bounds;
+
+  constructor(bounds: Bounds, depth = 0) {
+    this.bounds = bounds;
     this.depth = depth;
   }
 

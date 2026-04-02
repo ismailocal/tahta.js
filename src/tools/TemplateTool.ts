@@ -2,7 +2,10 @@ import type { ToolDefinition, ICanvasAPI, PointerPayload } from '../core/types';
 import { TEMPLATES, instantiateTemplate } from './templates';
 
 export class TemplateTool implements ToolDefinition {
-  constructor(private templateKey: string) {}
+  private templateKey: string;
+  constructor(templateKey: string) {
+    this.templateKey = templateKey;
+  }
 
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     const template = TEMPLATES[this.templateKey];

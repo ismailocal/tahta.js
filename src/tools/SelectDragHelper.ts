@@ -1,6 +1,6 @@
 import type { ICanvasAPI, Shape, PointerPayload } from '../core/types';
-import type { HandleType } from '../core/Geometry';
-import { getArrowClippedEndpoints, getShapeBounds } from '../core/Geometry';
+import type { HandleType } from '../geometry/Geometry';
+import { getArrowClippedEndpoints, getShapeBounds } from '../geometry/Geometry';
 import { updateDependentShapes } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
 

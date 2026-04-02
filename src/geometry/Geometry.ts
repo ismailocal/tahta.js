@@ -1,4 +1,4 @@
-import type { Point, Shape, CanvasState } from './types';
+import type { Point, Shape, CanvasState } from '../core/types';
 
 import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance } from './GeometryUtils';
 

@@ -1,5 +1,5 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
-import { getTopShapeAtPoint } from '../core/Geometry';
+import { getTopShapeAtPoint } from '../geometry/Geometry';
 
 export class EraserTool implements ToolDefinition {
   private isDeleting = false;

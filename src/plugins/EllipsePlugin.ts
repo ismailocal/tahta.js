@@ -1,7 +1,7 @@
 import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
-import { buildRoughOptions } from '../core/lineUtils';
+import { buildRoughOptions } from '../geometry/lineUtils';
 
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';

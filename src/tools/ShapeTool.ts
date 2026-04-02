@@ -2,7 +2,7 @@ import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } fro
 import { getStylePreset } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
-import { getTopShapeAtPoint } from '../core/Geometry';
+import { getTopShapeAtPoint } from '../geometry/Geometry';
 
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;

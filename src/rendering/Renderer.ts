@@ -1,11 +1,11 @@
 import rough from 'roughjs';
-import type { Shape, CanvasState } from './types';
+import type { Shape, CanvasState } from '../core/types';
 import { PluginRegistry } from '../plugins/index';
 import { renderGrid } from './GridRenderer';
 import { renderWelcome, renderOverlays } from './OverlayRenderer';
 import { renderShape } from './ShapeRenderer';
-import { isShapeVisible } from './Geometry';
-import { clearElbowCache, setSkipObstacles } from './lineUtils';
+import { isShapeVisible } from '../geometry/Geometry';
+import { clearElbowCache, setSkipObstacles } from '../geometry/lineUtils';
 
 
 
@@ -30,7 +30,7 @@ export function clearRendererState() {
   lastEditingShapeId = null;
 }
 
-export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
+export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { total: number, rendered: number } {
   // clearElbowCache(); // DISABLED: Clearing cache every frame makes it useless. Rely on the robust cache key instead.
   setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
 
@@ -43,7 +43,10 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
     }));
 
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return { total: 0, rendered: 0 };
+
+  let renderedCount = 0;
+  const totalCount = state.shapes.length;
 
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -127,6 +130,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
 
     dynamicShapes.forEach((shape) => {
       renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
+      renderedCount++;
     });
 
   } else {
@@ -151,6 +155,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
       if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
         const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
         renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme);
+        renderedCount++;
       }
     });
   }
@@ -160,4 +165,6 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState) {
   renderOverlays(ctx, state);
 
   ctx.restore();
+
+  return { total: totalCount, rendered: renderedCount };
 }

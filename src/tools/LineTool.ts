@@ -1,7 +1,7 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
 import { getStylePreset } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
-import { getTopShapeAtPoint } from '../core/Geometry';
+import { getTopShapeAtPoint } from '../geometry/Geometry';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 
 /**

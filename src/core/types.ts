@@ -1,5 +1,5 @@
 /** Open string type — no core change needed to add new shape types. */
-export type ShapeType = string;
+export type ShapeType = string & { readonly __brand: 'ShapeType' };
 export type ArrowheadStyle = 'none' | 'arrow' | 'triangle' | 'circle' | 'diamond' | 'bar';
 
 export interface Point {

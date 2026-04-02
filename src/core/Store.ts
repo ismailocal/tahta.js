@@ -1,12 +1,13 @@
-import { EventBus } from './EventBus';
-import type { CanvasState, Shape, ICanvasAPI } from './types';
-import { HistoryManager } from './HistoryManager';
-import { Quadtree } from './SpatialIndex';
-import { getShapeBounds } from './Geometry';
-import { ShapeManager } from './ShapeManager';
-import { getArrowClippedEndpoints } from './lineUtils';
+import { EventBus } from '../canvas/EventBus';
+import type { CanvasState, Shape } from './types';
+import { HistoryManager } from '../canvas/HistoryManager';
+import { Quadtree } from '../geometry/SpatialIndex';
+import { getShapeBounds } from '../geometry/Geometry';
+import { ShapeManager } from '../geometry/ShapeManager';
+import { getArrowClippedEndpoints } from '../geometry/lineUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 
+/** Default initial state for a new canvas. */
 export const DEFAULT_STATE: CanvasState = {
   shapes: [],
   selectedIds: [],
@@ -24,7 +25,12 @@ export const DEFAULT_STATE: CanvasState = {
   version: 0,
 };
 
+/**
+ * Central state container for the whiteboard engine.
+ * Handles state updates, history (undo/redo), spatial indexing, and event broadcasting.
+ */
 export class WhiteboardStore {
+  /** The event bus used for internal and external communication. */
   public bus: EventBus;
   private subscribers = new Set<(state: CanvasState) => void>();
   private state: CanvasState;
@@ -38,12 +44,17 @@ export class WhiteboardStore {
     this.historyManager = new HistoryManager(this.state.shapes);
   }
 
-  getState() { return this.state; }
-  commitState() { this.historyManager.commit(this.state.shapes); }
-  get canUndo() { return this.historyManager.canUndo; }
-  get canRedo() { return this.historyManager.canRedo; }
+  /** Returns the current snapshot of the canvas state. */
+  getState(): CanvasState { return this.state; }
+  
+  /** Commits the current shapes to the history manager for undo/redo. */
+  commitState(): void { this.historyManager.commit(this.state.shapes); }
+  
+  get canUndo(): boolean { return this.historyManager.canUndo; }
+  get canRedo(): boolean { return this.historyManager.canRedo; }
 
-  undo() {
+  /** Reverts the last committed state transition. */
+  undo(): void {
     const nextShapes = this.historyManager.undo();
     if (nextShapes) {
       this.state = { ...this.state, shapes: nextShapes, selectedIds: [] };
@@ -51,7 +62,8 @@ export class WhiteboardStore {
     }
   }
 
-  redo() {
+  /** Re-applies the last undone state transition. */
+  redo(): void {
     const nextShapes = this.historyManager.redo();
     if (nextShapes) {
       this.state = { ...this.state, shapes: nextShapes, selectedIds: [] };
@@ -59,7 +71,11 @@ export class WhiteboardStore {
     }
   }
 
-  reorderShape(shapeId: string, direction: 'forward' | 'backward' | 'front' | 'back') {
+  /** 
+   * Changes the stack order of a shape.
+   * @param direction 'forward' | 'backward' | 'front' | 'back'
+   */
+  reorderShape(shapeId: string, direction: 'forward' | 'backward' | 'front' | 'back'): void {
     this.state = { 
       ...this.state, 
       shapes: ShapeManager.reorder(this.state.shapes, shapeId, direction)
@@ -67,16 +83,19 @@ export class WhiteboardStore {
     this.notify();
   }
 
-  subscribe(listener: (state: CanvasState) => void) {
+  /** Registers a listener for state changes. Returns an unbsubscribe function. */
+  subscribe(listener: (state: CanvasState) => void): () => void {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
   }
 
-  notify(forceVersion?: number) {
+  /** 
+   * Triggers a re-render and broadcasts 'document:changed' through the event bus.
+   * Automatically increments state version unless forceVersion is specified.
+   */
+  notify(forceVersion?: number): void {
     if (this.batchDepth > 0) return;
     
-    // If a specific version is forced (from remote sync), use it.
-    // Otherwise, increment the version only if it's not being explicitly set in the state.
     if (forceVersion !== undefined) {
       this.state.version = forceVersion;
     } else {
@@ -88,7 +107,8 @@ export class WhiteboardStore {
     this.bus.emit('document:changed', { state: this.state });
   }
 
-  batchUpdate(fn: () => void) {
+  /** Groups multiple operations into a single notification. */
+  batchUpdate(fn: () => void): void {
     this.batchDepth++;
     try { fn(); } finally {
       this.batchDepth--;
@@ -96,11 +116,15 @@ export class WhiteboardStore {
     }
   }
 
+  /** Returns built-in spatial index (Quadtree) for fast bounding-box queries. */
   getSpatialIndex(): Quadtree {
     if (this.spatialIndex) return this.spatialIndex;
     const b = this.state.shapes.reduce((acc, s) => {
       const sb = getShapeBounds(s);
-      return { x: Math.min(acc.x, sb.x), y: Math.min(acc.y, sb.y), x2: Math.max(acc.x2, sb.x + sb.width), y2: Math.max(acc.y2, sb.y + sb.height) };
+      return { 
+        x: Math.min(acc.x, sb.x), y: Math.min(acc.y, sb.y), 
+        x2: Math.max(acc.x2, sb.x + sb.width), y2: Math.max(acc.y2, sb.y + sb.height) 
+      };
     }, { x: -1000, y: -1000, x2: 2000, y2: 2000 });
     const tree = new Quadtree({ x: b.x - 100, y: b.y - 100, width: (b.x2 - b.x) + 200, height: (b.y2 - b.y) + 200 });
     this.state.shapes.forEach(s => tree.insert(s, getShapeBounds(s)));
@@ -108,56 +132,62 @@ export class WhiteboardStore {
     return tree;
   }
 
-  setState(updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)) {
+  /** Directly patches or calculates the new state. */
+  setState(updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)): void {
     this.state = typeof updater === 'function' ? updater(this.state) : { ...this.state, ...updater };
     this.notify();
   }
 
-  setTool(tool: string, keepSelection = false) {
+  /** Updates tool with optional selection preservation. */
+  setTool(tool: string, keepSelection = false): void {
     this.state = { ...this.state, activeTool: tool, selectedIds: keepSelection ? this.state.selectedIds : [] };
     this.notify();
     this.bus.emit('tool:changed', { tool });
   }
 
-  setViewport(viewport: CanvasState['viewport']) {
+  /** Pan and zoom the viewport. */
+  setViewport(viewport: CanvasState['viewport']): void {
     this.state = { ...this.state, viewport };
     this.notify();
     this.bus.emit('viewport:changed', { viewport });
   }
 
-  addShape(shape: Shape) {
+  /** Add a shape to the world. */
+  addShape(shape: Shape): void {
     this.state = { ...this.state, shapes: ShapeManager.add(this.state.shapes, shape) };
     const newShape = this.state.shapes[this.state.shapes.length - 1];
     this.notify();
     this.bus.emit('shape:created', { shape: newShape });
   }
 
-  updateShape(shapeId: string, patch: Partial<Shape>, force = false) {
+  /** Partial update of a shape by ID. */
+  updateShape(shapeId: string, patch: Partial<Shape>, force = false): void {
     const { shapes, updated } = ShapeManager.update(this.state.shapes, shapeId, patch, force);
     this.state = { ...this.state, shapes };
     this.notify();
     if (updated) this.bus.emit('shape:updated', { shape: updated });
   }
 
-  replaceShape(shapeId: string, nextShape: Shape) {
+  /** Full substitution of a shape. */
+  replaceShape(shapeId: string, nextShape: Shape): void {
     this.state = { ...this.state, shapes: ShapeManager.replace(this.state.shapes, shapeId, nextShape) };
     this.notify();
     this.bus.emit('shape:updated', { shape: nextShape });
   }
 
-  deleteShape(shapeId: string) {
+  /** Deletes a shape and resolves its connector bindings. */
+  deleteShape(shapeId: string): void {
     const shapes = this.state.shapes;
     const shapeToDelete = shapes.find(s => s.id === shapeId);
     if (!shapeToDelete || shapeToDelete.locked) return;
 
-    // DETACH & BAKE: Capture visual endpoints before the bound shape is removed from the array
     const nextShapes = ShapeManager.delete(shapes, shapeId).map(s => {
-      if (PluginRegistry.hasPlugin(s.type) && PluginRegistry.getPlugin(s.type).isConnector && (s.startBinding?.elementId === shapeId || s.endBinding?.elementId === shapeId)) {
+      const p = PluginRegistry.getPlugin(s.type);
+      if (p?.isConnector && (s.startBinding?.elementId === shapeId || s.endBinding?.elementId === shapeId)) {
         const { p1, p2 } = getArrowClippedEndpoints(s, shapes);
         return {
           ...s,
-          x: p1.x,
-          y: p1.y,
+          x: p1.x, y: p1.y,
           points: [{ x: 0, y: 0 }, { x: p2.x - p1.x, y: p2.y - p1.y }],
           startBinding: s.startBinding?.elementId === shapeId ? undefined : s.startBinding,
           endBinding: s.endBinding?.elementId === shapeId ? undefined : s.endBinding
@@ -166,39 +196,15 @@ export class WhiteboardStore {
       return s;
     });
 
-    this.state = { 
-      ...this.state, 
-      shapes: nextShapes,
-      selectedIds: this.state.selectedIds.filter(id => id !== shapeId)
-    };
+    this.state = { ...this.state, shapes: nextShapes, selectedIds: this.state.selectedIds.filter(id => id !== shapeId) };
     this.notify();
     this.bus.emit('shape:deleted', { shapeId });
   }
 
-  setSelection(ids: string[]) {
+  /** Updates the selection set. */
+  setSelection(ids: string[]): void {
     this.state = { ...this.state, selectedIds: ids };
     this.notify();
     this.bus.emit('selection:changed', { ids });
-  }
-
-  createAPI(): ICanvasAPI {
-    return {
-      bus: this.bus,
-      getState: () => this.getState(),
-      setState: (updater) => this.setState(updater),
-      addShape: (shape) => this.addShape(shape),
-      updateShape: (id, patch, force) => this.updateShape(id, patch, force),
-      replaceShape: (id, shape) => this.replaceShape(id, shape),
-      deleteShape: (id) => this.deleteShape(id),
-      setSelection: (ids) => this.setSelection(ids),
-      setViewport: (viewport) => this.setViewport(viewport),
-      setTool: (tool, keepSelection) => this.setTool(tool, keepSelection),
-      reorderShape: (id, direction) => { this.reorderShape(id, direction); this.commitState(); },
-      commitState: () => this.commitState(),
-      undo: () => this.undo(),
-      redo: () => this.redo(),
-      batchUpdate: (fn: () => void) => this.batchUpdate(fn),
-      getSpatialIndex: () => this.getSpatialIndex()
-    };
   }
 }

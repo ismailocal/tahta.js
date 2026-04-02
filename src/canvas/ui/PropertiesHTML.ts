@@ -1,4 +1,4 @@
-import type { Shape, ICanvasAPI } from '../core/types';
+import type { Shape, ICanvasAPI } from '../../core/types';
 import { getShapePropertyKeys, STROKE_COLORS, FILL_COLORS } from './PropertyConstants';
 
 // ─── SVGs ─────────────────────────────────────────────────────────────────────
@@ -41,13 +41,13 @@ const I = {
 function swatch(prop: string, color: string, active: boolean): string {
   const isTrans = color === 'transparent';
   return `<button class="pp-swatch${active ? ' active' : ''}${isTrans ? ' pp-swatch--trans' : ''}"
-    data-prop="${prop}" data-val="${color}" title="${color}"
+    data-prop="${prop}" data-val="${color}" title="${color}" aria-label="${color}"
     style="${isTrans ? '' : `background:${color}`}"></button>`;
 }
 
 function iconBtn(prop: string, val: string, svg: string, active: boolean, title: string, extraCls = ''): string {
   return `<button class="pp-ibtn${active ? ' active' : ''}${extraCls ? ' ' + extraCls : ''}"
-    data-prop="${prop}" data-val="${val}" title="${title}">${svg}</button>`;
+    data-prop="${prop}" data-val="${val}" title="${title}" aria-label="${title}">${svg}</button>`;
 }
 
 function section(label: string, content: string): string {
@@ -65,12 +65,12 @@ function btnGroup(...btns: string[]): string {
 
 function dropdown(label: string, icon: string, content: string, title: string): string {
   return `<div class="pp-dropdown-wrap">
-    <button class="pp-dbat" title="${title}">
+    <button class="pp-dbat" title="${title}" aria-label="${title}">
       <span class="pp-dbat-icon">${icon}</span>
       <span class="tool-dropdown-arrow">▾</span>
     </button>
     <div class="pp-dropdown-menu">
-      <div class="pp-dropdown-label">${label}</div>
+      <div class="pp-dropdown-label" aria-label="${label}">${label}</div>
       <div class="pp-dropdown-content">${content}</div>
     </div>
   </div>`;
@@ -122,7 +122,7 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
         iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Orta'),
         iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Kalın'),
       ),
-      'Kalınlık'
+      'Stroke Width'
     );
   }
 

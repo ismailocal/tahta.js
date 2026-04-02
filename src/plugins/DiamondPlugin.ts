@@ -1,6 +1,6 @@
 import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { buildRoughOptions } from '../core/lineUtils';
+import { buildRoughOptions } from '../geometry/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {

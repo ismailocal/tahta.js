@@ -76,7 +76,7 @@ export const SHAPE_PROPERTIES: Record<string, string[]> = {
   image: ['layer', 'action']
 };
 
-import { PluginRegistry } from '../plugins/PluginRegistry';
+import { PluginRegistry } from '../../plugins/PluginRegistry';
 
 /**
  * Returns the property panel keys for a shape type.
