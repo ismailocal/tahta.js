@@ -49,7 +49,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
     // In a real app we'd need container dimensions. 
     // For now, we'll try to get them from the active canvas if possible, 
     // or just center with a default zoom jump.
-    const canvas = document.querySelector('.whiteboard-canvas') as HTMLCanvasElement;
+    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
     if (canvas) {
       const newViewport = calculateCenteredViewport(
         [shape],

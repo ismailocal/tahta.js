@@ -2,7 +2,7 @@ import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
-import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions } from '../geometry/lineUtils';
+import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions, getRoundedPathData } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 
 const PORT_SNAP_RADIUS = 40;
@@ -168,6 +168,7 @@ export class ArrowPlugin implements IShapePlugin {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
       const path = getElbowPath(p1, p2, b1, b2);
+      drawables.push(generator.path(getRoundedPathData(path, 10), options));
       
       const lastP1 = path[path.length - 2];
       const lastP2 = path[path.length - 1];
@@ -183,6 +184,8 @@ export class ArrowPlugin implements IShapePlugin {
       }
     } else if (shape.edgeStyle === 'curved') {
       const cp = getCurvedControlPoint(p1, p2);
+      const pathData = `M ${p1.x} ${p1.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`;
+      drawables.push(generator.path(pathData, options));
       if (shape.endArrowhead !== 'none') {
         const endAngle = Math.atan2(p2.y - cp.y, p2.x - cp.x);
         drawables.push(...getArrowheadDrawable(generator, p2, endAngle, shape.endArrowhead || 'arrow', options, theme));

@@ -134,8 +134,17 @@ export class WhiteboardStore {
 
   /** Directly patches or calculates the new state. */
   setState(updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)): void {
-    this.state = typeof updater === 'function' ? updater(this.state) : { ...this.state, ...updater };
-    this.notify();
+    const nextState = typeof updater === 'function' ? updater(this.state) : { ...this.state, ...updater };
+    
+    // Quick shallow equality check to avoid unnecessary notifies (Rule 8.1)
+    const hasChanged = Object.keys(nextState).some(
+      (key) => (nextState as any)[key] !== (this.state as any)[key]
+    );
+
+    if (hasChanged) {
+      this.state = nextState;
+      this.notify();
+    }
   }
 
   /** Updates tool with optional selection preservation. */
