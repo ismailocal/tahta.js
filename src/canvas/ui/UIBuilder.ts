@@ -3,6 +3,7 @@ import { TOOLBAR_ITEMS } from '../../core/constants';
 import { hexToRgba } from '../../core/Utils';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
+import { initLayersPanel } from './LayersPanel';
 import { imageCache } from '../../plugins/ImagePlugin';
 import type { ICanvasAPI } from '../../core/types';
 
@@ -173,6 +174,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   }
 
   initPropertiesPanel(properties, api);
+  const disposeLayers = initLayersPanel(root, store, canvas, api);
 
   root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
@@ -318,6 +320,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   return () => {
     unsubUI();
+    disposeLayers();
     document.removeEventListener('click', onDocumentClick);
   };
 }
