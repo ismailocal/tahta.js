@@ -1,8 +1,9 @@
-/* tahta.js canvas styles - scoped to .tahta-shell to avoid leaking into host app */
-@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
 
 .tahta-shell {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 
   /* Default (Light) Mode Variables */
   --ui-bg: #ffffff;
@@ -43,12 +44,18 @@
 
 .tahta-shell * {
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 .tahta-shell button,
 .tahta-shell input,
-.tahta-shell textarea {
-  font-family: inherit;
+.tahta-shell textarea,
+.tahta-shell p,
+.tahta-shell span,
+.tahta-shell h1,
+.tahta-shell h2,
+.tahta-shell h3 {
+  font-family: 'Outfit', 'Inter', sans-serif;
 }
 
 .tahta-shell button {
