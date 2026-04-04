@@ -10,6 +10,12 @@ export interface IShapePlugin {
   isConnector?: boolean;
 
   /**
+   * True if this shape/tool can bind to other shapes as a connector endpoint.
+   * Affects: connection port visibility and binding hover highlight.
+   */
+  canBind?: boolean;
+
+  /**
    * Returns the resize handle positions for selection bracket rendering.
    * Each entry has world position (x, y) and outward angle in radians
    * (0=right, π/2=down, π=left, -π/2=up — canvas convention).

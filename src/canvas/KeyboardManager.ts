@@ -38,6 +38,59 @@ export function setupKeyboard(
         }
         return;
       }
+      if (e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const state = api.getState();
+        api.setSelection(state.shapes.map(s => s.id));
+        return;
+      }
+      if (e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        const state = api.getState();
+        const selectedIds = state.selectedIds;
+        if (selectedIds.length > 1) {
+          const groupId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9);
+          selectedIds.forEach(id => api.updateShape(id, { groupId }));
+          api.commitState();
+        } else if (selectedIds.length > 0) {
+          // Ungroup if single grouped shape set is selected
+          const shapes = selectedIds.map(id => state.shapes.find(s => s.id === id)).filter(Boolean) as Shape[];
+          const groupIds = new Set(shapes.map(s => s.groupId).filter(Boolean));
+          if (groupIds.size > 0) {
+            const allInGroup = state.shapes.filter(s => groupIds.has(s.groupId));
+            allInGroup.forEach(s => api.updateShape(s.id, { groupId: undefined }));
+            api.commitState();
+          }
+        }
+        return;
+      }
+      if (e.key === '0') {
+        e.preventDefault();
+        api.setViewport({ x: 0, y: 0, zoom: 1 });
+        return;
+      }
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        const vp = api.getState().viewport;
+        api.setViewport({ ...vp, zoom: Math.min(5, vp.zoom * 1.2) });
+        return;
+      }
+      if (e.key === '-') {
+        e.preventDefault();
+        const vp = api.getState().viewport;
+        api.setViewport({ ...vp, zoom: Math.max(0.1, vp.zoom / 1.2) });
+        return;
+      }
+    }
+
+    if (e.key === 'Escape') {
+      const state = api.getState();
+      if (state.drawingShapeId) {
+        api.deleteShape(state.drawingShapeId);
+        api.setState({ drawingShapeId: null });
+      }
+      api.setSelection([]);
+      return;
     }
 
     if ((e.key === 'Delete' || e.key === 'Backspace') && active === 'select') {

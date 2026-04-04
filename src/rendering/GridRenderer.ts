@@ -3,13 +3,14 @@ import type { CanvasState } from '../core/types';
 let gridPattern: CanvasPattern | null = null;
 let lastGridSize = -1;
 let lastZoom = -1;
+let lastTheme = '';
 
 export function renderGrid(ctx: CanvasRenderingContext2D, state: CanvasState, width: number, height: number) {
   if (!state.showGrid || !state.gridSize) return;
 
   const size = state.gridSize * state.viewport.zoom;
-  
-  if (!gridPattern || lastGridSize !== state.gridSize || lastZoom !== state.viewport.zoom) {
+
+  if (!gridPattern || lastGridSize !== state.gridSize || lastZoom !== state.viewport.zoom || lastTheme !== state.theme) {
     const patternCanvas = document.createElement('canvas');
     patternCanvas.width = size;
     patternCanvas.height = size;
@@ -26,6 +27,7 @@ export function renderGrid(ctx: CanvasRenderingContext2D, state: CanvasState, wi
     gridPattern = ctx.createPattern(patternCanvas, 'repeat');
     lastGridSize = state.gridSize;
     lastZoom = state.viewport.zoom;
+    lastTheme = state.theme || '';
   }
 
   if (gridPattern) {

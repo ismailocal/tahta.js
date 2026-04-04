@@ -1,6 +1,12 @@
 import type { Shape } from '../core/types';
 
-export const clone = (shapes: Shape[]): Shape[] => [...shapes];
+export const clone = (shapes: Shape[]): Shape[] => shapes.map(s => ({
+  ...s,
+  points: s.points ? [...s.points] : undefined,
+  startBinding: s.startBinding ? { ...s.startBinding } : undefined,
+  endBinding: s.endBinding ? { ...s.endBinding } : undefined,
+  data: s.data ? { ...s.data } : undefined,
+}));
 
 export class HistoryManager {
   private history: Shape[][] = [];

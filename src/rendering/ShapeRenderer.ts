@@ -6,8 +6,10 @@ import { renderHandleBrackets, renderConnectionPoints } from './UIComponentsRend
 
 const roughCache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
 
-// Shapes rendered from point arrays — width/height not required for rendering.
-const POINT_BASED_TYPES = new Set(['line', 'arrow', 'freehand']);
+// Shapes that don't go through roughjs and must not be blocked by the
+// zero-dimension guard. Point-based types use a points array instead of
+// width/height; image and text manage their own degenerate-dimension cases.
+const NO_DIMENSION_GUARD_TYPES = new Set(['line', 'arrow', 'freehand', 'image', 'text']);
 
 /**
  * Computes a hash of all visual properties to determine if a cached element
@@ -20,7 +22,8 @@ function getShapeVersionHash(shape: Shape, theme: string): string {
     ? `${shape.points.length}-${shape.points[shape.points.length - 1].x}-${shape.points[shape.points.length - 1].y}`
     : 'no-pts';
 
-  return `${shape.type}-${theme}-${shape.seed}-${shape.width}-${shape.height}-${shape.stroke}-${shape.strokeWidth}-${shape.strokeStyle}-${shape.fill}-${shape.fillStyle}-${shape.roughness}-${shape.roundness}-${shape.edgeStyle}-${shape.startArrowhead}-${shape.endArrowhead}-${pointsHash}-${shape.x}-${shape.y}`;
+  const dataHash = shape.data ? JSON.stringify(shape.data) : '';
+  return `${shape.type}-${theme}-${shape.seed}-${shape.width}-${shape.height}-${shape.stroke}-${shape.strokeWidth}-${shape.strokeStyle}-${shape.fill}-${shape.fillStyle}-${shape.roughness}-${shape.roundness}-${shape.edgeStyle}-${shape.startArrowhead}-${shape.endArrowhead}-${pointsHash}-${shape.x}-${shape.y}-${dataHash}`;
 }
 
 /**
@@ -48,7 +51,7 @@ export function renderShape(
   // width AND height. A zero or negative dimension causes roughjs to generate
   // degenerate arc/path ops that contain `undefined`, crashing op.type reads.
   // Line/arrow/freehand shapes use `points` instead of width/height — skip guard.
-  if (!POINT_BASED_TYPES.has(shape.type)) {
+  if (!NO_DIMENSION_GUARD_TYPES.has(shape.type)) {
     if ((shape.width ?? 0) <= 0 || (shape.height ?? 0) <= 0) return;
   }
 

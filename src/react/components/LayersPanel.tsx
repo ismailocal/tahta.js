@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Layers, 
-  Type, 
-  Square, 
-  Circle, 
-  MousePointer2, 
-  Trash2, 
+import {
+  Layers,
+  Type,
+  Square,
+  Circle,
+  MousePointer2,
+  Trash2,
   ChevronDown,
   Search,
   Hash,
@@ -33,7 +33,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
   const filteredShapes = useMemo(() => {
     const list = [...shapes].reverse();
     if (!search.trim()) return list;
-    
+
     const s = search.toLowerCase();
     return list.filter(el => {
       const typeMatch = (el.type as string)?.toLowerCase().includes(s);
@@ -44,7 +44,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
 
   const handleSelect = (id: string, shape: any) => {
     api.setSelection([id]);
-    
+
     // Zoom to shape logic
     // In a real app we'd need container dimensions. 
     // For now, we'll try to get them from the active canvas if possible, 
@@ -84,8 +84,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
 
   return (
     <>
-      <div 
-        className={`fixed right-6 top-6 bottom-24 w-[280px] bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-[24px] shadow-2xl flex flex-col z-[900] transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) origin-top-right ${!isOpen ? 'scale-50 opacity-0 pointer-events-none translate-x-4 -translate-y-4' : 'scale-100 opacity-100 translate-x-0 translate-y-0'}`}
+      <div
+        className={`fixed right-6 top-6 bottom-24 w-[280px] bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-[24px] shadow flex flex-col z-[900] transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) origin-top-right ${!isOpen ? 'scale-50 opacity-0 pointer-events-none translate-x-4 -translate-y-4' : 'scale-100 opacity-100 translate-x-0 translate-y-0'}`}
       >
         <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
           <div className="flex items-center gap-2.5">
@@ -120,11 +120,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
               <div
                 key={shape.id}
                 onClick={() => handleSelect(shape.id, shape)}
-                className={`group/layer-item relative flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all cursor-pointer overflow-hidden ${
-                  isSelected
+                className={`group/layer-item relative flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all cursor-pointer overflow-hidden ${isSelected
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/15'
                     : 'hover:bg-slate-50 dark:hover:bg-white/5'
-                }`}
+                  }`}
               >
                 {isSelected && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] bg-indigo-500 rounded-r-full" />
@@ -132,7 +131,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
                 <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/20">
                   {getIcon(shape.type as string)}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-bold truncate text-slate-700 dark:text-white/80">
                     {shape.text || ((shape.type as string).charAt(0).toUpperCase() + (shape.type as string).slice(1))}
@@ -143,7 +142,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
                 </div>
 
                 <div className="flex items-center opacity-0 group-hover/layer-item:opacity-100 transition-opacity pr-2">
-                  <button 
+                  <button
                     onClick={(e) => handleDelete(e, shape.id)}
                     className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-500 text-slate-400 dark:text-white/20 transition-all rounded-lg"
                     title="Delete Object"
@@ -167,11 +166,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ toggleClassName }) => 
       {/* Integrated Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed top-10 right-10 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-500 z-[901] ${
-          isOpen 
-            ? 'bg-transparent text-slate-400 dark:text-white/20 hover:bg-slate-100 dark:hover:bg-white/5' 
+        className={`fixed top-10 right-10 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-500 z-[901] ${isOpen
+            ? 'bg-transparent text-slate-400 dark:text-white/20 hover:bg-slate-100 dark:hover:bg-white/5'
             : 'bg-white dark:bg-[#1a1a1a] shadow-xl border border-black/5 dark:border-white/10 text-slate-400 dark:text-white/40 hover:text-indigo-500 scale-125'
-        } ${toggleClassName || ''}`}
+          } ${toggleClassName || ''}`}
         title={isOpen ? "Close Layers" : "Open Layers"}
       >
         {isOpen ? <ChevronDown className="w-4 h-4" /> : <Layers className="w-4 h-4" />}

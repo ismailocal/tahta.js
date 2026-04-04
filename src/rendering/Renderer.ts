@@ -7,12 +7,34 @@ import { renderShape } from './ShapeRenderer';
 import { isShapeVisible } from '../geometry/Geometry';
 import { clearElbowCache, setSkipObstacles } from '../geometry/lineUtils';
 
-let staticCanvas: HTMLCanvasElement | null = null;
-let isStaticValid = false;
-let lastDragState = false;
-let lastViewport = { x: 0, y: 0, zoom: 1 };
-let lastEditingShapeId: string | null = null;
-let lastShapesRef: Shape[] | null = null;
+interface RendererState {
+  staticCanvas: HTMLCanvasElement | null;
+  isStaticValid: boolean;
+  lastDragState: boolean;
+  lastViewport: { x: number; y: number; zoom: number };
+  lastEditingShapeId: string | null;
+  lastShapesRef: Shape[] | null;
+  lastTheme: string | null;
+  lastGen: number;
+}
+
+const rendererStateMap = new WeakMap<HTMLCanvasElement, RendererState>();
+
+function getRendererState(canvas: HTMLCanvasElement): RendererState {
+  if (!rendererStateMap.has(canvas)) {
+    rendererStateMap.set(canvas, {
+      staticCanvas: null,
+      isStaticValid: false,
+      lastDragState: false,
+      lastViewport: { x: 0, y: 0, zoom: 1 },
+      lastEditingShapeId: null,
+      lastShapesRef: null,
+      lastTheme: null,
+      lastGen: 0,
+    });
+  }
+  return rendererStateMap.get(canvas)!;
+}
 
 function getDynamicIds(state: CanvasState): Set<string> {
   const dynamicIds = new Set(state.selectedIds);
@@ -46,28 +68,34 @@ function getDynamicIds(state: CanvasState): Set<string> {
 }
 
 /** Call on canvas destroy to release the off-screen static canvas pixel buffer. */
-export function clearRendererState() {
-  if (staticCanvas) {
-    staticCanvas.width = 0;
-    staticCanvas.height = 0;
+let currentGen = 0;
+if (typeof window !== 'undefined') {
+  window.addEventListener('tuval-force-render', () => {
+    currentGen++;
+  });
+}
+
+export function clearRendererState(canvas?: HTMLCanvasElement) {
+  if (canvas) {
+    const rs = rendererStateMap.get(canvas);
+    if (rs?.staticCanvas) {
+      rs.staticCanvas.width = 0;
+      rs.staticCanvas.height = 0;
+    }
+    rendererStateMap.delete(canvas);
   }
-  staticCanvas = null;
-  isStaticValid = false;
-  lastDragState = false;
-  lastViewport = { x: 0, y: 0, zoom: 1 };
-  lastEditingShapeId = null;
-  lastShapesRef = null;
 }
 
 export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { total: number, rendered: number } {
+  const rs = getRendererState(canvas);
   setSkipObstacles(state.isDraggingSelection || !!state.drawingShapeId);
 
   const activeToolPlugin = PluginRegistry.getPluginForTool(state.activeTool);
-  const isBindingTool = !!(activeToolPlugin as any)?.canBind;
+  const isBindingTool = !!activeToolPlugin?.canBind;
   const showPorts = isBindingTool ||
     (!state.drawingShapeId && state.selectedIds.some(id => {
       const s = state.shapes.find(x => x.id === id);
-      return s && PluginRegistry.hasPlugin(s.type) && !!(PluginRegistry.getPlugin(s.type) as any).canBind;
+      return s && PluginRegistry.hasPlugin(s.type) && !!PluginRegistry.getPlugin(s.type).canBind;
     }));
 
   const ctx = canvas.getContext('2d');
@@ -81,40 +109,45 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
   const width = Math.floor(rect.width * dpr);
   const height = Math.floor(rect.height * dpr);
 
+  if (rs.lastGen !== currentGen) {
+    rs.isStaticValid = false;
+    rs.lastGen = currentGen;
+  }
+
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    isStaticValid = false;
+    rs.isStaticValid = false;
   }
 
   const rc = rough.canvas(canvas);
 
-  if (lastViewport.x !== state.viewport.x || lastViewport.y !== state.viewport.y || lastViewport.zoom !== state.viewport.zoom) {
-    isStaticValid = false; lastViewport = { ...state.viewport };
+  if (rs.lastViewport.x !== state.viewport.x || rs.lastViewport.y !== state.viewport.y || rs.lastViewport.zoom !== state.viewport.zoom) {
+    rs.isStaticValid = false; rs.lastViewport = { ...state.viewport };
   }
-  if (state.editingShapeId !== lastEditingShapeId) {
-    isStaticValid = false; lastEditingShapeId = state.editingShapeId || null;
+  if (state.editingShapeId !== rs.lastEditingShapeId) {
+    rs.isStaticValid = false; rs.lastEditingShapeId = state.editingShapeId || null;
   }
-  if (state.shapes !== lastShapesRef) {
-    isStaticValid = false; lastShapesRef = state.shapes;
+  if (state.shapes !== rs.lastShapesRef) {
+    rs.isStaticValid = false; rs.lastShapesRef = state.shapes;
   }
 
   const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId;
   const dynamicIds = isDrawnAction ? getDynamicIds(state) : new Set(state.selectedIds);
-  if (isDrawnAction && !lastDragState) isStaticValid = false;
-  lastDragState = isDrawnAction;
+  if (isDrawnAction && !rs.lastDragState) rs.isStaticValid = false;
+  rs.lastDragState = isDrawnAction;
 
   if (isDrawnAction) {
-    if (!isStaticValid || !staticCanvas) {
-      if (!staticCanvas) staticCanvas = document.createElement('canvas');
-      staticCanvas.width = canvas.width; staticCanvas.height = canvas.height;
-      const sCtx = staticCanvas.getContext('2d')!;
+    if (!rs.isStaticValid || !rs.staticCanvas) {
+      if (!rs.staticCanvas) rs.staticCanvas = document.createElement('canvas');
+      rs.staticCanvas.width = canvas.width; rs.staticCanvas.height = canvas.height;
+      const sCtx = rs.staticCanvas.getContext('2d')!;
       sCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const sRc = rough.canvas(staticCanvas);
+      const sRc = rough.canvas(rs.staticCanvas);
 
       sCtx.clearRect(0, 0, rect.width, rect.height);
       renderGrid(sCtx, state, rect.width, rect.height);
-      if (!state.shapes.length) renderWelcome(staticCanvas, sCtx, state.theme);
+      if (!state.shapes.length) renderWelcome(rs.staticCanvas, sCtx, state.theme);
 
       sCtx.save(); sCtx.translate(state.viewport.x, state.viewport.y); sCtx.scale(state.viewport.zoom, state.viewport.zoom);
       state.shapes.filter(s => !dynamicIds.has(s.id)).forEach((shape) => {
@@ -122,13 +155,13 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
           renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts, state.theme);
         }
       });
-      sCtx.restore(); isStaticValid = true;
+      sCtx.restore(); rs.isStaticValid = true;
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = state.theme === 'light' ? '#f8fafc' : '#131316';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(staticCanvas!, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(rs.staticCanvas!, 0, 0, canvas.width, canvas.height);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.save(); ctx.translate(state.viewport.x, state.viewport.y); ctx.scale(state.viewport.zoom, state.viewport.zoom);
@@ -137,7 +170,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
       renderedCount++;
     });
   } else {
-    isStaticValid = false;
+    rs.isStaticValid = false;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = state.theme === 'light' ? '#f8fafc' : '#131316';
     ctx.fillRect(0, 0, rect.width, rect.height);

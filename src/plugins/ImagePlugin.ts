@@ -34,28 +34,53 @@ export class ImagePlugin extends BaseRectPlugin {
   }
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const { x, y, width = 100, height = 100, imageSrc } = shape;
+    const { x, y, width, height } = this.getBounds(shape);
+    const { imageSrc } = shape;
+
     if (imageSrc) {
       let img = imageCache.get(imageSrc);
       if (!img) {
         img = new Image();
         img.onload = () => { window.dispatchEvent(new CustomEvent('tuval-force-render')); };
+        img.onerror = () => { console.error('Image failed to load', imageSrc.substring(0, 50)); };
         img.src = imageSrc;
         imageCache.set(imageSrc, img);
       }
+
       if (img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, x, y, width, height);
+      } else {
+        // Draw placeholder while loading or if broken
+        ctx.save();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.restore();
       }
+    } else {
+      // No source? Draw something so it's not totally invisible
+      ctx.save();
+      ctx.strokeStyle = '#fca5a5';
+      ctx.setLineDash([2, 5]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.restore();
     }
   }
 
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const { x, y, width = 100, height = 100 } = shape;
+    const { x, y, width, height } = this.getBounds(shape);
     if (shape.locked) drawLockIcon(ctx, x + width + 6, y - 6);
   }
 
   getBounds(shape: Shape) {
-    return { x: shape.x, y: shape.y, width: shape.width || 100, height: shape.height || 100 };
+    const w = shape.width || 100;
+    const h = shape.height || 100;
+    return {
+      x: w < 0 ? shape.x + w : shape.x,
+      y: h < 0 ? shape.y + h : shape.y,
+      width: Math.abs(w),
+      height: Math.abs(h),
+    };
   }
 
   /** Images always fill their bounds — hit anywhere inside. */

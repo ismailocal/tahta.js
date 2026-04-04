@@ -10,7 +10,7 @@ import { getStylePreset } from '../core/constants';
 
 const PORT_HIT_RADIUS = 12;
 function isBindingPlugin(type: string): boolean {
-  return PluginRegistry.hasPlugin(type) && !!(PluginRegistry.getPlugin(type) as any).canBind;
+  return PluginRegistry.hasPlugin(type) && !!PluginRegistry.getPlugin(type).canBind;
 }
 
 const HANDLE_CURSORS: Record<string, string> = {

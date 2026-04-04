@@ -116,7 +116,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
       window.removeEventListener('resize', render);
       window.removeEventListener('tuval-force-render', render);
       inputManager.destroy();
-      clearRendererState();
+      clearRendererState(canvas);
       clearImageCache();
     },
   };
