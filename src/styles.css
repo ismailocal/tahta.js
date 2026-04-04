@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
 
 .tahta-shell {
-  font-family: 'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
@@ -54,8 +54,9 @@
 .tahta-shell span,
 .tahta-shell h1,
 .tahta-shell h2,
-.tahta-shell h3 {
-  font-family: 'Outfit', 'Inter', sans-serif;
+.tahta-shell h3,
+.tahta-shell div {
+  font-family: 'Outfit', 'Inter', sans-serif !important;
 }
 
 .tahta-shell button {
@@ -527,7 +528,7 @@
   justify-content: center;
   border-radius: 8px;
   /* rounded-lg */
-  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, color 0.2s ease, opacity 0.3s ease;
   z-index: 901;
   cursor: pointer;
   border: none;
@@ -562,7 +563,7 @@
 }
 
 .layers-toggle-btn.active:hover {
-  background: rgba(241, 245, 249, 1);
+  background: rgb(230, 234, 238);
   /* hover:bg-slate-100 */
 }
 
