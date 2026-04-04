@@ -86,7 +86,7 @@
   position: absolute;
   top: 20px;
   left: 50%;
-  z-index: 30;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -261,7 +261,7 @@
 
 .properties-panel {
   position: absolute;
-  z-index: 900;
+  z-index: 1100;
   /* Above regular elements but below some overlays */
   pointer-events: none;
   display: flex;
