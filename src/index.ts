@@ -6,6 +6,8 @@ import { createWhiteboardAPI } from './core/StoreAPI';
 import { renderScene, clearRendererState } from './rendering/Renderer';
 import { clearImageCache } from './plugins/ImagePlugin';
 
+import './styles.css';
+
 import { SelectTool } from './tools/SelectTool';
 import { HandTool } from './tools/HandTool';
 import { ShapeTool } from './tools/ShapeTool';

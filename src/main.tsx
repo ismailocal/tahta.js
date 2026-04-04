@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import './styles.css';
 
 // Preload handwriting font so canvas ctx.font renders correctly from the start
 document.fonts.load("20px 'Architects Daughter'");
