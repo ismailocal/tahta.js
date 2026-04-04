@@ -50,6 +50,9 @@ export class RectanglePlugin extends BaseRectPlugin {
   getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
     const w = shape.width || 0;
     const h = shape.height || 0;
+    // Degenerate shapes crash roughjs — zero-radius arc ops become undefined in
+    // the op array and op.type read throws. Return empty to skip silently.
+    if (w <= 0 || h <= 0) return [];
     const options = buildRoughOptions(shape, theme);
 
     if (shape.roundness === 'round') {

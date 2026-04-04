@@ -6,6 +6,9 @@ import { renderHandleBrackets, renderConnectionPoints } from './UIComponentsRend
 
 const roughCache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
 
+// Shapes rendered from point arrays — width/height not required for rendering.
+const POINT_BASED_TYPES = new Set(['line', 'arrow', 'freehand']);
+
 /**
  * Computes a hash of all visual properties to determine if a cached element
  * needs a re-render. Handles theme changes.
@@ -40,6 +43,15 @@ export function renderShape(
 ) {
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
+
+  // Guard: box-like shapes (rectangle, ellipse, diamond, db-*) require positive
+  // width AND height. A zero or negative dimension causes roughjs to generate
+  // degenerate arc/path ops that contain `undefined`, crashing op.type reads.
+  // Line/arrow/freehand shapes use `points` instead of width/height — skip guard.
+  if (!POINT_BASED_TYPES.has(shape.type)) {
+    if ((shape.width ?? 0) <= 0 || (shape.height ?? 0) <= 0) return;
+  }
+
   const plugin = PluginRegistry.getPlugin(shape.type);
 
   ctx.save();

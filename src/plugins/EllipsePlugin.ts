@@ -31,6 +31,7 @@ export class EllipsePlugin extends BaseRectPlugin {
   getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
     const w = shape.width || 0;
     const h = shape.height || 0;
+    if (w <= 0 || h <= 0) return [];
     const options = buildRoughOptions(shape, theme);
     return [generator.ellipse(shape.x + w / 2, shape.y + h / 2, Math.abs(w), Math.abs(h), options)];
   }
