@@ -1,46 +1,11 @@
-@import "tailwindcss";
+/* tahta.js canvas styles - scoped to .tahta-shell to avoid leaking into host app */
+/* @import "tailwindcss" and Google Fonts are handled by the host application */
 
-@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Inter:wght@400;500;600&display=swap');
 
-
-:root {
+.tahta-shell {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  --ui-bg: #232329;
-  --ui-border: rgba(255, 255, 255, 0.05);
-  --ui-text: #c9d2db;
-  --ui-text-active: #ffffff;
-  --ui-hover-bg: #36364a;
-  --ui-active-bg: #4a4771;
-  --panel-bg: #1e1e24;
-  --panel-border: rgba(255, 255, 255, 0.06);
-  --panel-header: #e2e8f0;
-  --input-bg: rgba(255, 255, 255, 0.05);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --dropdown-bg: #1e1e2e;
-  --dropdown-border: #3d3d5c;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.dark {
-  --ui-bg: #1a1a1a;
-  --ui-border: rgba(255, 255, 255, 0.05);
-  --ui-text: #adb9c5;
-  --ui-text-active: #ffffff;
-  --ui-hover-bg: #28282d;
-  --ui-active-bg: #28282d;
-  --panel-bg: #1a1a1a;
-  --panel-border: rgba(255, 255, 255, 0.06);
-  --panel-header: #e2e8f0;
-  --input-bg: rgba(255, 255, 255, 0.05);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --dropdown-bg: #1a1a1a;
-  --dropdown-border: rgba(255, 255, 255, 0.08);
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-}
-
-/* Light Mode Overrides */
-:root:not(.dark) {
+  /* Default (Light) Mode Variables */
   --ui-bg: #ffffff;
   --ui-border: rgba(0, 0, 0, 0.08);
   --ui-text: #64748b;
@@ -57,33 +22,41 @@
   --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
 }
 
-* {
+.dark .tahta-shell,
+.tahta-shell.dark {
+  --ui-bg: #1a1a1a;
+  --ui-border: rgba(255, 255, 255, 0.05);
+  --ui-text: #adb9c5;
+  --ui-text-active: #ffffff;
+  --ui-hover-bg: #28282d;
+  --ui-active-bg: #28282d;
+  --panel-bg: #1a1a1a;
+  --panel-border: rgba(255, 255, 255, 0.06);
+  --panel-header: #e2e8f0;
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --dropdown-bg: #1a1a1a;
+  --dropdown-border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+
+
+.tahta-shell * {
   box-sizing: border-box;
 }
 
-html,
-body,
-#app {
-  margin: 0;
-  min-height: 100%;
-}
-
-body {
-  min-height: 100vh;
-  background: transparent;
-}
-
-button,
-input,
-textarea {
+.tahta-shell button,
+.tahta-shell input,
+.tahta-shell textarea {
   font-family: inherit;
 }
 
-button {
+.tahta-shell button {
   border: 0;
 }
 
-.app-shell {
+.tahta-shell {
   min-height: 100vh;
   background: transparent;
 }

@@ -8,7 +8,7 @@ import type { ICanvasAPI } from '../../core/types';
 
 export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
   root.innerHTML = `
-    <div class="app-shell">
+    <div class="tahta-shell">
       <div class="board-shell">
         <div class="toolbar-wrap">
           <div style="display: flex; gap: 8px;">
@@ -174,7 +174,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   initPropertiesPanel(properties, api);
 
-  root.querySelector('.app-shell')?.addEventListener('click', (event: Event) => {
+  root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
     // Close dropdowns if clicked
     if (target.closest('.tool-dropdown-item') || target.closest('.pp-ibtn') || target.closest('.pp-swatch')) {
@@ -290,12 +290,31 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       renderToolbar(state);
       renderProperties(state);
       renderCursor(state);
+
+      // Sync theme class to tahta-shell
+      const shell = root.querySelector('.tahta-shell');
+      if (shell) {
+        if (state.theme === 'dark') {
+          shell.classList.add('dark');
+        } else {
+          shell.classList.remove('dark');
+        }
+      }
     });
   });
 
   renderToolbar(store.getState());
   renderProperties(store.getState());
   renderCursor(store.getState());
+  
+  const initialShell = root.querySelector('.tahta-shell');
+  if (initialShell) {
+    if (store.getState().theme === 'dark') {
+      initialShell.classList.add('dark');
+    } else {
+      initialShell.classList.remove('dark');
+    }
+  }
 
   return () => {
     unsubUI();

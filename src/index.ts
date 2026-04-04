@@ -16,7 +16,6 @@ import { createUI } from './canvas/ui/UIBuilder';
 import { PluginRegistry } from './plugins/PluginRegistry';
 import { PerformanceMonitor } from './rendering/PerformanceMonitor';
 
-import './styles.css';
 
 
 
