@@ -1,6 +1,7 @@
 import { WhiteboardStore } from '../../core/Store';
 import { getShapeBounds, getArrowClippedEndpoints } from '../../geometry/Geometry';
 import { getElbowPath, getPathMidpoint } from '../../geometry/lineUtils';
+import { PluginRegistry } from '../../plugins/index';
 
 export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
   const overlay = document.createElement('div');
@@ -100,30 +101,29 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
         } else {
           let cx = 0;
           let cy = 0;
-          if (shape.type === 'arrow' || shape.type === 'line') {
-            const { p1, p2 } = getArrowClippedEndpoints(shape, state.shapes);
-            if (shape.edgeStyle === 'elbow') {
-              const b1 = shape.startBinding ? state.shapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
-              const b2 = shape.endBinding ? state.shapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-              const path = getElbowPath(p1, p2);
-              const mid = getPathMidpoint(path);
-              cx = mid.x;
-              cy = mid.y;
-            } else {
-              cx = (p1.x + p2.x) / 2;
-              cy = (p1.y + p2.y) / 2;
-            }
+
+        if (PluginRegistry.hasPlugin(shape.type)) {
+          const plugin = PluginRegistry.getPlugin(shape.type);
+          const anchor = plugin.getTextAnchor ? plugin.getTextAnchor(shape, state.shapes) : null;
+          if (anchor) {
+            cx = anchor.x;
+            cy = anchor.y;
           } else {
             const bounds = getShapeBounds(shape);
             cx = bounds.x + bounds.width / 2;
             cy = bounds.y + bounds.height / 2;
           }
-          
-          editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
-          editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
-          editor.style.marginTop = `0`;
-          editor.style.textAlign = 'center';
-          editor.style.transform = 'translate(-50%, -50%)';
+        } else {
+          const bounds = getShapeBounds(shape);
+          cx = bounds.x + bounds.width / 2;
+          cy = bounds.y + bounds.height / 2;
+        }
+        
+        editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
+        editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
+        editor.style.marginTop = `0`;
+        editor.style.textAlign = 'center';
+        editor.style.transform = 'translate(-50%, -50%)';
         }
       }
     }

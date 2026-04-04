@@ -260,15 +260,28 @@ export class ArrowPlugin implements IShapePlugin {
     return pointToSegmentDistance(point, p1, p2) <= Math.max(8, (shape.strokeWidth || 2) + 4);
   }
 
-  onDrawInit(payload: PointerPayload, allShapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
-    const snap = findNearestPort(payload.world, allShapes);
+  onDrawInit(payload: PointerPayload, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    let snap = findNearestPort(payload.world, allShapes);
+    let startBinding: any = snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined;
+    let x = snap ? snap.x : payload.world.x;
+    let y = snap ? snap.y : payload.world.y;
+
+    if (!snap) {
+      // Fallback: if clicking inside a shape, bind to its center
+      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
+      if (hit && !PluginRegistry.getPlugin(hit.type).isConnector) {
+        startBinding = { elementId: hit.id };
+        const center = getBindingPoint(hit);
+        x = center.x; y = center.y;
+      }
+    }
+
     return {
-      x: snap ? snap.x : payload.world.x,
-      y: snap ? snap.y : payload.world.y,
+      x, y,
       points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
       stroke: '#64748b',
       strokeWidth: 1.8,
-      startBinding: snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined
+      startBinding
     };
   }
 
@@ -282,7 +295,7 @@ export class ArrowPlugin implements IShapePlugin {
     const patch: Partial<Shape> = { points: [{ x: 0, y: 0 }, { x: dx, y: dy }], endBinding: undefined };
     const state = api.getState();
 
-    const snap = (!payload.ctrlKey && !payload.metaKey)
+    let snap = (!payload.ctrlKey && !payload.metaKey)
       ? findNearestPort(payload.world, allShapes, [shape.id])
       : null;
 
@@ -290,8 +303,16 @@ export class ArrowPlugin implements IShapePlugin {
       if (state.hoveredShapeId !== snap.shape.id) api.setState({ hoveredShapeId: snap.shape.id });
       patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
       patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
-    } else {
-      if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
+    } else if (!payload.ctrlKey && !payload.metaKey) {
+      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
+      if (hit && hit.id !== shape.id && !PluginRegistry.getPlugin(hit.type).isConnector) {
+        if (state.hoveredShapeId !== hit.id) api.setState({ hoveredShapeId: hit.id });
+        patch.endBinding = { elementId: hit.id };
+        const center = getBindingPoint(hit);
+        patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
+      } else {
+        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
+      }
     }
     return patch;
   }
@@ -316,7 +337,7 @@ export class ArrowPlugin implements IShapePlugin {
   }
 
   onDragBindHandle(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: any): Partial<Shape> {
-    const snap = (!payload.ctrlKey && !payload.metaKey)
+    let snap = (!payload.ctrlKey && !payload.metaKey)
       ? findNearestPort(payload.world, allShapes, [activeShapeId])
       : null;
 
@@ -333,6 +354,26 @@ export class ArrowPlugin implements IShapePlugin {
       } else if (handle === 'end') {
         patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
         patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
+      }
+    } else if (!payload.ctrlKey && !payload.metaKey) {
+      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
+      if (hit && hit.id !== activeShapeId && !PluginRegistry.getPlugin(hit.type).isConnector) {
+        if (hit.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: hit.id });
+        const center = getBindingPoint(hit);
+        if (handle === 'start') {
+          patch.startBinding = { elementId: hit.id };
+          const p2wx = shape.x + (shape.points?.[1]?.x || 0);
+          const p2wy = shape.y + (shape.points?.[1]?.y || 0);
+          patch.x = center.x; patch.y = center.y;
+          patch.points = [{ x: 0, y: 0 }, { x: p2wx - center.x, y: p2wy - center.y }];
+        } else if (handle === 'end') {
+          patch.endBinding = { elementId: hit.id };
+          patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
+        }
+      } else {
+        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
+        if (handle === 'start') patch.startBinding = undefined;
+        if (handle === 'end') patch.endBinding = undefined;
       }
     } else {
       if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
