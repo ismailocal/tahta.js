@@ -27,8 +27,8 @@ const I = {
   roundSharp:    `<svg viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   roundRound:    `<svg viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" rx="5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   layerBack:     `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="9" width="8" height="8" rx="1"/><rect x="10" y="3" width="8" height="8" rx="1"/></svg>`,
-  layerBwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 15V5M6 9l4-4 4 4"/></svg>`,
-  layerFwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 5v10M6 11l4 4 4-4"/></svg>`,
+  layerBwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 5v10M6 11l4 4 4-4"/></svg>`,
+  layerFwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 15V5M6 9l4-4 4 4"/></svg>`,
   layerFront:    `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="9" width="8" height="8" rx="1" opacity="0.4"/><rect x="10" y="3" width="8" height="8" rx="1"/></svg>`,
   duplicate:     `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M13 7V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h3"/></svg>`,
   delete:        `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14M8 5V3h4v2M17 5l-1 12a1 1 0 01-1 1H5a1 1 0 01-1-1L3 5"/></svg>`,
@@ -101,22 +101,20 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   const has = (k: string) => props.includes(k);
   const isLocked = selectedShapes.some(s => s.locked);
   const sw = shape.strokeWidth ?? 2;
-  const opacity = Math.round((shape.opacity ?? 1) * 100);
 
-  let html = `<div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">`;
+  const groups: string[] = [];
 
-  // Stroke color
+  // Group 1: Appearance (Stroke, Fill)
+  let appearanceHtml = '';
   if (has('stroke')) {
-    html += dropdown('Kontur rengi', colorIcon(shape.stroke || '#000'),
+    appearanceHtml += dropdown('Kontur rengi', colorIcon(shape.stroke || '#000'),
       `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`,
       'Kontur Rengi'
     );
   }
-
-  // Stroke width
   if (has('strokeWidth')) {
     const icon = sw <= 2 ? I.strokeThin : (sw >= 5 ? I.strokeThick : I.strokeMed);
-    html += dropdown('Kalınlık', icon,
+    appearanceHtml += dropdown('Kalınlık', icon,
       btnGroup(
         iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'İnce'),
         iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Orta'),
@@ -125,12 +123,10 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
       'Stroke Width'
     );
   }
-
-  // Stroke style
   if (has('strokeStyle')) {
     const s = shape.strokeStyle || 'solid';
     const icon = s === 'dashed' ? I.styleDashed : (s === 'dotted' ? I.styleDotted : I.styleSolid);
-    html += dropdown('Çizgi stili', icon,
+    appearanceHtml += dropdown('Çizgi stili', icon,
       btnGroup(
         iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Düz'),
         iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Kesik'),
@@ -139,20 +135,16 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
       'Çizgi Stili'
     );
   }
-
-  // Fill color
   if (has('fill')) {
-    html += dropdown('Dolgu rengi', colorIcon(shape.fill || 'transparent'),
+    appearanceHtml += dropdown('Dolgu rengi', colorIcon(shape.fill || 'transparent'),
       `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`,
       'Dolgu Rengi'
     );
   }
-
-  // Fill style
   if (has('fillStyle')) {
     const s = shape.fillStyle || 'hachure';
     const icon = s === 'solid' ? I.fillSolid : (s === 'cross-hatch' ? I.fillCrossHatch : I.fillHachure);
-    html += dropdown('Dolgu stili', icon,
+    appearanceHtml += dropdown('Dolgu stili', icon,
       btnGroup(
         iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Düz dolgu'),
         iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Çizgili'),
@@ -161,31 +153,34 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
       'Dolgu Stili'
     );
   }
+  if (appearanceHtml) groups.push(appearanceHtml);
 
-  // Opacity removed as per user request
+  // Group 2: Actions
+  let actionsHtml = '';
+  if (has('action')) {
+    actionsHtml += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Çoğalt',       isLocked ? 'pp-ibtn--dim' : '');
+    actionsHtml += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Kilidi aç' : 'Kilitle', 'pp-ibtn--lock');
+    actionsHtml += iconBtn('action', 'delete',      I.delete,                      false,     'Sil',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
+  }
+  if (actionsHtml) groups.push(actionsHtml);
 
-  html += `<div class="toolbar-separator"></div>`;
+  // Group 3: Layers
+  let layersHtml = '';
+  if (has('layer')) {
+    layersHtml += dropdown('Katmanlar', I.layerFront,
+      `<div class="pp-btn-group">
+        ${iconBtn('layer', 'back',     I.layerBack,  false, 'En alta')}
+        ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Bir aşağı')}
+        ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Bir yukarı')}
+        ${iconBtn('layer', 'front',    I.layerFront, false, 'En üste')}
+      </div>`,
+      'Katmanlar'
+    );
+  }
+  if (layersHtml) groups.push(layersHtml);
 
-  // Main actions on toolbar
-  html += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Çoğalt',       isLocked ? 'pp-ibtn--dim' : '');
-  html += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Kilidi aç' : 'Kilitle', 'pp-ibtn--lock');
-  html += iconBtn('action', 'delete',      I.delete,                      false,     'Sil',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
-
-  html += `<div class="toolbar-separator"></div>`;
-
-  // Layers Dropdown
-  html += dropdown('Katmanlar', I.layerFront,
-    `<div class="pp-btn-group">
-      ${iconBtn('layer', 'back',     I.layerBack,  false, 'En alta')}
-      ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Bir aşağı')}
-      ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Bir yukarı')}
-      ${iconBtn('layer', 'front',    I.layerFront, false, 'En üste')}
-    </div>`,
-    'Katmanlar'
-  );
-
-  html += `</div>`;
-  return html;
+  const separator = `<div class="toolbar-separator"></div>`;
+  return `<div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join(separator)}</div>`;
 }
 
 // backward compat exports (referenced by PropertiesPanel.ts re-export)
