@@ -97,7 +97,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
   };
   const unsubRender = store.subscribe(render);
   window.addEventListener('resize', render);
-  window.addEventListener('tuval-force-render', render);
+  window.addEventListener('tahta-force-render', render);
 
   // Re-render when fonts are loaded to ensure 'Architects Daughter' is applied
   document.fonts.ready.then(() => {
@@ -116,7 +116,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
       unsubRender();
       disposeUI();
       window.removeEventListener('resize', render);
-      window.removeEventListener('tuval-force-render', render);
+      window.removeEventListener('tahta-force-render', render);
       inputManager.destroy();
       clearRendererState(canvas);
       clearImageCache();
