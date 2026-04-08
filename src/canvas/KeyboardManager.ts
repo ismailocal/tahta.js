@@ -6,7 +6,23 @@ export function setupKeyboard(
   setActiveOverrideTool: (tool: string | null) => void
 ): (() => void)[] {
   const onKeyDown = (e: KeyboardEvent) => {
-    const active = api.getState().activeTool;
+    const state = api.getState();
+    const active = state.activeTool;
+
+    // In readOnly mode, only allow pan (Space) and zoom shortcuts
+    if (state.readOnly) {
+      if (e.code === 'Space' && !state.isSpacePanning) {
+        api.setState({ isSpacePanning: true });
+        setActiveOverrideTool('hand');
+      }
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '0') { e.preventDefault(); api.setViewport({ x: 0, y: 0, zoom: 1 }); }
+        if (e.key === '=' || e.key === '+') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.min(5, vp.zoom * 1.2) }); }
+        if (e.key === '-') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.max(0.1, vp.zoom / 1.2) }); }
+      }
+      return;
+    }
+
     if (e.code === 'Space' && !api.getState().isSpacePanning) {
       api.setState({ isSpacePanning: true });
       setActiveOverrideTool('hand');

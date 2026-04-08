@@ -78,6 +78,7 @@ export interface CanvasState {
   editingShapeId?: string | null;
   snapLines?: { x1: number; y1: number; x2: number; y2: number }[];
   theme?: 'light' | 'dark';
+  readOnly?: boolean;
   version: number;
 }
 

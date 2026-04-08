@@ -558,13 +558,15 @@
 /* Toggle - Open (transparent/hoverable) */
 .layers-toggle-btn.active {
   background: transparent;
-  color: rgba(148, 163, 184, 0.2);
-  /* text-slate-400/20 */
+  color: #64748b;
+  /* text-slate-500 - daha koyu ve belirgin */
+  transform: scale(1.1);
 }
 
 .layers-toggle-btn.active:hover {
   background: rgb(230, 234, 238);
-  /* hover:bg-slate-100 */
+  color: #475569;
+  /* hover:text-slate-600 */
 }
 
 /* Dark Mode Toggles */
@@ -576,11 +578,14 @@
 }
 
 .dark .layers-toggle-btn.active {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
+  /* text-white/50 - daha belirgin */
 }
 
 .dark .layers-toggle-btn.active:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  /* hover:text-white/70 */
 }
 
 .layers-panel-container {
@@ -609,6 +614,7 @@
   pointer-events: none;
   opacity: 0;
   transform: scale(0.5) translateX(16px) translateY(-16px);
+  max-height: calc(100vh - 120px);
 }
 
 .dark .layers-panel-container {
@@ -633,6 +639,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .dark .layers-header {
@@ -696,6 +703,7 @@
 .layers-search-wrap {
   padding: 12px;
   /* p-3 */
+  flex-shrink: 0;
 }
 
 .layers-search-inner {
@@ -770,12 +778,14 @@
 .layers-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 8px 12px;
   /* px-2 pb-3 */
   display: flex;
   flex-direction: column;
   gap: 2px;
   /* space-y-0.5 */
+  min-height: 0;
 }
 
 .layer-item {
@@ -791,6 +801,9 @@
   cursor: pointer;
   transition: all 0.2s;
   overflow: hidden;
+  flex-shrink: 0;
+  height: 48px;
+  box-sizing: border-box;
 }
 
 .layer-item:hover {
@@ -860,6 +873,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  justify-content: center;
+  gap: 2px;
 }
 
 .layer-item-label {
@@ -873,6 +888,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .dark .layer-item-label {
@@ -888,6 +904,10 @@
   margin: 0;
   letter-spacing: -0.025em;
   /* tracking-tight */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .dark .layer-item-id {
@@ -954,6 +974,7 @@
   justify-content: center;
   padding: 32px 16px;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .layers-empty-icon {
@@ -963,6 +984,32 @@
   color: #e2e8f0;
   /* text-slate-200 */
   opacity: 0.5;
+}
+
+/* Custom Scrollbar for Layers */
+.layers-list.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.layers-list.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layers-list.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.dark .layers-list.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.layers-list.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dark .layers-list.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .dark .layers-empty-icon {

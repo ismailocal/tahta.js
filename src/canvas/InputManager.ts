@@ -48,6 +48,20 @@ export class InputManager {
   private handlePointer(kind: 'down' | 'move' | 'up', event: PointerEvent) {
     const state = this.api.getState();
     const payload = createPointerPayload(this.canvas, event, state);
+
+    // In readOnly mode, only allow hand tool (pan) — block all drawing/editing
+    if (state.readOnly) {
+      const hand = this.tools['hand'];
+      if (!hand) return;
+      if (kind === 'down') { this.activeOverrideTool = 'hand'; hand.onPointerDown?.(payload, this.api); }
+      if (kind === 'move') {
+        this.api.bus.emit('pointer:update', { pointer: payload.world, button: payload.button });
+        hand.onPointerMove?.(payload, this.api);
+      }
+      if (kind === 'up') { hand.onPointerUp?.(payload, this.api); this.activeOverrideTool = null; }
+      return;
+    }
+
     const toolName = this.getActiveTool();
     const tool = this.tools[toolName];
     if (!tool) return;
