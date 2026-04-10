@@ -38,11 +38,12 @@ export class InputManager {
     this.canvas = canvas;
     this.api = api;
     this.tools = tools;
+    this.activeOverrideTool = null; // Explicitly reset on initialization
     this.attach();
   }
 
   private getActiveTool() {
-    return this.activeOverrideTool || this.api.getState().activeTool;
+    return this.activeOverrideTool !== null ? this.activeOverrideTool : this.api.getState().activeTool;
   }
 
   private handlePointer(kind: 'down' | 'move' | 'up', event: PointerEvent) {
@@ -85,6 +86,12 @@ export class InputManager {
       this.handlePointer('up', e);
       this.activeOverrideTool = null;
     };
+    const onCancel = (e: PointerEvent) => {
+      this.activeOverrideTool = null;
+    };
+    const onLeave = (e: PointerEvent) => {
+      this.activeOverrideTool = null;
+    };
     const onWheel = (e: WheelEvent) => {
       const rect = this.canvas.getBoundingClientRect();
       const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -124,6 +131,8 @@ export class InputManager {
     this.canvas.addEventListener('pointerdown', onDown);
     this.canvas.addEventListener('pointermove', onMove);
     this.canvas.addEventListener('pointerup', onUp);
+    this.canvas.addEventListener('pointercancel', onCancel);
+    this.canvas.addEventListener('pointerleave', onLeave);
     this.canvas.addEventListener('dblclick', onDoubleClick);
     this.canvas.addEventListener('wheel', onWheel, { passive: false });
 
@@ -131,6 +140,8 @@ export class InputManager {
       () => this.canvas.removeEventListener('pointerdown', onDown),
       () => this.canvas.removeEventListener('pointermove', onMove),
       () => this.canvas.removeEventListener('pointerup', onUp),
+      () => this.canvas.removeEventListener('pointercancel', onCancel),
+      () => this.canvas.removeEventListener('pointerleave', onLeave),
       () => this.canvas.removeEventListener('dblclick', onDoubleClick),
       () => this.canvas.removeEventListener('wheel', onWheel),
       ...keyboardDisposers,
