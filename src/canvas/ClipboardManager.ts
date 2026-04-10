@@ -1,5 +1,6 @@
 import type { ICanvasAPI, ShapeType } from '../core/types';
 import { screenToWorld } from '../geometry/Geometry';
+import { UI_CONSTANTS } from '../core/constants';
 
 export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file: File, clientX: number, clientY: number) {
   if (!file.type.startsWith('image/')) return;
@@ -18,7 +19,7 @@ export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file
       
       let w = img.naturalWidth;
       let h = img.naturalHeight;
-      const maxDim = 800;
+      const maxDim = UI_CONSTANTS.MAX_IMAGE_DIMENSION;
       if (w > maxDim || h > maxDim) {
          const ratio = Math.min(maxDim / w, maxDim / h);
          w *= ratio;

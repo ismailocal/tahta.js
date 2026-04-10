@@ -115,16 +115,30 @@ export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1
 export function getPathMidpoint(path: Point[]): Point {
   if (path.length === 0) return { x: 0, y: 0 };
   if (path.length === 1) return path[0];
-  let totalLen = 0;
-  for (let i = 0; i < path.length - 1; i++) totalLen += Math.hypot(path[i+1].x - path[i].x, path[i+1].y - path[i].y);
-  let targetLen = totalLen / 2, currLen = 0;
+  
+  let totalLength = 0;
   for (let i = 0; i < path.length - 1; i++) {
-    const d = Math.hypot(path[i+1].x - path[i].x, path[i+1].y - path[i].y);
-    if (currLen + d >= targetLen) { const r = (targetLen - currLen) / d; return { x: path[i].x + (path[i+1].x - path[i].x) * r, y: path[i].y + (path[i+1].y - path[i].y) * r }; }
-    currLen += d;
+    totalLength += Math.hypot(path[i + 1].x - path[i].x, path[i + 1].y - path[i].y);
   }
+  
+  const targetLength = totalLength / 2;
+  let currentLength = 0;
+  
+  for (let i = 0; i < path.length - 1; i++) {
+    const segmentLength = Math.hypot(path[i + 1].x - path[i].x, path[i + 1].y - path[i].y);
+    if (currentLength + segmentLength >= targetLength) {
+      const t = (targetLength - currentLength) / segmentLength;
+      return {
+        x: path[i].x + t * (path[i + 1].x - path[i].x),
+        y: path[i].y + t * (path[i + 1].y - path[i].y)
+      };
+    }
+    currentLength += segmentLength;
+  }
+  
   return path[path.length - 1];
 }
 
+// Stub functions for elbow routing cache (not currently implemented)
 export function clearElbowCache() {}
 export function setSkipObstacles(_v: boolean) {}

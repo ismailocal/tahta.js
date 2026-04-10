@@ -6,6 +6,7 @@ import { getShapeBounds } from '../geometry/Geometry';
 import { ShapeManager } from '../geometry/ShapeManager';
 import { getArrowClippedEndpoints } from '../geometry/lineUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
+import { cacheStyle } from './constants';
 
 /** Default initial state for a new canvas. */
 export const DEFAULT_STATE: CanvasState = {
@@ -173,6 +174,53 @@ export class WhiteboardStore {
   updateShape(shapeId: string, patch: Partial<Shape>, force = false): void {
     const { shapes, updated } = ShapeManager.update(this.state.shapes, shapeId, patch, force);
     this.state = { ...this.state, shapes };
+    
+    // Cache style when style properties change
+    if (updated && patch) {
+      const styleProperties = ['stroke', 'fill', 'strokeWidth', 'opacity', 'roughness', 'strokeStyle', 'edgeStyle', 'startArrowhead', 'endArrowhead', 'roundness', 'fontSize'];
+      const hasStyleChange = styleProperties.some(prop => prop in patch);
+      
+      if (hasStyleChange) {
+        const styleToCache: Partial<Shape> = {};
+        styleProperties.forEach(prop => {
+          if (prop in updated) {
+            (styleToCache as any)[prop] = (updated as any)[prop];
+          }
+        });
+        
+        // Static mapping for variant cache keys
+        const VARIANT_CACHE_KEYS: Record<string, (shape: Shape) => string | null> = {
+          freehand: (s) => {
+            if (s.strokeWidth === 4) return 'freehand-thick';
+            if (s.strokeWidth === 14) return 'freehand-highlighter';
+            return null;
+          },
+          line: (s) => {
+            if (s.strokeStyle === 'dashed') return 'line-dashed';
+            if (s.strokeStyle === 'dotted') return 'line-dotted';
+            return null;
+          },
+          arrow: (s) => {
+            if (s.startArrowhead === 'arrow' && s.endArrowhead === 'arrow') return 'arrow-double';
+            if (s.edgeStyle === 'elbow') return 'arrow-elbow';
+            if (s.edgeStyle === 'curved') return 'arrow-curved';
+            if (s.endArrowhead === 'triangle') return 'arrow-filled';
+            return null;
+          },
+        };
+        
+        const variantKey = updated ? VARIANT_CACHE_KEYS[updated.type as string]?.(updated) : null;
+        
+        // Cache for both base type and variant key
+        if (updated) {
+          cacheStyle(updated.type, styleToCache);
+          if (variantKey) {
+            cacheStyle(variantKey, styleToCache);
+          }
+        }
+      }
+    }
+    
     this.notify();
     if (updated) this.bus.emit('shape:updated', { shape: updated });
   }

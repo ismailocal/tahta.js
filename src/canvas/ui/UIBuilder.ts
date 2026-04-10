@@ -18,6 +18,17 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         </div>
         <section class="board-area">
           <div class="properties-panel hidden" data-properties></div>
+          <div class="zoom-controls" data-zoom-controls>
+            <button class="zoom-btn" data-zoom-out title="Zoom out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="zoom-separator"></div>
+            <span class="zoom-value" data-zoom-value title="Click to reset zoom">100%</span>
+            <div class="zoom-separator"></div>
+            <button class="zoom-btn" data-zoom-in title="Zoom in">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+          </div>
         </section>
       </div>
     </div>
@@ -31,6 +42,106 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
+  const zoomControls = root.querySelector('[data-zoom-controls]') as HTMLElement;
+  const zoomValue = root.querySelector('[data-zoom-value]') as HTMLElement;
+
+  const ZOOM_STEP = 0.1;
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 5;
+
+  const renderZoomValue = (state: any) => {
+    const zoom = state.viewport?.zoom || 1;
+    const zoomPercent = Math.round(zoom * 100);
+    if (zoomValue) {
+      zoomValue.textContent = `${zoomPercent}%`;
+    }
+
+    // Update button disabled states
+    const zoomInBtn = root.querySelector('[data-zoom-in]') as HTMLButtonElement;
+    const zoomOutBtn = root.querySelector('[data-zoom-out]') as HTMLButtonElement;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM;
+  };
+
+  // Zoom control event handlers
+  zoomControls?.querySelector('[data-zoom-in]')?.addEventListener('click', () => {
+    const state = store.getState();
+    const currentZoom = state.viewport?.zoom || 1;
+    const newZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
+    const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
+
+    // Calculate zoom to center
+    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      // World coordinates of center before zoom
+      const worldCenterX = (centerX - viewport.x) / currentZoom;
+      const worldCenterY = (centerY - viewport.y) / currentZoom;
+
+      // New scroll position to keep center at same world coordinates
+      const newX = centerX - worldCenterX * newZoom;
+      const newY = centerY - worldCenterY * newZoom;
+
+      store.setViewport({ x: newX, y: newY, zoom: newZoom });
+    } else {
+      store.setViewport({ ...viewport, zoom: newZoom });
+    }
+  });
+
+  zoomControls?.querySelector('[data-zoom-out]')?.addEventListener('click', () => {
+    const state = store.getState();
+    const currentZoom = state.viewport?.zoom || 1;
+    const newZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
+    const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
+
+    // Calculate zoom to center
+    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      // World coordinates of center before zoom
+      const worldCenterX = (centerX - viewport.x) / currentZoom;
+      const worldCenterY = (centerY - viewport.y) / currentZoom;
+
+      // New scroll position to keep center at same world coordinates
+      const newX = centerX - worldCenterX * newZoom;
+      const newY = centerY - worldCenterY * newZoom;
+
+      store.setViewport({ x: newX, y: newY, zoom: newZoom });
+    } else {
+      store.setViewport({ ...viewport, zoom: newZoom });
+    }
+  });
+
+  zoomValue?.addEventListener('click', () => {
+    const state = store.getState();
+    const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
+
+    // Calculate zoom to center for reset
+    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      // World coordinates of center before zoom
+      const worldCenterX = (centerX - viewport.x) / (viewport.zoom || 1);
+      const worldCenterY = (centerY - viewport.y) / (viewport.zoom || 1);
+
+      // New scroll position to keep center at same world coordinates
+      const newX = centerX - worldCenterX * 1;
+      const newY = centerY - worldCenterY * 1;
+
+      store.setViewport({ x: newX, y: newY, zoom: 1 });
+    } else {
+      store.setViewport({ ...viewport, zoom: 1 });
+    }
+  });
 
   const renderToolbar = (state: any) => {
     toolbar.innerHTML = TOOLBAR_ITEMS.map((tool) => {
@@ -189,18 +300,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const tool = btn?.getAttribute('data-tool');
     if (tool === 'undo') { store.undo(); return; }
     if (tool === 'redo') { store.redo(); return; }
-    if (tool === 'export') {
-      const state = store.getState();
-      const data = JSON.stringify(state, null, 2);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tuval-canvas-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
     if (tool === 'image') {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -263,7 +362,12 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       input.click();
       return;
     }
-    if (tool) store.setTool(tool);
+    if (tool) {
+      // Clear space panning state when manually selecting a tool to prevent hand tool override
+      store.setState({ isSpacePanning: false, isPanning: false });
+      store.setTool(tool);
+      return;
+    }
   });
 
 
@@ -292,6 +396,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       renderToolbar(state);
       renderProperties(state);
       renderCursor(state);
+      renderZoomValue(state);
 
       // Sync theme class to tahta-shell
       const shell = root.querySelector('.tahta-shell');
@@ -308,6 +413,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   renderToolbar(store.getState());
   renderProperties(store.getState());
   renderCursor(store.getState());
+  renderZoomValue(store.getState());
   
   const initialShell = root.querySelector('.tahta-shell');
   if (initialShell) {

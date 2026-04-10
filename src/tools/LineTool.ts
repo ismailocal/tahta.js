@@ -1,5 +1,5 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
-import { getStylePreset } from '../core/constants';
+import { getStylePreset, getCachedStyle } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
 import { PluginRegistry } from '../plugins/PluginRegistry';
@@ -47,7 +47,8 @@ export class LineTool implements ToolDefinition {
     const candidates = state.shapes.filter(s =>
       s.id !== this.currentShapeId &&
       PluginRegistry.hasPlugin(s.type) &&
-      !PluginRegistry.getPlugin(s.type).isConnector
+      !PluginRegistry.getPlugin(s.type).isConnector &&
+      !!PluginRegistry.getPlugin(s.type).getConnectionPoints
     );
     const hit = getTopShapeAtPoint(candidates, payload.world);
     api.setState({ hoveredShapeId: hit?.id ?? null });
@@ -68,11 +69,13 @@ export class LineTool implements ToolDefinition {
   private _startLine(payload: PointerPayload, api: ICanvasAPI) {
     const state = api.getState();
     const candidates = state.shapes.filter(s =>
-      PluginRegistry.hasPlugin(s.type) && !PluginRegistry.getPlugin(s.type).isConnector
+      PluginRegistry.hasPlugin(s.type) &&
+      !PluginRegistry.getPlugin(s.type).isConnector &&
+      !!PluginRegistry.getPlugin(s.type).getConnectionPoints
     );
     const hitShape = getTopShapeAtPoint(candidates, payload.world);
 
-    const preset = getStylePreset('line');
+    const preset = getCachedStyle('line');
     const shape = {
       ...preset,
       id: createId(),
@@ -129,7 +132,8 @@ export class LineTool implements ToolDefinition {
         const candidates = state.shapes.filter(s =>
           s.id !== this.currentShapeId &&
           PluginRegistry.hasPlugin(s.type) &&
-          !PluginRegistry.getPlugin(s.type).isConnector
+          !PluginRegistry.getPlugin(s.type).isConnector &&
+          !!PluginRegistry.getPlugin(s.type).getConnectionPoints
         );
         const hitShape = getTopShapeAtPoint(candidates, worldPt);
 

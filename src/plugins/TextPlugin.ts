@@ -1,6 +1,6 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
-import { getTextMetrics, drawLockIcon } from '../core/Utils';
+import { getTextMetrics } from '../core/Utils';
 
 export class TextPlugin implements IShapePlugin {
   type = 'text';
@@ -18,27 +18,25 @@ export class TextPlugin implements IShapePlugin {
     shape.text.split('\n').forEach((line, index) => ctx.fillText(line, shape.x, shape.y + index * fontSize * 1.2));
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const bounds = this.getBounds(shape);
-    if (shape.locked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-    }
-  }
-
-  getBounds(shape: Shape) {
+getBounds(shape: Shape) {
     const metrics = getTextMetrics(shape);
     return { x: shape.x, y: shape.y, width: metrics.width, height: metrics.height };
   }
 
   getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 12;
+    const d = 10;
     const bounds = this.getBounds(shape);
-    const b = { x: bounds.x - 6, y: bounds.y - 6, w: bounds.width + 12, h: bounds.height + 12 };
-    
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - b.y) <= d) return 'nw';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - b.y) <= d) return 'ne';
-    if (Math.abs(point.x - b.x) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'sw';
-    if (Math.abs(point.x - (b.x + b.w)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 'se';
+    const pad = 8;
+    const b = { x: bounds.x - pad, y: bounds.y - pad, w: bounds.width + pad * 2, h: bounds.height + pad * 2 };
+
+    if (Math.abs(point.x - b.x)           <= d && Math.abs(point.y - b.y)           <= d) return 'nw';
+    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - b.y)         <= d) return 'n';
+    if (Math.abs(point.x - (b.x + b.w))   <= d && Math.abs(point.y - b.y)           <= d) return 'ne';
+    if (Math.abs(point.x - b.x)           <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'w';
+    if (Math.abs(point.x - (b.x + b.w))   <= d && Math.abs(point.y - (b.y + b.h / 2)) <= d) return 'e';
+    if (Math.abs(point.x - b.x)           <= d && Math.abs(point.y - (b.y + b.h))   <= d) return 'sw';
+    if (Math.abs(point.x - (b.x + b.w / 2)) <= d && Math.abs(point.y - (b.y + b.h)) <= d) return 's';
+    if (Math.abs(point.x - (b.x + b.w))   <= d && Math.abs(point.y - (b.y + b.h))   <= d) return 'se';
     return null;
   }
 

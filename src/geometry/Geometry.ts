@@ -1,4 +1,6 @@
 import type { Point, Shape, CanvasState } from '../core/types';
+import { UI_CONSTANTS } from '../core/constants';
+import { getTextMetrics } from '../core/Utils';
 
 import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance } from './GeometryUtils';
 
@@ -79,25 +81,17 @@ export function isPointInsideShape(point: Point, shape: Shape, allShapes: Shape[
 
 export type HandleType = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se' | 'start' | 'end';
 
-export function getHandleAtPoint(shape: Shape, point: Point, allShapes: Shape[] = []): HandleType | null {
-  if (PluginRegistry.hasPlugin(shape.type)) {
-    return PluginRegistry.getPlugin(shape.type).getHandleAtPoint(shape, point, allShapes) as HandleType | null;
-  }
-  return null;
+export function getHandleAtPoint(shape: Shape, point: Point, allShapes: Shape[]): string | null {
+  if (!PluginRegistry.hasPlugin(shape.type)) return null;
+  const plugin = PluginRegistry.getPlugin(shape.type);
+  if (!plugin.getHandleAtPoint) return null;
+  return plugin.getHandleAtPoint(shape, point, allShapes);
 }
 
 export function getTopShapeAtPoint(shapes: Shape[], point: Point, spatialIndex?: any): Shape | null {
-  const candidates = spatialIndex ? spatialIndex.queryPoint(point) : shapes;
-  
-  // candidates might be a subset, but we still need to check from high to low z-index
-  // Since 'shapes' is now pre-sorted, we can find the highest index in candidates
-  // but simpler: if we have multiple candidates, sort them by zIndex or find highest.
-  
-  // Wait! queryPoint returns shapes in no particular order?
-  // Actually, we can just iterate backwards through the ORIGINAL shapes array
-  // but only if they are IN the candidates set.
-  
+  // If spatial index is provided, use it for faster lookup
   if (spatialIndex) {
+    const candidates = spatialIndex.queryPoint(point);
     const candidateIds = new Set(candidates.map((s: Shape) => s.id));
     for (let i = shapes.length - 1; i >= 0; i--) {
       if (candidateIds.has(shapes[i].id) && isPointInsideShape(point, shapes[i], shapes)) {

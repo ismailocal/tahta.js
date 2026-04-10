@@ -1,12 +1,11 @@
 import type { Shape, Point } from '../core/types';
+import { UI_CONSTANTS } from '../core/constants';
 
 export interface Viewport {
   x: number;
   y: number;
   zoom: number;
 }
-
-const VIEWPORT_PADDING = 120;
 
 /**
  * Calculates a viewport (x, y, zoom) that centers a given set of shapes within a container.
@@ -52,12 +51,12 @@ export function calculateCenteredViewport(
 
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const contentW = (maxX - minX) + VIEWPORT_PADDING * 2;
-  const contentH = (maxY - minY) + VIEWPORT_PADDING * 2;
+  const contentW = (maxX - minX) + UI_CONSTANTS.VIEWPORT_PADDING * 2;
+  const contentH = (maxY - minY) + UI_CONSTANTS.VIEWPORT_PADDING * 2;
 
   const fitZoom = Math.min(width / contentW, height / contentH);
-  // Clamp to interactive zoom limits (0.2 – 4)
-  const zoom = Math.max(Math.min(fitZoom, 1.0), 0.2);
+  // Clamp to interactive zoom limits
+  const zoom = Math.max(Math.min(fitZoom, UI_CONSTANTS.FIT_ZOOM_MAX), UI_CONSTANTS.FIT_ZOOM_MIN);
 
   return {
     x: (width / 2) - (cx * zoom),

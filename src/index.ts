@@ -5,6 +5,7 @@ import { InputManager } from './canvas/InputManager';
 import { createWhiteboardAPI } from './core/StoreAPI';
 import { renderScene, clearRendererState } from './rendering/Renderer';
 import { clearImageCache } from './plugins/ImagePlugin';
+import { clearStyleCache } from './core/constants';
 
 import './styles.css';
 
@@ -123,3 +124,5 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
     },
   };
 }
+
+export { clearStyleCache };

@@ -4,29 +4,11 @@ import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
 import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions, getRoundedPathData } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
+import { UI_CONSTANTS } from '../core/constants';
+import { ConnectorMixin } from './ConnectorMixin';
 
-const PORT_SNAP_RADIUS = 40;
-
-/** Find the nearest port across all non-connector shapes within PORT_SNAP_RADIUS. */
-export function findNearestPort(
-  cursor: { x: number; y: number },
-  allShapes: Shape[],
-  excludeIds: string[] = []
-): { shape: Shape; portId: string; x: number; y: number } | null {
-  let best: { shape: Shape; portId: string; x: number; y: number } | null = null;
-  let bestDist = PORT_SNAP_RADIUS;
-  for (const s of allShapes) {
-    if (excludeIds.includes(s.id)) continue;
-    if (!PluginRegistry.hasPlugin(s.type)) continue;
-    const plugin = PluginRegistry.getPlugin(s.type);
-    if (plugin.isConnector || !plugin.getConnectionPoints) continue;
-    for (const port of plugin.getConnectionPoints(s)) {
-      const d = Math.hypot(cursor.x - port.x, cursor.y - port.y);
-      if (d < bestDist) { bestDist = d; best = { shape: s, portId: port.id, x: port.x, y: port.y }; }
-    }
-  }
-  return best;
-}
+// Re-export for backward compatibility
+export const findNearestPort = ConnectorMixin.findNearestPort;
 
 /** Use smart elbow routing when BOTH ends are bound, or edgeStyle is explicitly 'elbow'. */
 function useSmartRouting(shape: Shape): boolean {
@@ -79,6 +61,12 @@ export class ArrowPlugin implements IShapePlugin {
     }
     return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
   }
+
+  // Use ConnectorMixin for binding logic
+  onDrawInit = ConnectorMixin.onDrawInit;
+  onDrawUpdate = ConnectorMixin.onDrawUpdate;
+  onDragBindHandle = ConnectorMixin.onDragBindHandle;
+  onBoundShapeChange = ConnectorMixin.onBoundShapeChange;
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
@@ -233,7 +221,7 @@ export class ArrowPlugin implements IShapePlugin {
     const pts = shape.points || [];
     if (pts.length > 1) {
       const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-      const d = 20;
+      const d = UI_CONSTANTS.HANDLE_HIT_DISTANCE * 2;
       if (Math.abs(point.x - p1.x) <= d && Math.abs(point.y - p1.y) <= d) return 'start';
       if (Math.abs(point.x - p2.x) <= d && Math.abs(point.y - p2.y) <= d) return 'end';
     }
@@ -252,69 +240,12 @@ export class ArrowPlugin implements IShapePlugin {
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
       const path = getElbowPath(p1, p2, b1, b2);
       for (let i = 0; i < path.length - 1; i++) {
-        if (pointToSegmentDistance(point, path[i], path[i + 1]) <= Math.max(8, (shape.strokeWidth || 2) + 4)) return true;
+        if (pointToSegmentDistance(point, path[i], path[i + 1]) <= Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4)) return true;
       }
       return false;
     }
 
-    return pointToSegmentDistance(point, p1, p2) <= Math.max(8, (shape.strokeWidth || 2) + 4);
-  }
-
-  onDrawInit(payload: PointerPayload, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    let snap = findNearestPort(payload.world, allShapes);
-    let startBinding: any = snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined;
-    let x = snap ? snap.x : payload.world.x;
-    let y = snap ? snap.y : payload.world.y;
-
-    if (!snap) {
-      // Fallback: if clicking inside a shape, bind to its center
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && !PluginRegistry.getPlugin(hit.type).isConnector) {
-        startBinding = { elementId: hit.id };
-        const center = getBindingPoint(hit);
-        x = center.x; y = center.y;
-      }
-    }
-
-    return {
-      x, y,
-      points: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
-      stroke: '#64748b',
-      strokeWidth: 1.8,
-      startBinding
-    };
-  }
-
-  onDrawUpdate(shape: Shape, payload: PointerPayload, _dragStart: Point, allShapes: Shape[], api: any): Partial<Shape> {
-    let dx = payload.world.x - shape.x;
-    let dy = payload.world.y - shape.y;
-    if (payload.shiftKey) {
-      if (Math.abs(dx) > Math.abs(dy)) dy = 0;
-      else dx = 0;
-    }
-    const patch: Partial<Shape> = { points: [{ x: 0, y: 0 }, { x: dx, y: dy }], endBinding: undefined };
-    const state = api.getState();
-
-    let snap = (!payload.ctrlKey && !payload.metaKey)
-      ? findNearestPort(payload.world, allShapes, [shape.id])
-      : null;
-
-    if (snap) {
-      if (state.hoveredShapeId !== snap.shape.id) api.setState({ hoveredShapeId: snap.shape.id });
-      patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
-      patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
-    } else if (!payload.ctrlKey && !payload.metaKey) {
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && hit.id !== shape.id && !PluginRegistry.getPlugin(hit.type).isConnector) {
-        if (state.hoveredShapeId !== hit.id) api.setState({ hoveredShapeId: hit.id });
-        patch.endBinding = { elementId: hit.id };
-        const center = getBindingPoint(hit);
-        patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
-      } else {
-        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
-      }
-    }
-    return patch;
+    return pointToSegmentDistance(point, p1, p2) <= Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4);
   }
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload, _dragStart: Point): Partial<Shape> {
@@ -334,78 +265,5 @@ export class ArrowPlugin implements IShapePlugin {
       };
     }
     return {};
-  }
-
-  onDragBindHandle(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: any): Partial<Shape> {
-    let snap = (!payload.ctrlKey && !payload.metaKey)
-      ? findNearestPort(payload.world, allShapes, [activeShapeId])
-      : null;
-
-    const patch: Partial<Shape> = {};
-    const state = api.getState();
-    if (snap) {
-      if (snap.shape.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: snap.shape.id });
-      if (handle === 'start') {
-        patch.startBinding = { elementId: snap.shape.id, portId: snap.portId };
-        const p2wx = shape.x + (shape.points?.[1]?.x || 0);
-        const p2wy = shape.y + (shape.points?.[1]?.y || 0);
-        patch.x = snap.x; patch.y = snap.y;
-        patch.points = [{ x: 0, y: 0 }, { x: p2wx - snap.x, y: p2wy - snap.y }];
-      } else if (handle === 'end') {
-        patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
-        patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
-      }
-    } else if (!payload.ctrlKey && !payload.metaKey) {
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && hit.id !== activeShapeId && !PluginRegistry.getPlugin(hit.type).isConnector) {
-        if (hit.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: hit.id });
-        const center = getBindingPoint(hit);
-        if (handle === 'start') {
-          patch.startBinding = { elementId: hit.id };
-          const p2wx = shape.x + (shape.points?.[1]?.x || 0);
-          const p2wy = shape.y + (shape.points?.[1]?.y || 0);
-          patch.x = center.x; patch.y = center.y;
-          patch.points = [{ x: 0, y: 0 }, { x: p2wx - center.x, y: p2wy - center.y }];
-        } else if (handle === 'end') {
-          patch.endBinding = { elementId: hit.id };
-          patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
-        }
-      } else {
-        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
-        if (handle === 'start') patch.startBinding = undefined;
-        if (handle === 'end') patch.endBinding = undefined;
-      }
-    } else {
-      if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
-      if (handle === 'start') patch.startBinding = undefined;
-      if (handle === 'end') patch.endBinding = undefined;
-    }
-    return patch;
-  }
-
-  onBoundShapeChange(shape: Shape, allShapes: Shape[], changedShapeIds: string[]): Partial<Shape> | null {
-    const startId = shape.startBinding?.elementId;
-    const endId = shape.endBinding?.elementId;
-    if (!startId && !endId) return null;
-
-    if ((startId && changedShapeIds.includes(startId)) || (endId && changedShapeIds.includes(endId))) {
-      let p1 = { x: shape.x, y: shape.y };
-      let p2 = { x: shape.x + (shape.points?.[1]?.x || 0), y: shape.y + (shape.points?.[1]?.y || 0) };
-
-      if (startId) {
-        const sShape = allShapes.find(s => s.id === startId);
-        if (sShape) p1 = getBindingPoint(sShape, shape.startBinding!.portId);
-      }
-      if (endId) {
-        const eShape = allShapes.find(s => s.id === endId);
-        if (eShape) p2 = getBindingPoint(eShape, shape.endBinding!.portId);
-      }
-
-      return {
-        x: p1.x, y: p1.y,
-        points: [{ x: 0, y: 0 }, { x: p2.x - p1.x, y: p2.y - p1.y }]
-      };
-    }
-    return null;
   }
 }

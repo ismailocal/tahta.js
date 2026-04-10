@@ -1,6 +1,7 @@
 import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { buildRoughOptions } from '../geometry/lineUtils';
+import { UI_CONSTANTS } from '../core/constants';
 
 function getRoundRectPath(x: number, y: number, w: number, h: number, r: number) {
   return `M ${x + r} ${y} h ${w - 2 * r} a ${r} ${r} 0 0 1 ${r} ${r} v ${h - 2 * r} a ${r} ${r} 0 0 1 -${r} ${r} h -${w - 2 * r} a ${r} ${r} 0 0 1 -${r} -${r} v -${h - 2 * r} a ${r} ${r} 0 0 1 ${r} -${r} Z`;
@@ -13,7 +14,7 @@ export class RectanglePlugin extends BaseRectPlugin {
 
   getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;
-    return shape.roundness === 'round' ? Math.min(16, w / 2, h / 2) : 0;
+    return shape.roundness === 'round' ? Math.min(UI_CONSTANTS.MAX_CORNER_RADIUS, w / 2, h / 2) : 0;
   }
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
@@ -22,7 +23,7 @@ export class RectanglePlugin extends BaseRectPlugin {
     const options = buildRoughOptions(shape, theme);
 
     if (shape.roundness === 'round') {
-      const r = Math.min(16, Math.abs(w) / 2, Math.abs(h) / 2);
+      const r = Math.min(UI_CONSTANTS.MAX_CORNER_RADIUS, Math.abs(w) / 2, Math.abs(h) / 2);
       rc.path(getRoundRectPath(shape.x, shape.y, w, h, r), options);
     } else {
       rc.rectangle(shape.x, shape.y, w, h, options);
@@ -37,7 +38,7 @@ export class RectanglePlugin extends BaseRectPlugin {
     ctx.strokeStyle = options.stroke as string;
     ctx.lineWidth = (options.strokeWidth as number) || 1.8;
     if (shape.roundness === 'round') {
-      const r = Math.min(16, Math.abs(w) / 2, Math.abs(h) / 2);
+      const r = Math.min(UI_CONSTANTS.MAX_CORNER_RADIUS, Math.abs(w) / 2, Math.abs(h) / 2);
       ctx.beginPath();
       ctx.roundRect(shape.x, shape.y, w, h, r);
       ctx.stroke();
@@ -56,7 +57,7 @@ export class RectanglePlugin extends BaseRectPlugin {
     const options = buildRoughOptions(shape, theme);
 
     if (shape.roundness === 'round') {
-      const r = Math.min(16, Math.abs(w) / 2, Math.abs(h) / 2);
+      const r = Math.min(UI_CONSTANTS.MAX_CORNER_RADIUS, Math.abs(w) / 2, Math.abs(h) / 2);
       return [generator.path(getRoundRectPath(shape.x, shape.y, w, h, r), options)];
     } else {
       return [generator.rectangle(shape.x, shape.y, w, h, options)];

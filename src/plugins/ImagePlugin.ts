@@ -1,5 +1,4 @@
 import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
-import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 export const imageCache = new Map<string, HTMLImageElement>();
@@ -14,26 +13,7 @@ export class ImagePlugin extends BaseRectPlugin {
   defaultStyle: Partial<Shape> = {};
   defaultProperties = ['opacity', 'layer', 'action'];
 
-  getResizeHandlePositions(shape: Shape) {
-    const { x, y, width: w, height: h } = this.getBounds(shape);
-    const arm = 11;
-    const lDraw = (px: number, py: number, dx: number, dy: number) =>
-      (ctx: CanvasRenderingContext2D) => {
-        ctx.beginPath();
-        ctx.moveTo(px + dx * arm, py);
-        ctx.lineTo(px, py);
-        ctx.lineTo(px, py + dy * arm);
-        ctx.stroke();
-      };
-    return [
-      { x,      y,      angle: -3 * Math.PI / 4, draw: lDraw(x,      y,     1,  1) },
-      { x: x+w, y,      angle: -Math.PI / 4,      draw: lDraw(x + w,  y,    -1,  1) },
-      { x: x+w, y: y+h, angle:  Math.PI / 4,      draw: lDraw(x + w,  y+h,  -1, -1) },
-      { x,      y: y+h, angle:  3 * Math.PI / 4,  draw: lDraw(x,      y+h,   1, -1) },
-    ];
-  }
-
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
+render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
     const { x, y, width, height } = this.getBounds(shape);
     const { imageSrc } = shape;
 
@@ -67,12 +47,7 @@ export class ImagePlugin extends BaseRectPlugin {
     }
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const { x, y, width, height } = this.getBounds(shape);
-    if (shape.locked) drawLockIcon(ctx, x + width + 6, y - 6);
-  }
-
-  getBounds(shape: Shape) {
+getBounds(shape: Shape) {
     const w = shape.width || 100;
     const h = shape.height || 100;
     return {
@@ -101,19 +76,6 @@ export class ImagePlugin extends BaseRectPlugin {
     ];
   }
 
-  getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 20;
-    const { x, y, width: w, height: h } = this.getBounds(shape);
-    if (Math.abs(point.x - x)           <= d && Math.abs(point.y - y)           <= d) return 'nw';
-    if (Math.abs(point.x - (x + w / 2)) <= d && Math.abs(point.y - y)           <= d) return 'n';
-    if (Math.abs(point.x - (x + w))     <= d && Math.abs(point.y - y)           <= d) return 'ne';
-    if (Math.abs(point.x - x)           <= d && Math.abs(point.y - (y + h / 2)) <= d) return 'w';
-    if (Math.abs(point.x - (x + w))     <= d && Math.abs(point.y - (y + h / 2)) <= d) return 'e';
-    if (Math.abs(point.x - x)           <= d && Math.abs(point.y - (y + h))     <= d) return 'sw';
-    if (Math.abs(point.x - (x + w / 2)) <= d && Math.abs(point.y - (y + h))     <= d) return 's';
-    if (Math.abs(point.x - (x + w))     <= d && Math.abs(point.y - (y + h))     <= d) return 'se';
-    return null;
-  }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
     return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, imageSrc: '' };

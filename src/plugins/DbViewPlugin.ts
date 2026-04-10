@@ -1,5 +1,4 @@
 import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
-import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 export interface DbViewColumn { name: string; type: string; }
@@ -91,12 +90,7 @@ export class DbViewPlugin extends BaseRectPlugin {
     ctx.setLineDash([]);
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const bounds = this.getBounds(shape);
-    if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-  }
-
-  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+getConnectionPoints(shape: Shape): ConnectionPoint[] {
     const { columns } = getViewData(shape);
     const { x, y } = shape;
     const w = shape.width ?? DEFAULT_WIDTH;

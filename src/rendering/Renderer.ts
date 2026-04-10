@@ -5,7 +5,7 @@ import { renderGrid } from './GridRenderer';
 import { renderWelcome, renderOverlays } from './OverlayRenderer';
 import { renderShape } from './ShapeRenderer';
 import { isShapeVisible } from '../geometry/Geometry';
-import { clearElbowCache, setSkipObstacles } from '../geometry/lineUtils';
+import { setSkipObstacles } from '../geometry/lineUtils';
 
 interface RendererState {
   staticCanvas: HTMLCanvasElement | null;

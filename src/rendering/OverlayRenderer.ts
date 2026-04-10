@@ -23,19 +23,19 @@ export function renderOverlays(ctx: CanvasRenderingContext2D, state: CanvasState
   ctx.save();
 
   const isBindingHover = state.hoveredShapeId && (
-    state.activeTool === 'arrow' || 
-    state.activeTool === 'line' || 
-    (state.activeTool === 'select' && state.isDraggingSelection)
+    state.activeTool === 'arrow' ||
+    state.activeTool === 'line'
   );
 
   if (isBindingHover) {
     const shape = state.shapes.find(s => s.id === state.hoveredShapeId);
-    if (shape && shape.type !== 'arrow' && shape.type !== 'line' && shape.type !== 'freehand') {
+    if (shape && shape.type !== 'arrow' && shape.type !== 'line' && !shape.type.startsWith('freehand')) {
       ctx.save();
       const bounds = getShapeBounds(shape);
-      ctx.strokeStyle = '#8b5cf6';
-      ctx.lineWidth = 2 / state.viewport.zoom;
-      ctx.setLineDash([4 / state.viewport.zoom, 4 / state.viewport.zoom]);
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 1.5 / state.viewport.zoom;
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.7;
       ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
       ctx.restore();
     }
@@ -67,9 +67,10 @@ export function renderOverlays(ctx: CanvasRenderingContext2D, state: CanvasState
   }
 
   if (state.selectionBox) {
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.1)';
-    ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+    ctx.fillStyle = 'rgba(96, 165, 250, 0.08)';
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
     ctx.lineWidth = 1;
+    ctx.setLineDash([]);
     ctx.fillRect(state.selectionBox.x, state.selectionBox.y, state.selectionBox.width, state.selectionBox.height);
     ctx.strokeRect(state.selectionBox.x, state.selectionBox.y, state.selectionBox.width, state.selectionBox.height);
   }

@@ -6,12 +6,8 @@ import { dragHandle, translateSelection } from './SelectDragHelper';
 import { openDbTableEditor } from '../canvas/ui/DbTableEditor';
 import { PluginRegistry } from '../plugins/index';
 import { createId, randomSeed } from '../core/Utils';
-import { getStylePreset } from '../core/constants';
-
-const PORT_HIT_RADIUS = 12;
-function isBindingPlugin(type: string): boolean {
-  return PluginRegistry.hasPlugin(type) && !!PluginRegistry.getPlugin(type).canBind;
-}
+import { getStylePreset, UI_CONSTANTS } from '../core/constants';
+import { ConnectorMixin } from '../plugins/ConnectorMixin';
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
@@ -31,9 +27,14 @@ function getNearestPort(shape: Shape, world: { x: number; y: number }) {
   if (!plugin.getConnectionPoints) return null;
   const ports = plugin.getConnectionPoints(shape);
   for (const port of ports) {
-    if (Math.hypot(world.x - port.x, world.y - port.y) <= PORT_HIT_RADIUS) return port;
+    if (Math.hypot(world.x - port.x, world.y - port.y) <= UI_CONSTANTS.PORT_HIT_RADIUS) return port;
   }
   return null;
+}
+
+// Helper to check if a plugin supports binding
+function isBindingPlugin(type: string): boolean {
+  return PluginRegistry.hasPlugin(type) && !!PluginRegistry.getPlugin(type).canBind;
 }
 
 export class SelectTool implements ToolDefinition {
@@ -86,19 +87,15 @@ export class SelectTool implements ToolDefinition {
 
     const hit = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
 
-    // Check handle on hovered/hit shape first, then fall back to selected shape
+    // Check handles only on already-selected shapes — resize requires prior selection
     const selectedShape = state.selectedIds.length === 1 ? state.shapes.find(s => s.id === state.selectedIds[0]) : null;
-    const targetShape = hit || selectedShape;
 
-    if (targetShape) {
-      const handle = getHandleAtPoint(targetShape, payload.world, state.shapes);
+    if (selectedShape) {
+      const handle = getHandleAtPoint(selectedShape, payload.world, state.shapes);
       if (handle) {
-        if (!state.selectedIds.includes(targetShape.id)) {
-          api.setSelection([targetShape.id]);
-        }
-        this.activeShapeId = targetShape.id;
-        this.activeHandle = handle;
-        this.initialSnapshot = [structuredClone(targetShape)];
+        this.activeShapeId = selectedShape.id;
+        this.activeHandle = handle as HandleType;
+        this.initialSnapshot = [structuredClone(selectedShape)];
         this.dragStartWorld = payload.world;
         api.setState({ isDraggingSelection: true });
         return;
@@ -124,8 +121,49 @@ export class SelectTool implements ToolDefinition {
 
       api.setSelection(ids);
       this.dragStartWorld = payload.world;
-      this.initialSnapshot = state.shapes.filter(s => ids.includes(s.id)).map(s => structuredClone(s));
+      // Expand snapshot to include shapes bound to any connector in the selection
+      const snapshotIds = new Set(ids);
+      for (const id of ids) {
+        const s = state.shapes.find(x => x.id === id);
+        if (s && (s.type === 'arrow' || s.type === 'line')) {
+          if (s.startBinding?.elementId) snapshotIds.add(s.startBinding.elementId);
+          if (s.endBinding?.elementId) snapshotIds.add(s.endBinding.elementId);
+        }
+      }
+      this.initialSnapshot = state.shapes.filter(s => snapshotIds.has(s.id)).map(s => structuredClone(s));
       api.setState({ isDraggingSelection: true });
+    } else if (!payload.shiftKey && state.selectedIds.length > 0) {
+      // Check if clicking on/near the selection frame of a selected shape
+      const framePad = UI_CONSTANTS.FRAME_PAD + UI_CONSTANTS.FRAME_HIT_TOLERANCE;
+      const selShapes = state.selectedIds
+        .map(id => state.shapes.find(s => s.id === id))
+        .filter((s): s is Shape => !!s);
+      const frameHit = selShapes.find(sel => {
+        if (!PluginRegistry.hasPlugin(sel.type)) return false;
+        const plugin = PluginRegistry.getPlugin(sel.type);
+        if (!plugin.getBounds) return false;
+        const b = plugin.getBounds(sel);
+        return payload.world.x >= b.x - framePad && payload.world.x <= b.x + b.width + framePad &&
+               payload.world.y >= b.y - framePad && payload.world.y <= b.y + b.height + framePad;
+      });
+      if (frameHit) {
+        this.dragStartWorld = payload.world;
+        // Expand snapshot to include shapes bound to any connector in the selection
+        const frameSnapshotIds = new Set(selShapes.map(s => s.id));
+        for (const sel of selShapes) {
+          if (sel.type === 'arrow' || sel.type === 'line') {
+            if (sel.startBinding?.elementId) frameSnapshotIds.add(sel.startBinding.elementId);
+            if (sel.endBinding?.elementId) frameSnapshotIds.add(sel.endBinding.elementId);
+          }
+        }
+        this.initialSnapshot = state.shapes.filter(s => frameSnapshotIds.has(s.id)).map(s => structuredClone(s));
+        api.setState({ isDraggingSelection: true });
+      } else {
+        api.setSelection([]);
+        this.isBoxSelecting = true;
+        this.dragStartWorld = payload.world;
+        api.setState({ selectionBox: { x: payload.world.x, y: payload.world.y, width: 0, height: 0 } });
+      }
     } else {
       if (!payload.shiftKey) {
         api.setSelection([]);
@@ -175,20 +213,22 @@ export class SelectTool implements ToolDefinition {
         }
       }
 
-      // Priority 2: handle on hovered shape (even if not selected)
-      if (hovered && !state.selectedIds.includes(hovered.id)) {
-        const handle = getHandleAtPoint(hovered, payload.world, state.shapes);
-        if (handle && HANDLE_CURSORS[handle]) {
-          cursor = HANDLE_CURSORS[handle];
-          setCanvasCursor(payload.nativeEvent, cursor);
-          return;
-        }
+      // Priority 2: hovering over a shape — always 'move' in selection mode
+      if (hovered) {
+        cursor = 'move';
       }
 
-      // Priority 3: port
-      if (hovered) {
-        const port = getNearestPort(hovered, payload.world);
-        cursor = port ? 'crosshair' : 'move';
+      // Priority 4: hovering on selection frame of selected shape (when not directly over a shape)
+      if (!hovered && selectedShape) {
+        const selPlugin = PluginRegistry.hasPlugin(selectedShape.type) ? PluginRegistry.getPlugin(selectedShape.type) : null;
+        if (selPlugin?.getBounds) {
+          const b = selPlugin.getBounds(selectedShape);
+          const framePad = UI_CONSTANTS.FRAME_PAD + UI_CONSTANTS.FRAME_HIT_TOLERANCE;
+          if (payload.world.x >= b.x - framePad && payload.world.x <= b.x + b.width + framePad &&
+              payload.world.y >= b.y - framePad && payload.world.y <= b.y + b.height + framePad) {
+            cursor = 'move';
+          }
+        }
       }
 
       setCanvasCursor(payload.nativeEvent, cursor);
@@ -225,7 +265,7 @@ export class SelectTool implements ToolDefinition {
         // Delete if no movement
         const dx = payload.world.x - this.dragStartWorld.x;
         const dy = payload.world.y - this.dragStartWorld.y;
-        if (Math.hypot(dx, dy) < 4) {
+        if (Math.hypot(dx, dy) < UI_CONSTANTS.DRAG_DELETE_THRESHOLD) {
           api.deleteShape(this.arrowId);
           api.setSelection([]);
         } else {
@@ -251,7 +291,7 @@ export class SelectTool implements ToolDefinition {
       if (this.dragStartWorld) {
         const dx = payload.world.x - this.dragStartWorld.x;
         const dy = payload.world.y - this.dragStartWorld.y;
-        const moved = Math.hypot(dx, dy) > 3;
+        const moved = Math.hypot(dx, dy) > UI_CONSTANTS.DRAG_COMMIT_THRESHOLD;
         if (moved) api.commitState();
       }
     }

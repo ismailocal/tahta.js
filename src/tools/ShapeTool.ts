@@ -1,5 +1,5 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } from '../core/types';
-import { getStylePreset } from '../core/constants';
+import { getStylePreset, cacheStyle, getCachedStyle } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
@@ -21,7 +21,7 @@ export class ShapeTool implements ToolDefinition {
 
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     this.drawStartWorld = payload.world;
-    const preset = getStylePreset(this.toolKey);
+    const preset = getCachedStyle(this.toolKey);
     const common: Partial<Shape> = {
       ...preset,
       id: createId(),
@@ -35,7 +35,10 @@ export class ShapeTool implements ToolDefinition {
     if (PluginRegistry.hasPlugin(this.shapeType)) {
       const plugin = PluginRegistry.getPlugin(this.shapeType);
       if (plugin.onDrawInit) {
-        shape = { ...shape, ...plugin.onDrawInit(payload, api.getState().shapes, api) } as Shape;
+        const pluginShape = plugin.onDrawInit(payload, api.getState().shapes, api);
+        shape = { ...shape, ...pluginShape } as Shape;
+        // Re-apply cached style after plugin init
+        shape = { ...shape, ...preset } as Shape;
       }
     }
 

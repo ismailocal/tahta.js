@@ -1,6 +1,5 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
-import { drawLockIcon } from '../core/Utils';
 import { pointToSegmentDistance } from '../geometry/Geometry';
 import { buildRoughOptions } from '../geometry/lineUtils';
 
@@ -46,13 +45,7 @@ export class FreehandPlugin implements IShapePlugin {
     return [];
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    if (shape.locked && shape.points && shape.points.length > 0) {
-      drawLockIcon(ctx, shape.x + shape.points[0].x, shape.y + shape.points[0].y);
-    }
-  }
-
-  getBounds(shape: Shape) {
+getBounds(shape: Shape) {
     const pts = shape.points || [];
     if (pts.length === 0) return { x: shape.x, y: shape.y, width: 0, height: 0 };
 

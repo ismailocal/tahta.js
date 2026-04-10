@@ -1,23 +1,6 @@
 import type { Shape } from './types';
 import { getShapeBounds } from '../geometry/Geometry';
 
-export function exportToJson(shapes: Shape[]): string {
-  return JSON.stringify(shapes, null, 2);
-}
-
-export function importFromJson(jsonString: string): Shape[] | null {
-  try {
-    const data = JSON.parse(jsonString);
-    if (Array.isArray(data)) {
-      // Basic validation
-      return data.filter(s => s.id && s.type);
-    }
-  } catch (e) {
-    console.error('Failed to parse board JSON', e);
-  }
-  return null;
-}
-
 function getBoundingBox(shapes: Shape[]) {
   if (!shapes.length) return { x: 0, y: 0, width: 800, height: 600 };
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

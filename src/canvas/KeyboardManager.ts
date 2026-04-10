@@ -1,4 +1,5 @@
 import type { ICanvasAPI, ToolDefinition, Shape } from '../core/types';
+import { UI_CONSTANTS } from '../core/constants';
 
 export function setupKeyboard(
   api: ICanvasAPI,
@@ -17,8 +18,8 @@ export function setupKeyboard(
       }
       if (e.ctrlKey || e.metaKey) {
         if (e.key === '0') { e.preventDefault(); api.setViewport({ x: 0, y: 0, zoom: 1 }); }
-        if (e.key === '=' || e.key === '+') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.min(5, vp.zoom * 1.2) }); }
-        if (e.key === '-') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.max(0.1, vp.zoom / 1.2) }); }
+        if (e.key === '=' || e.key === '+') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.min(UI_CONSTANTS.MAX_ZOOM, vp.zoom * 1.2) }); }
+        if (e.key === '-') { e.preventDefault(); const vp = state.viewport; api.setViewport({ ...vp, zoom: Math.max(UI_CONSTANTS.MIN_ZOOM, vp.zoom / 1.2) }); }
       }
       return;
     }
@@ -88,13 +89,13 @@ export function setupKeyboard(
       if (e.key === '=' || e.key === '+') {
         e.preventDefault();
         const vp = api.getState().viewport;
-        api.setViewport({ ...vp, zoom: Math.min(5, vp.zoom * 1.2) });
+        api.setViewport({ ...vp, zoom: Math.min(UI_CONSTANTS.MAX_ZOOM, vp.zoom * 1.2) });
         return;
       }
       if (e.key === '-') {
         e.preventDefault();
         const vp = api.getState().viewport;
-        api.setViewport({ ...vp, zoom: Math.max(0.1, vp.zoom / 1.2) });
+        api.setViewport({ ...vp, zoom: Math.max(UI_CONSTANTS.MIN_ZOOM, vp.zoom / 1.2) });
         return;
       }
     }

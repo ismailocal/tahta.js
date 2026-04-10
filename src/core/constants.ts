@@ -1,6 +1,52 @@
 import { PluginRegistry } from '../plugins/PluginRegistry';
 import type { Shape } from './types';
 
+/**
+ * Centralized UI constants for consistent styling and interaction across the codebase.
+ * These values were previously scattered across multiple files.
+ */
+export const UI_CONSTANTS = {
+  // Port and binding constants
+  PORT_SNAP_RADIUS: 40,
+  PORT_HIT_RADIUS: 12,
+  
+  // Selection and frame constants
+  FRAME_PAD: 8,
+  SELECTION_PAD: 8,
+  FRAME_HIT_TOLERANCE: 6,
+  
+  // Handle constants
+  HANDLE_HIT_DISTANCE: 10,
+  HANDLE_CORNER_RADIUS: 5,
+  HANDLE_MIDPOINT_RADIUS: 3.5,
+  
+  // Drag thresholds
+  DRAG_COMMIT_THRESHOLD: 3,
+  DRAG_DELETE_THRESHOLD: 4,
+  
+  // Hit testing
+  POINT_INSIDE_MARGIN: 6,
+  SEGMENT_HIT_THRESHOLD: 8,
+  
+  // Corner radius
+  MAX_CORNER_RADIUS: 16,
+  
+  // Image handling
+  MAX_IMAGE_DIMENSION: 800,
+  
+  // Grid
+  VIEWPORT_PADDING: 120,
+  
+  // Zoom limits
+  MIN_ZOOM: 0.1,
+  MAX_ZOOM: 5,
+  FIT_ZOOM_MIN: 0.2,
+  FIT_ZOOM_MAX: 1.0,
+  
+  // Cache
+  MAX_ROUGH_CACHE_SIZE: 500,
+};
+
 export const STYLE_PRESETS: Record<string, any> = {
   rectangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'sharp', opacity: 1 },
   ellipse: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
@@ -17,6 +63,65 @@ export const STYLE_PRESETS: Record<string, any> = {
   'freehand-highlighter': { stroke: '#fde047', strokeWidth: 14, roughness: 0, opacity: 0.35 },
   text: { stroke: '#64748b', fontSize: 24, opacity: 1 },
 };
+
+const STORAGE_KEY = 'tahta_style_cache';
+
+/** Load style cache from localStorage */
+function loadCacheFromStorage(): Map<string, Partial<Shape>> {
+  if (typeof window === 'undefined') return new Map();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return new Map(Object.entries(parsed));
+    }
+  } catch (e) {
+    console.warn('[Style Cache] Failed to load from localStorage:', e);
+  }
+  return new Map();
+}
+
+/** Save style cache to localStorage */
+function saveCacheToStorage(cache: Map<string, Partial<Shape>>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const obj = Object.fromEntries(cache);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.warn('[Style Cache] Failed to save to localStorage:', e);
+  }
+}
+
+/** Cache for last used styles per shape type - remembers user's style preferences */
+let STYLE_CACHE = loadCacheFromStorage();
+
+/** Clear the style cache (useful for resetting to defaults) */
+export function clearStyleCache(): void {
+  STYLE_CACHE.clear();
+  saveCacheToStorage(STYLE_CACHE);
+}
+
+/**
+ * Get the last used style for a shape type, or the default preset if none cached.
+ * @param type Shape type (e.g., 'rectangle', 'arrow', etc.)
+ * @returns Cached style or default preset
+ */
+export function getCachedStyle(type: string): Partial<Shape> {
+  if (STYLE_CACHE.has(type)) {
+    return STYLE_CACHE.get(type)!;
+  }
+  return getStylePreset(type);
+}
+
+/**
+ * Cache the style for a shape type when a shape is created/modified.
+ * @param type Shape type
+ * @param style Style properties to cache
+ */
+export function cacheStyle(type: string, style: Partial<Shape>): void {
+  STYLE_CACHE.set(type, style);
+  saveCacheToStorage(STYLE_CACHE);
+}
 
 export type ToolbarItem = {
   key: string;
@@ -99,7 +204,6 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
   { isSeparator: true, key: 'sep-undo' },
   { key: 'undo', label: 'Geri Al', shortcut: 'Ctrl+Z', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>` },
   { key: 'redo', label: 'İleri Al', shortcut: 'Ctrl+Y', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>` },
-  { key: 'export', label: 'JSON Dışa Aktar', shortcut: 'Alt+S', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>` },
 ];
 
 /**

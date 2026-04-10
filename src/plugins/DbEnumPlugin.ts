@@ -1,5 +1,4 @@
 import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
-import { drawLockIcon } from '../core/Utils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 export interface DbEnumData { enumName: string; values: string[]; }
@@ -100,12 +99,7 @@ export class DbEnumPlugin extends BaseRectPlugin {
     ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.stroke();
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const bounds = this.getBounds(shape);
-    if (shape.locked) drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-  }
-
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
     const theme = api.getState().theme || 'dark';
     const defaultColor = '#64748b';
     const defaultValues = ['ACTIVE', 'INACTIVE', 'PENDING'];

@@ -67,7 +67,18 @@ export function translateSelection(
     let snappedX = false;
     let snappedY = false;
 
-    const otherShapes = state.shapes.filter(s => !state.selectedIds.includes(s.id));
+    // Optimization: Only check shapes within viewport + margin
+    const viewportMargin = 500;
+    const vpX = -state.viewport.x / state.viewport.zoom - viewportMargin;
+    const vpY = -state.viewport.y / state.viewport.zoom - viewportMargin;
+    const vpWidth = window.innerWidth / state.viewport.zoom + viewportMargin * 2;
+    const vpHeight = window.innerHeight / state.viewport.zoom + viewportMargin * 2;
+
+    const otherShapes = state.shapes.filter(s => {
+      if (state.selectedIds.includes(s.id)) return false;
+      const b = getShapeBounds(s);
+      return b.x >= vpX && b.x <= vpX + vpWidth && b.y >= vpY && b.y <= vpY + vpHeight;
+    });
     
     // We only take the unique guides within the viewport or reasonably close
     for (const os of otherShapes) {
@@ -109,8 +120,9 @@ export function translateSelection(
       const patch: Partial<Shape> = { x: shape.x + dx, y: shape.y + dy };
 
       if ((shape.type === 'arrow' || shape.type === 'line')) {
-        const isBoundToUnselected = (shape.startBinding && !state.selectedIds.includes(shape.startBinding.elementId)) ||
-                                    (shape.endBinding && !state.selectedIds.includes(shape.endBinding.elementId));
+        const snapshotIds = new Set(initialSnapshot.map(s => s.id));
+        const isBoundToUnselected = (shape.startBinding && !snapshotIds.has(shape.startBinding.elementId)) ||
+                                    (shape.endBinding && !snapshotIds.has(shape.endBinding.elementId));
         if (isBoundToUnselected) return;
       }
 

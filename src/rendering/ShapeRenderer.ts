@@ -1,8 +1,9 @@
 import type { Shape } from '../core/types';
 import { PluginRegistry } from '../plugins/index';
 import { getThemeAdjustedStroke } from '../core/Utils';
+import { drawLockIcon } from '../core/Utils';
 import { renderShapeText } from './TextRenderer';
-import { renderHandleBrackets, renderConnectionPoints } from './UIComponentsRenderer';
+import { renderSelectionFrame, renderHandleBrackets, renderConnectionPoints } from './UIComponentsRenderer';
 
 const roughCache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
 
@@ -80,11 +81,26 @@ export function renderShape(
   
   renderShapeText(ctx, shape, plugin, allShapes, isEditingText, theme);
 
-  if ((isSelected || isHovered) && plugin.renderSelection) {
+  if (isSelected) {
     ctx.save();
-    const handles = plugin.getResizeHandlePositions ? plugin.getResizeHandlePositions(shape) : [];
-    renderHandleBrackets(ctx, handles, shape.stroke, theme);
-    plugin.renderSelection(ctx, shape, allShapes, theme);
+
+    // Universal selection frame — only when selected, skip connectors and freehand family
+    const isFreehand = shape.type === 'freehand' || shape.type === 'freehand-thick' || shape.type === 'freehand-highlighter';
+    if (isSelected && !plugin.isConnector && !isFreehand && plugin.getBounds) {
+      renderSelectionFrame(ctx, plugin.getBounds(shape), theme, true);
+    }
+
+    // Plugin-specific selection overlay (arrow/line endpoint handles, etc.)
+    if (plugin.renderSelection) {
+      plugin.renderSelection(ctx, shape, allShapes, theme);
+    }
+
+    // Centralized lock icon
+    if (shape.locked && plugin.getBounds) {
+      const b = plugin.getBounds(shape);
+      drawLockIcon(ctx, b.x + b.width + 6, b.y - 6);
+    }
+
     ctx.restore();
   }
 

@@ -1,6 +1,6 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
-import { drawLockIcon } from '../core/Utils';
+import { UI_CONSTANTS } from '../core/constants';
 
 /**
  * Shared base for all rectangle-bounded shape plugins.
@@ -36,66 +36,8 @@ export abstract class BaseRectPlugin implements IShapePlugin {
 
   getBracketRadius(shape: Shape): number { return this.getCornerRadius(shape); }
 
-  /** Default: 8 handle positions at bounding box corners + midpoints with appropriate draw closures. */
-  getResizeHandlePositions(shape: Shape) {
-    const { x, y, width: w, height: h } = this.getBounds(shape);
-    const cx = x + w / 2, cy = y + h / 2;
-    const r = this.getCornerRadius(shape);
-    const arm = 11;
-
-    // Arc bracket draw closure for a rounded corner
-    const arcDraw = (acx: number, acy: number, mid: number) =>
-      (ctx: CanvasRenderingContext2D) => {
-        const span = r > 0 ? Math.min(arm / r, Math.PI / 3) : 0;
-        ctx.beginPath();
-        ctx.arc(acx, acy, r, mid - span, mid + span);
-        ctx.stroke();
-      };
-
-    // L-bracket draw closure for a sharp corner
-    const lDraw = (px: number, py: number, dx: number, dy: number) =>
-      (ctx: CanvasRenderingContext2D) => {
-        ctx.beginPath();
-        ctx.moveTo(px + dx * arm, py);
-        ctx.lineTo(px, py);
-        ctx.lineTo(px, py + dy * arm);
-        ctx.stroke();
-      };
-
-    // Tick draw closure for an edge midpoint
-    const tickDraw = (px: number, py: number, horiz: boolean) =>
-      (ctx: CanvasRenderingContext2D) => {
-        const tick = 7;
-        ctx.beginPath();
-        if (horiz) { ctx.moveTo(px - tick, py); ctx.lineTo(px + tick, py); }
-        else       { ctx.moveTo(px, py - tick); ctx.lineTo(px, py + tick); }
-        ctx.stroke();
-      };
-
-    const cornerNW = r > 0
-      ? arcDraw(x + r, y + r, 5 * Math.PI / 4)
-      : lDraw(x, y, 1, 1);
-    const cornerNE = r > 0
-      ? arcDraw(x + w - r, y + r, 7 * Math.PI / 4)
-      : lDraw(x + w, y, -1, 1);
-    const cornerSW = r > 0
-      ? arcDraw(x + r, y + h - r, 3 * Math.PI / 4)
-      : lDraw(x, y + h, 1, -1);
-    const cornerSE = r > 0
-      ? arcDraw(x + w - r, y + h - r, 1 * Math.PI / 4)
-      : lDraw(x + w, y + h, -1, -1);
-
-    return [
-      { x,      y,      angle: -3 * Math.PI / 4, draw: cornerNW },
-      { x: cx,  y,      angle: -Math.PI / 2,      draw: tickDraw(cx, y, true) },
-      { x: x+w, y,      angle: -Math.PI / 4,      draw: cornerNE },
-      { x: x+w, y: cy,  angle: 0,                 draw: tickDraw(x + w, cy, false) },
-      { x: x+w, y: y+h, angle:  Math.PI / 4,      draw: cornerSE },
-      { x: cx,  y: y+h, angle:  Math.PI / 2,      draw: tickDraw(cx, y + h, true) },
-      { x,      y: y+h, angle:  3 * Math.PI / 4,  draw: cornerSW },
-      { x,      y: cy,  angle:  Math.PI,           draw: tickDraw(x, cy, false) },
-    ];
-  }
+  /** Selection frame padding — used by getHandleAtPoint to align hit zones with the visual frame. */
+  protected selectionPad = UI_CONSTANTS.SELECTION_PAD;
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
     const { x, y, width: w, height: h } = this.getBounds(shape);
@@ -105,11 +47,12 @@ export abstract class BaseRectPlugin implements IShapePlugin {
     ctx.stroke();
   }
 
-  /** 8-point handle hit test on inflated bounding box. */
+  /** 8-point handle hit test aligned to the selection frame (padded bounding box). */
   getHandleAtPoint(shape: Shape, point: Point): string | null {
-    const d = 12;
+    const d = UI_CONSTANTS.HANDLE_HIT_DISTANCE;
     const b = this.getBounds(shape);
-    const x = b.x - 6, y = b.y - 6, w = b.width + 12, h = b.height + 12;
+    const pad = this.selectionPad;
+    const x = b.x - pad, y = b.y - pad, w = b.width + pad * 2, h = b.height + pad * 2;
     if (Math.abs(point.x - x)           <= d && Math.abs(point.y - y)           <= d) return 'nw';
     if (Math.abs(point.x - (x + w / 2)) <= d && Math.abs(point.y - y)           <= d) return 'n';
     if (Math.abs(point.x - (x + w))     <= d && Math.abs(point.y - y)           <= d) return 'ne';
@@ -134,25 +77,10 @@ export abstract class BaseRectPlugin implements IShapePlugin {
 
   isPointInside(point: Point, shape: Shape): boolean {
     const { x, y, width: w, height: h } = this.getBounds(shape);
-    const hasFill = shape.fill && shape.fill !== 'transparent' && shape.fill !== 'none';
-    if (hasFill) {
-      const m = 6;
-      return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
-    }
-    // Transparent fill: only hit on stroke border
-    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
-    const inOuter = point.x >= x - t && point.x <= x + w + t && point.y >= y - t && point.y <= y + h + t;
-    const inInner = w > t * 2 && h > t * 2 &&
-      point.x > x + t && point.x < x + w - t && point.y > y + t && point.y < y + h - t;
-    return inOuter && !inInner;
+    const m = UI_CONSTANTS.POINT_INSIDE_MARGIN;
+    return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
   }
 
-  renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, _allShapes: Shape[], _theme: 'light' | 'dark') {
-    const bounds = this.getBounds(shape);
-    if (shape.locked) {
-      drawLockIcon(ctx, bounds.x + bounds.width + 6, bounds.y - 6);
-    }
-  }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
     return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, strokeWidth: 1.8 };
