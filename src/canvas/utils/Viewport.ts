@@ -1,4 +1,4 @@
-import type { Shape, Point } from '../core/types';
+import type { Shape, Point } from '../../core/types';
 
 interface Viewport {
   x: number;

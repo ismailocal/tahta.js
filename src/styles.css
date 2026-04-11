@@ -20,6 +20,15 @@
   --dropdown-bg: #ffffff;
   --dropdown-border: rgba(0, 0, 0, 0.1);
   --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  
+  /* Dialog & Editor Variables */
+  --dialog-bg: #ffffff;
+  --dialog-border: rgba(0, 0, 0, 0.08);
+  --dialog-text: #0f172a;
+  --dialog-label: #64748b;
+  --dialog-input-bg: #f8fafc;
+  --dialog-input-border: rgba(0, 0, 0, 0.1);
+  --dialog-shadow: 0 20px 60px rgba(0,0,0,0.1);
 }
 
 .dark .tahta-shell,
@@ -38,6 +47,15 @@
   --dropdown-bg: #1a1a1a;
   --dropdown-border: rgba(255, 255, 255, 0.08);
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+
+  /* Dialog & Editor Variables */
+  --dialog-bg: #1e1e2e;
+  --dialog-border: #3d3d5c;
+  --dialog-text: #f1f5f9;
+  --dialog-label: #94a3b8;
+  --dialog-input-bg: #2d2d4e;
+  --dialog-input-border: #4b4b6b;
+  --dialog-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 
 
@@ -1110,7 +1128,7 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-yers-empty-icon {
+.layers-empty-icon {
   width: 24px;
   height: 24px;
 }
@@ -1130,50 +1148,51 @@ yers-empty-icon {
 
 .zoom-controls {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
+  bottom: 16px;
+  right: 16px;
   display: flex;
   align-items: center;
-  gap: 1px;
-  padding: 5px;
+  gap: 4px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark .zoom-controls {
-  background: rgba(26, 26, 26, 0.95);
+  background: rgba(26, 26, 26, 0.9);
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .zoom-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
-  border-radius: 11px;
-  color: #94a3b8;
+  border-radius: 12px;
+  color: #64748b;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark .zoom-btn {
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .zoom-btn:hover:not(:disabled) {
   background: #f1f5f9;
   color: #0f172a;
+  transform: scale(1.05);
 }
 
 .dark .zoom-btn:hover:not(:disabled) {
@@ -1181,21 +1200,25 @@ yers-empty-icon {
   color: #ffffff;
 }
 
+.zoom-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
 .zoom-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.2;
   cursor: not-allowed;
 }
 
 .zoom-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .zoom-separator {
   width: 1px;
   height: 20px;
   background: rgba(0, 0, 0, 0.08);
-  margin: 0 2px;
+  margin: 0 4px;
   border-radius: 9999px;
   flex-shrink: 0;
 }
@@ -1208,16 +1231,17 @@ yers-empty-icon {
   font-size: 13px;
   font-weight: 700;
   color: #475569;
-  min-width: 48px;
-  height: 30px;
+  min-width: 50px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 11px;
+  border-radius: 12px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .dark .zoom-value {
@@ -1225,10 +1249,12 @@ yers-empty-icon {
 }
 
 .zoom-value:hover {
+  background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
 }
 
 .dark .zoom-value:hover {
+  background: rgba(255, 255, 255, 0.05);
   color: #818cf8;
 }
 

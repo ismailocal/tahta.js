@@ -107,18 +107,18 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   // Group 1: Appearance (Stroke, Fill)
   let appearanceHtml = '';
   if (has('stroke')) {
-    appearanceHtml += dropdown('Kontur rengi', colorIcon(shape.stroke || '#000'),
+    appearanceHtml += dropdown('Stroke color', colorIcon(shape.stroke || '#000'),
       `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`,
-      'Kontur Rengi'
+      'Stroke Color'
     );
   }
   if (has('strokeWidth')) {
     const icon = sw <= 2 ? I.strokeThin : (sw >= 5 ? I.strokeThick : I.strokeMed);
-    appearanceHtml += dropdown('Kalınlık', icon,
+    appearanceHtml += dropdown('Thickness', icon,
       btnGroup(
-        iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'İnce'),
-        iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Orta'),
-        iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Kalın'),
+        iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'Thin'),
+        iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Medium'),
+        iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Thick'),
       ),
       'Stroke Width'
     );
@@ -126,55 +126,55 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   if (has('strokeStyle')) {
     const s = shape.strokeStyle || 'solid';
     const icon = s === 'dashed' ? I.styleDashed : (s === 'dotted' ? I.styleDotted : I.styleSolid);
-    appearanceHtml += dropdown('Çizgi stili', icon,
+    appearanceHtml += dropdown('Line style', icon,
       btnGroup(
-        iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Düz'),
-        iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Kesik'),
-        iconBtn('strokeStyle', 'dotted', I.styleDotted, s === 'dotted', 'Noktalı'),
+        iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Solid'),
+        iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Dashed'),
+        iconBtn('strokeStyle', 'dotted', I.styleDotted, s === 'dotted', 'Dotted'),
       ),
-      'Çizgi Stili'
+      'Line Style'
     );
   }
   if (has('fill')) {
-    appearanceHtml += dropdown('Dolgu rengi', colorIcon(shape.fill || 'transparent'),
+    appearanceHtml += dropdown('Fill color', colorIcon(shape.fill || 'transparent'),
       `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`,
-      'Dolgu Rengi'
+      'Fill Color'
     );
   }
   if (has('fillStyle')) {
     const s = shape.fillStyle || 'hachure';
     const icon = s === 'solid' ? I.fillSolid : (s === 'cross-hatch' ? I.fillCrossHatch : I.fillHachure);
-    appearanceHtml += dropdown('Dolgu stili', icon,
+    appearanceHtml += dropdown('Fill style', icon,
       btnGroup(
-        iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Düz dolgu'),
-        iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Çizgili'),
-        iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, s === 'cross-hatch', 'Çapraz çizgili'),
+        iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Solid fill'),
+        iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Hachure'),
+        iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, s === 'cross-hatch', 'Cross-hatch'),
       ),
-      'Dolgu Stili'
+      'Fill Style'
     );
   }
   if (appearanceHtml) groups.push(appearanceHtml);
-
+ 
   // Group 2: Actions
   let actionsHtml = '';
   if (has('action')) {
-    actionsHtml += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Çoğalt',       isLocked ? 'pp-ibtn--dim' : '');
-    actionsHtml += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Kilidi aç' : 'Kilitle', 'pp-ibtn--lock');
-    actionsHtml += iconBtn('action', 'delete',      I.delete,                      false,     'Sil',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
+    actionsHtml += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Duplicate',       isLocked ? 'pp-ibtn--dim' : '');
+    actionsHtml += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Unlock' : 'Lock', 'pp-ibtn--lock');
+    actionsHtml += iconBtn('action', 'delete',      I.delete,                      false,     'Delete',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
   }
   if (actionsHtml) groups.push(actionsHtml);
-
+ 
   // Group 3: Layers
   let layersHtml = '';
   if (has('layer')) {
-    layersHtml += dropdown('Katmanlar', I.layerFront,
+    layersHtml += dropdown('Layers', I.layerFront,
       `<div class="pp-btn-group">
-        ${iconBtn('layer', 'back',     I.layerBack,  false, 'En alta')}
-        ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Bir aşağı')}
-        ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Bir yukarı')}
-        ${iconBtn('layer', 'front',    I.layerFront, false, 'En üste')}
+        ${iconBtn('layer', 'back',     I.layerBack,  false, 'Move to back')}
+        ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Move backward')}
+        ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Move forward')}
+        ${iconBtn('layer', 'front',    I.layerFront, false, 'Move to front')}
       </div>`,
-      'Katmanlar'
+      'Layers'
     );
   }
   if (layersHtml) groups.push(layersHtml);
