@@ -382,6 +382,8 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
                 'freehand', 'freehand-highlighter', 'freehand-thick',
                 'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
       cursor = 'crosshair';
+    } else if (state.activeTool === 'comment') {
+      cursor = 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTVhMiAyIDAgMCAxLTIgMkg3bC00IDRWNWEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ6Ii8+PC9zdmc+) 2 18, pointer';
     } else {
       cursor = 'default';
     }
