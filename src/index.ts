@@ -35,7 +35,7 @@ import type { ShapeType } from './core/types';
 export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initialState: Partial<CanvasState> = {}) {
   const bus = new EventBus();
   const store = new WhiteboardStore(initialState, bus);
-  const api = createWhiteboardAPI(store);
+  const api = createWhiteboardAPI(store, canvas);
 
   const tools = {
     select: new SelectTool(),

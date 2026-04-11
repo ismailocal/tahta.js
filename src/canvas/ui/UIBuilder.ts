@@ -19,6 +19,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         <section class="board-area">
           <div class="properties-panel hidden" data-properties></div>
           <div class="zoom-controls" data-zoom-controls>
+            <button class="zoom-btn" data-zoom-fit title="Focus Content">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-focus"><circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M3 17v2a2 2 0 0 1 2 2h2"/></svg>
+            </button>
+            <div class="zoom-separator"></div>
             <button class="zoom-btn" data-zoom-out title="Zoom out">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
@@ -64,6 +68,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   };
 
   // Zoom control event handlers
+  zoomControls?.querySelector('[data-zoom-fit]')?.addEventListener('click', () => {
+    api.scrollToContent?.();
+  });
+
   zoomControls?.querySelector('[data-zoom-in]')?.addEventListener('click', () => {
     const state = store.getState();
     const currentZoom = state.viewport?.zoom || 1;

@@ -111,6 +111,7 @@ export interface ICanvasAPI {
   redo: () => void;
   batchUpdate: (fn: () => void) => void;
   getSpatialIndex: () => any;
+  scrollToContent: () => void;
   /** Subscribe to state changes. Returns an unsubscribe function. */
   subscribe: (fn: (state: CanvasState) => void) => () => void;
 }
