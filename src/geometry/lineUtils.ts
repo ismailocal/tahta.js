@@ -81,30 +81,18 @@ export function onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanv
   return { x: payload.world.x, y: payload.world.y, points: [{ x: 0, y: 0 }, { x: 0, y: 0 }], stroke: '#64748b', strokeWidth: 1.8 };
 }
 
-/** Calculates the clipped endpoints for an arrow bound to shapes. */
+/** Calculates the endpoints for an arrow, resolving named port positions if bound. */
 export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1: Point, p2: Point } {
   const p0 = shape.points?.[0] || { x: 0, y: 0 };
   const pn = shape.points?.[shape.points!.length - 1] || { x: 0, y: 0 };
   let p1 = { x: shape.x + p0.x, y: shape.y + p0.y }, p2 = { x: shape.x + pn.x, y: shape.y + pn.y };
 
-  function getClosestPort(cx: number, cy: number, rx: number, ry: number, target: Point, type: string) {
-    if (type === 'ellipse') return getRayEllipseIntersection({ x: cx, y: cy }, target, cx, cy, rx + 4, ry + 4);
-    const pts = [{ x: cx, y: cy - ry - 4 }, { x: cx + rx + 4, y: cy }, { x: cx, y: cy + ry + 4 }, { x: cx - rx - 4, y: cy }];
-    let best = pts[0], minDist = Infinity;
-    for (const p of pts) { const d = Math.hypot(p.x - target.x, p.y - target.y); if (d < minDist) { minDist = d; best = p; } }
-    return best;
-  }
-
-  [ { b: shape.startBinding, set: (p: Point) => p1 = p, other: p2 }, { b: shape.endBinding, set: (p: Point) => p2 = p, other: p1 } ].forEach(config => {
-    if (config.b) {
+  [ { b: shape.startBinding, set: (p: Point) => { p1 = p; } }, { b: shape.endBinding, set: (p: Point) => { p2 = p; } } ].forEach(config => {
+    if (config.b?.portId) {
       const bShape = allShapes.find(s => s.id === config.b!.elementId);
-      if (bShape) {
-        if (config.b!.portId && PluginRegistry.hasPlugin(bShape.type)) {
-          const port = PluginRegistry.getPlugin(bShape.type).getConnectionPoints?.(bShape)?.find(p => p.id === config.b!.portId);
-          if (port) config.set({ x: port.x, y: port.y });
-        } else {
-          config.set(getClosestPort(bShape.x + (bShape.width||0)/2, bShape.y + (bShape.height||0)/2, Math.abs(bShape.width||0)/2, Math.abs(bShape.height||0)/2, config.other, bShape.type));
-        }
+      if (bShape && PluginRegistry.hasPlugin(bShape.type)) {
+        const port = PluginRegistry.getPlugin(bShape.type).getConnectionPoints?.(bShape)?.find(p => p.id === config.b!.portId);
+        if (port) config.set({ x: port.x, y: port.y });
       }
     }
   });

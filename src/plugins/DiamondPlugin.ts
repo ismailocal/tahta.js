@@ -46,8 +46,8 @@ function buildDiamondSvgPath(pts: Point[], r: number): string {
 
 export class DiamondPlugin extends BaseRectPlugin {
   type = 'diamond';
-  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'layer', 'action'];
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 };
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'textLayout', 'layer', 'action'];
 
   getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;

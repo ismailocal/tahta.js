@@ -6,7 +6,7 @@ import { getShapeBounds } from '../geometry/Geometry';
 import { ShapeManager } from '../geometry/ShapeManager';
 import { getArrowClippedEndpoints } from '../geometry/lineUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
-import { cacheStyle } from './constants';
+import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants';
 
 /** Default initial state for a new canvas. */
 export const DEFAULT_STATE: CanvasState = {
@@ -177,7 +177,7 @@ export class WhiteboardStore {
     
     // Cache style when style properties change
     if (updated && patch) {
-      const styleProperties = ['stroke', 'fill', 'strokeWidth', 'opacity', 'roughness', 'strokeStyle', 'edgeStyle', 'startArrowhead', 'endArrowhead', 'roundness', 'fontSize'];
+      const styleProperties = STYLE_PROPERTY_KEYS;
       const hasStyleChange = styleProperties.some(prop => prop in patch);
       
       if (hasStyleChange) {

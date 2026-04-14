@@ -33,7 +33,6 @@ export const ICONS = {
   ],
   edgeStyle: [
     { val: 'straight', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="5" x2="19" y2="19" stroke-width="2"/></svg>` },
-    { val: 'elbow', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="5,5 5,19 19,19" fill="none" stroke-width="2"/></svg>` },
     { val: 'curved', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 5 Q5 19 19 19" stroke-width="2"/></svg>` }
   ],
   arrowhead: [

@@ -11,7 +11,10 @@ npm run preview   # Preview built app
 npm start         # Serve with python3 -m http.server 3000
 ```
 
-No test runner or linter is configured.
+```bash
+npx vitest            # Run tests
+npx vitest run        # Run tests once (CI mode)
+```
 
 ## Architecture Overview
 
@@ -20,13 +23,17 @@ Tahta.js is a TypeScript/Canvas whiteboard library. The public API is `mountCanv
 ### Core Subsystems (`src/core/`)
 
 - **Store** (`Store.ts`) — Holds the entire `CanvasState` (shapes, selection, viewport, UI flags). Updates via `setState(updater)`. Supports `batchUpdate` to coalesce renders.
-- **EventBus** (`EventBus.ts`) — Pub/sub glue between subsystems. Key event: `'document:changed'`.
-- **InputManager** (`InputManager.ts`) — Normalizes pointer/keyboard events and dispatches to the active tool.
-- **Renderer** (`Renderer.ts`) — RAF-driven render loop using a **split static/dynamic layer** strategy: non-selected shapes are cached to an off-screen canvas; selected/moving shapes re-render each frame on top.
-- **SpatialIndex** (`SpatialIndex.ts`) — Quadtree (depth=5, 10 shapes/node) for hit-testing. Lazily built, invalidated on state change.
-- **HistoryManager** (`HistoryManager.ts`) — 50-item circular buffer. `commit()` at interaction boundaries; undo clears forward history.
-- **ShapeManager** (`ShapeManager.ts`) — Shape CRUD, z-order (`zIndex`), reorder commands (`'forward'`, `'backward'`, `'front'`, `'back'`).
-- **Geometry** / **GeometryUtils** — Viewport coordinate transforms (`screenToWorld`, `worldToScreen`), hit testing, bounds calculation.
+- **EventBus** (`src/canvas/EventBus.ts`) — Pub/sub glue between subsystems. Key event: `'document:changed'`.
+- **InputManager** (`src/canvas/InputManager.ts`) — Normalizes pointer/keyboard events and dispatches to the active tool.
+- **KeyboardManager** (`src/canvas/KeyboardManager.ts`) — Global keyboard shortcut handling (delete, undo/redo, copy/paste, etc.).
+- **ClipboardManager** (`src/canvas/ClipboardManager.ts`) — Copy/paste/cut for shapes.
+- **CommandBus** (`src/canvas/CommandBus.ts`) — Command pattern for operations that need to be invokable from multiple places (tools, keyboard, UI).
+- **Renderer** (`src/rendering/Renderer.ts`) — RAF-driven render loop using a **split static/dynamic layer** strategy: non-selected shapes are cached to an off-screen canvas; selected/moving shapes re-render each frame on top.
+- **SpatialIndex** (`src/geometry/SpatialIndex.ts`) — Quadtree (depth=5, 10 shapes/node) for hit-testing. Lazily built, invalidated on state change.
+- **HistoryManager** (`src/canvas/HistoryManager.ts`) — 50-item circular buffer. `commit()` at interaction boundaries; undo clears forward history.
+- **ShapeManager** (`src/geometry/ShapeManager.ts`) — Shape CRUD, z-order (`zIndex`), reorder commands (`'forward'`, `'backward'`, `'front'`, `'back'`).
+- **Geometry** / **GeometryUtils** (`src/geometry/`) — Viewport coordinate transforms (`screenToWorld`, `worldToScreen`), hit testing, bounds calculation.
+- **Export** (`src/canvas/Export.ts`) — Canvas export functionality.
 
 ### Plugin System (`src/plugins/`)
 
@@ -44,7 +51,7 @@ Key plugin capabilities:
 - **`getTextAnchor?(shape, allShapes): Point | null`** — custom label anchor (connectors return path midpoint; others return null → bounds center used)
 - **`getConnectionPoints?(shape): ConnectionPoint[]`** — named ports for arrow binding (e.g. DB table rows); rendered on hover when not selected
 
-Built-in types: `rectangle`, `ellipse`, `line`, `arrow`, `freehand`, `text`, `image`. Registered at startup via `src/plugins/index.ts`. All shape rendering uses **RoughJS** for hand-drawn style.
+Built-in types: `rectangle`, `ellipse`, `diamond`, `line`, `arrow`, `freehand`, `text`, `image`, `db-table`, `db-enum`, `db-view`. Registered at startup via `src/plugins/index.ts`. All shape rendering uses **RoughJS** for hand-drawn style. DB types (`db-table`, `db-enum`, `db-view`) extend `BaseRectPlugin` and have a dedicated editor (`src/canvas/ui/DbTableEditor.ts`).
 
 **Adding a new shape type** (e.g. `db-table`):
 1. Create `src/plugins/DbTablePlugin.ts` implementing `IShapePlugin`
@@ -60,9 +67,17 @@ Built-in types: `rectangle`, `ellipse`, `line`, `arrow`, `freehand`, `text`, `im
 
 Tools implement `ToolDefinition` (`onPointerDown/Move/Up`, `onKeyDown`, `onDoubleClick`). They receive the `ICanvasAPI` facade (defined in `src/core/types.ts`) which is the only way tools and UI interact with state. Middle-mouse always activates HandTool regardless of active tool.
 
-### UI (`src/ui/`)
+### UI (`src/canvas/ui/`)
 
-`UIBuilder` creates all DOM: toolbar, properties panel, text editor overlay. Toolbar items are defined in `src/core/constants.ts`. `PropertiesPanel` dynamically renders based on selected shape type.
+`UIBuilder` creates all DOM: toolbar, properties panel, text editor overlay. Toolbar items are defined in `src/core/constants.ts`. `PropertiesPanel` dynamically renders based on selected shape type. `TextEditor` handles in-canvas text editing overlay. `DbTableEditor` handles the DB shape column/row editor.
+
+### React Bindings (`src/react/`)
+
+`src/react/index.ts` exports React hooks/components for embedding the canvas in React apps. Hooks are in `src/react/hooks/`.
+
+### Tests
+
+Tests use Vitest (`.test.ts` files). Run with `npx vitest`. Currently coverage: `Store.test.ts`, `HistoryManager.test.ts`.
 
 ### Key Conventions
 

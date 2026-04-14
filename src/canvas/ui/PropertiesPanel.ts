@@ -49,6 +49,17 @@ export function initPropertiesPanel(container: HTMLElement, api: ICanvasAPI) {
           return;
         }
 
+        // Support multi-prop: "propA|propB" with "valA|valB"
+        if (prop.includes('|')) {
+          const propKeys = prop.split('|');
+          const propVals = val.split('|');
+          const patch: Record<string, any> = {};
+          propKeys.forEach((k, i) => { patch[k] = propVals[i]; });
+          selectedIds.forEach((id: string) => api.updateShape(id, patch));
+          api.commitState();
+          return;
+        }
+
         let parsedVal: any = val;
         if (prop === 'strokeWidth' || prop === 'roughness') {
           parsedVal = parseFloat(val);

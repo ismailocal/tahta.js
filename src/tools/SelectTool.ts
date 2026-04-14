@@ -57,7 +57,7 @@ export class SelectTool implements ToolDefinition {
       return s && isBindingPlugin(s.type);
     });
     const portsVisible = isBindingPlugin(state.activeTool) || selectedHasConnector;
-    if (portsVisible && state.hoveredShapeId) {
+    if (isBindingPlugin(state.activeTool) && state.hoveredShapeId) {
       const hoveredShape = state.shapes.find(s => s.id === state.hoveredShapeId);
       if (hoveredShape) {
         const port = getNearestPort(hoveredShape, payload.world);

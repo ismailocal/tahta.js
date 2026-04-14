@@ -9,8 +9,8 @@ function getRoundRectPath(x: number, y: number, w: number, h: number, r: number)
 
 export class RectanglePlugin extends BaseRectPlugin {
   type = 'rectangle';
-  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1, roughness: 0, roundness: 'round', opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'roundness', 'opacity', 'layer', 'action'];
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'round', opacity: 1 };
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'roundness', 'opacity', 'textLayout', 'layer', 'action'];
 
   getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;

@@ -1,6 +1,5 @@
 import { WhiteboardStore } from '../../core/Store';
-import { getShapeBounds, getArrowClippedEndpoints } from '../../geometry/Geometry';
-import { getElbowPath, getPathMidpoint } from '../../geometry/lineUtils';
+import { getShapeBounds } from '../../geometry/Geometry';
 import { PluginRegistry } from '../../plugins/index';
 
 export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
@@ -56,7 +55,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
       if (shape) {
         editor.innerText = shape.text || '';
         editor.style.display = 'block';
-        editor.style.color = shape.stroke || '#f8fafc';
+        editor.style.color = shape.textColor || shape.stroke || '#f8fafc';
 
         setTimeout(() => {
           editor.focus();
@@ -96,7 +95,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
           editor.style.left = `${offsetX + state.viewport.x + shape.x * zoom}px`;
           editor.style.top = `${offsetY + state.viewport.y + shape.y * zoom}px`;
           editor.style.marginTop = `-${fontSz * 0.16}px`;
-          editor.style.textAlign = 'left';
+          editor.style.textAlign = shape.textAlign || 'left';
           editor.style.transform = 'none';
         } else {
           let cx = 0;
@@ -108,22 +107,59 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
           if (anchor) {
             cx = anchor.x;
             cy = anchor.y;
+            editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
+            editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
+            editor.style.marginTop = `0`;
+            editor.style.textAlign = 'center';
+            editor.style.transform = 'translate(-50%, -50%)';
           } else {
             const bounds = getShapeBounds(shape);
-            cx = bounds.x + bounds.width / 2;
-            cy = bounds.y + bounds.height / 2;
+            const paddingX = (shape.textPaddingX ?? 8) * zoom;
+            const paddingY = (shape.textPaddingY ?? 8) * zoom;
+            const textAlign = shape.textAlign || 'center';
+            const vertAlign = shape.textVerticalAlign || 'middle';
+
+            const bx = offsetX + state.viewport.x + bounds.x * zoom;
+            const by = offsetY + state.viewport.y + bounds.y * zoom;
+            const bw = bounds.width * zoom;
+            const bh = bounds.height * zoom;
+
+            if (textAlign === 'left') {
+              editor.style.left = `${bx + paddingX}px`;
+              editor.style.transform = 'none';
+            } else if (textAlign === 'right') {
+              editor.style.left = `${bx + bw - paddingX}px`;
+              editor.style.transform = 'translateX(-100%)';
+            } else {
+              editor.style.left = `${bx + bw / 2}px`;
+              editor.style.transform = vertAlign === 'top' ? 'translateX(-50%)' : vertAlign === 'bottom' ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+            }
+
+            if (vertAlign === 'top') {
+              editor.style.top = `${by + paddingY}px`;
+              if (textAlign !== 'center') editor.style.transform = 'none';
+            } else if (vertAlign === 'bottom') {
+              editor.style.top = `${by + bh - paddingY}px`;
+              if (textAlign !== 'center') editor.style.transform = 'translateY(-100%)';
+            } else {
+              editor.style.top = `${by + bh / 2}px`;
+              if (textAlign === 'left') editor.style.transform = 'translateY(-50%)';
+              else if (textAlign === 'right') editor.style.transform = 'translate(-100%, -50%)';
+            }
+
+            editor.style.marginTop = `0`;
+            editor.style.textAlign = textAlign;
           }
         } else {
           const bounds = getShapeBounds(shape);
           cx = bounds.x + bounds.width / 2;
           cy = bounds.y + bounds.height / 2;
+          editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
+          editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
+          editor.style.marginTop = `0`;
+          editor.style.textAlign = 'center';
+          editor.style.transform = 'translate(-50%, -50%)';
         }
-        
-        editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
-        editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
-        editor.style.marginTop = `0`;
-        editor.style.textAlign = 'center';
-        editor.style.transform = 'translate(-50%, -50%)';
         }
       }
     }

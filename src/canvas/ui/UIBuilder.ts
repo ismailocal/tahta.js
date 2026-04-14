@@ -386,7 +386,9 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     } else if (['rectangle', 'ellipse', 'line', 'line-dashed', 'line-dotted',
                 'arrow', 'arrow-double', 'arrow-elbow', 'arrow-curved', 'arrow-filled',
                 'freehand', 'freehand-highlighter', 'freehand-thick',
-                'eraser', 'diamond', 'db-table', 'db-view', 'db-enum'].includes(state.activeTool)) {
+                'eraser', 'diamond', 'db-table', 'db-view', 'db-enum',
+                'triangle', 'hexagon', 'star', 'parallelogram',
+                'cylinder', 'cloud', 'callout', 'sticky-note'].includes(state.activeTool)) {
       cursor = 'crosshair';
     } else if (state.activeTool === 'comment') {
       cursor = 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNy45IDIwQTkgOSAwIDEgMCA0IDE2LjFMMiAyMloiLz48L3N2Zz4=) 2 18, pointer';

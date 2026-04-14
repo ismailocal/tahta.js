@@ -3,6 +3,7 @@ import { getStylePreset, cacheStyle, getCachedStyle } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
 import { PluginRegistry } from '../plugins/index';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
+import { findNearestPort } from '../plugins/ArrowPlugin';
 
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
@@ -49,13 +50,37 @@ export class ShapeTool implements ToolDefinition {
   }
 
   onPointerMove(payload: PointerPayload, api: ICanvasAPI) {
+    const plugin = PluginRegistry.hasPlugin(this.shapeType) ? PluginRegistry.getPlugin(this.shapeType) : null;
+    const isConnector = !!(plugin as any)?.canBind;
+
     if (!this.drawStartWorld || !this.currentShapeId) {
       // Not drawing — update hover so ports show on shapes for connector tools
       const state = api.getState();
       const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
       const hoveredId = hovered?.id ?? null;
       if (hoveredId !== state.hoveredShapeId) api.setState({ hoveredShapeId: hoveredId });
+
+      // Highlight nearest port when hovering before drawing starts
+      if (isConnector) {
+        const nearestPort = findNearestPort(payload.world, state.shapes, []);
+        const newPortShapeId = nearestPort?.shape.id ?? null;
+        const newPortId = nearestPort?.portId ?? null;
+        if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
+          api.setState({ hoveredPortShapeId: newPortShapeId, hoveredPortId: newPortId });
+        }
+      }
       return;
+    }
+
+    // While drawing a connector, track the nearest port for highlight feedback
+    if (isConnector) {
+      const state = api.getState();
+      const nearestPort = findNearestPort(payload.world, state.shapes, [this.currentShapeId]);
+      const newPortShapeId = nearestPort?.shape.id ?? null;
+      const newPortId = nearestPort?.portId ?? null;
+      if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
+        api.setState({ hoveredPortShapeId: newPortShapeId, hoveredPortId: newPortId });
+      }
     }
 
     if (PluginRegistry.hasPlugin(this.shapeType)) {
@@ -97,12 +122,13 @@ export class ShapeTool implements ToolDefinition {
           }
         }
         api.commitState();
+        api.setTool('select', true);
       }
     }
     
-    if (api.getState().hoveredShapeId) {
-      api.setState({ hoveredShapeId: null });
-    }
+    const finalState = api.getState();
+    if (finalState.hoveredShapeId) api.setState({ hoveredShapeId: null });
+    if (finalState.hoveredPortShapeId) api.setState({ hoveredPortShapeId: null, hoveredPortId: null });
 
     this.drawStartWorld = null;
     this.currentShapeId = null;

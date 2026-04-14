@@ -2,58 +2,159 @@ import { getThemeAdjustedStroke } from '../core/Utils';
 import type { Shape } from '../core/types';
 
 /**
- * Renders a text label for a shape, centered at the plugin's suggested anchor.
- * Supports multi-line text and adds a background mask for connector shapes.
+ * Renders a text label for a shape.
+ * For connectors: always centered at path midpoint.
+ * For bounded shapes: respects textAlign, textVerticalAlign, textPaddingX/Y, textOverflow.
  */
 export function renderShapeText(
-  ctx: CanvasRenderingContext2D, 
-  shape: Shape, 
-  plugin: any, 
-  allShapes: Shape[], 
+  ctx: CanvasRenderingContext2D,
+  shape: Shape,
+  plugin: any,
+  allShapes: Shape[],
   isEditingText: boolean,
   theme: 'light' | 'dark'
 ) {
   if (shape.type === 'text' || !shape.text || isEditingText) return;
 
   const fontSize = shape.fontSize || 20;
-  ctx.font = `${fontSize}px ${shape.fontFamily || "'Architects Daughter', cursive"}`;
-  
-  let cx = 0;
-  let cy = 0;
+  const fontFamily = shape.fontFamily || "'Architects Daughter', cursive";
+  ctx.font = `${fontSize}px ${fontFamily}`;
 
-  const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
-  if (textAnchor) {
-    cx = textAnchor.x;
-    cy = textAnchor.y;
-  } else {
-    const bounds = plugin.getBounds(shape);
-    cx = bounds.x + bounds.width / 2;
-    cy = bounds.y + bounds.height / 2;
-  }
-
-  const lines = shape.text.split('\n');
   const lineHeight = fontSize * 1.2;
-  const totalHeight = lines.length * lineHeight;
+  const rawLines = shape.text.split('\n');
 
+  // Connectors: simple centered label with background mask
   if (plugin.isConnector) {
+    const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
+    if (!textAnchor) return;
+    const cx = textAnchor.x;
+    const cy = textAnchor.y;
+
+    const totalHeight = rawLines.length * lineHeight;
     let maxWidth = 0;
-    lines.forEach(line => {
+    rawLines.forEach(line => {
       const w = ctx.measureText(line).width;
       if (w > maxWidth) maxWidth = w;
     });
+
     const padding = 4;
-    ctx.fillStyle = theme === 'light' ? '#f8fafc' : '#131316'; // background mask matches canvas
+    ctx.fillStyle = theme === 'light' ? '#f8fafc' : '#131316';
     ctx.fillRect(cx - maxWidth / 2 - padding, cy - totalHeight / 2 - padding, maxWidth + padding * 2, totalHeight + padding * 2);
+
+    ctx.fillStyle = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    let y = cy - (totalHeight / 2) + (lineHeight / 2);
+    rawLines.forEach(line => {
+      ctx.fillText(line, cx, y);
+      y += lineHeight;
+    });
+    return;
   }
 
-  const textColor = getThemeAdjustedStroke(shape.stroke, theme); // text color matches shape stroke
-  ctx.fillStyle = textColor;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  
-  let startY = cy - (totalHeight / 2) + (lineHeight / 2);
-  lines.forEach((line) => {
-    ctx.fillText(line, cx, startY);
-    startY += lineHeight;
+  // Bounded shapes: use bounds + layout options
+  const bounds = plugin.getBounds?.(shape);
+  if (!bounds) return;
+
+  const textAlign: 'left' | 'center' | 'right' = shape.textAlign || 'center';
+  const verticalAlign: 'top' | 'middle' | 'bottom' = shape.textVerticalAlign || 'middle';
+  const paddingX = shape.textPaddingX ?? 8;
+  const paddingY = shape.textPaddingY ?? 8;
+  const overflow = shape.textOverflow || 'overflow';
+
+  const availW = bounds.width - paddingX * 2;
+  const availH = bounds.height - paddingY * 2;
+
+  // Word-wrap if needed
+  let lines = rawLines;
+  if ((overflow === 'wrap') && availW > 0) {
+    lines = [];
+    for (const rawLine of rawLines) {
+      const wrapped = wrapLine(ctx, rawLine, availW);
+      lines.push(...wrapped);
+    }
+  }
+
+  // Auto-shrink font to fit height if wrapping
+  let effectiveFontSize = fontSize;
+  if (overflow === 'wrap' && availH > 0) {
+    while (effectiveFontSize > 8 && lines.length * effectiveFontSize * 1.2 > availH) {
+      effectiveFontSize -= 1;
+      ctx.font = `${effectiveFontSize}px ${fontFamily}`;
+      // Re-wrap with smaller font
+      lines = [];
+      for (const rawLine of rawLines) {
+        lines.push(...wrapLine(ctx, rawLine, availW));
+      }
+    }
+  }
+
+  const effectiveLineHeight = effectiveFontSize * 1.2;
+  const totalHeight = lines.length * effectiveLineHeight;
+
+  // Compute starting X per textAlign
+  let anchorX: number;
+  if (textAlign === 'left') {
+    anchorX = bounds.x + paddingX;
+    ctx.textAlign = 'left';
+  } else if (textAlign === 'right') {
+    anchorX = bounds.x + bounds.width - paddingX;
+    ctx.textAlign = 'right';
+  } else {
+    anchorX = bounds.x + bounds.width / 2;
+    ctx.textAlign = 'center';
+  }
+
+  // Compute starting Y per verticalAlign
+  let startY: number;
+  if (verticalAlign === 'top') {
+    startY = bounds.y + paddingY + effectiveLineHeight / 2;
+    ctx.textBaseline = 'middle';
+  } else if (verticalAlign === 'bottom') {
+    startY = bounds.y + bounds.height - paddingY - totalHeight + effectiveLineHeight / 2;
+    ctx.textBaseline = 'middle';
+  } else {
+    // middle
+    startY = bounds.y + bounds.height / 2 - totalHeight / 2 + effectiveLineHeight / 2;
+    ctx.textBaseline = 'middle';
+  }
+
+  ctx.fillStyle = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
+
+  if (overflow === 'clip' || overflow === 'wrap') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bounds.x + paddingX - 2, bounds.y + paddingY - 2, availW + 4, availH + 4);
+    ctx.clip();
+  }
+
+  lines.forEach(line => {
+    ctx.fillText(line, anchorX, startY);
+    startY += effectiveLineHeight;
   });
+
+  if (overflow === 'clip' || overflow === 'wrap') {
+    ctx.restore();
+  }
+}
+
+function wrapLine(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  if (!text) return [''];
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? current + ' ' + word : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      // If single word is too long, push it anyway
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [''];
 }

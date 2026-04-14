@@ -134,6 +134,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
 
   const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId;
   const dynamicIds = isDrawnAction ? getDynamicIds(state) : new Set(state.selectedIds);
+  // Port-hovered shape must be dynamic so its active port highlight updates
+  if (state.hoveredPortShapeId) dynamicIds.add(state.hoveredPortShapeId);
   if (isDrawnAction && !rs.lastDragState) rs.isStaticValid = false;
   rs.lastDragState = isDrawnAction;
 
@@ -152,7 +154,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
       sCtx.save(); sCtx.translate(state.viewport.x, state.viewport.y); sCtx.scale(state.viewport.zoom, state.viewport.zoom);
       state.shapes.filter(s => !dynamicIds.has(s.id)).forEach((shape) => {
         if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
-          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts, state.theme);
+          const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
+          renderShape(sRc, sCtx, shape, false, false, state.shapes, shape.id === state.editingShapeId, false, showPorts, state.theme, false, activePortId);
         }
       });
       sCtx.restore(); rs.isStaticValid = true;
@@ -166,7 +169,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.save(); ctx.translate(state.viewport.x, state.viewport.y); ctx.scale(state.viewport.zoom, state.viewport.zoom);
     state.shapes.filter(s => dynamicIds.has(s.id)).forEach((shape) => {
-      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId);
+      const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
+      renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), false, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId, activePortId);
       renderedCount++;
     });
   } else {
@@ -180,7 +184,8 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
     state.shapes.forEach((shape) => {
       if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
         const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
-        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId);
+        const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
+        renderShape(rc, ctx, shape, state.selectedIds.includes(shape.id), isErasing, state.shapes, shape.id === state.editingShapeId, shape.id === state.hoveredShapeId, showPorts, state.theme, shape.id === state.drawingShapeId, activePortId);
         renderedCount++;
       }
     });

@@ -10,9 +10,9 @@ import { ConnectorMixin } from './ConnectorMixin';
 // Re-export for backward compatibility
 export const findNearestPort = ConnectorMixin.findNearestPort;
 
-/** Use smart elbow routing when BOTH ends are bound, or edgeStyle is explicitly 'elbow'. */
+/** Use elbow routing only when explicitly selected. */
 function useSmartRouting(shape: Shape): boolean {
-  return shape.edgeStyle === 'elbow' || (!!(shape.startBinding && shape.endBinding) && shape.edgeStyle !== 'curved');
+  return shape.edgeStyle === 'elbow';
 }
 
 /** Control point for a quadratic bezier curved arrow — offset perpendicular to the midpoint. */

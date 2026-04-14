@@ -1,5 +1,4 @@
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
-import { getTopShapeAtPoint } from '../geometry/Geometry';
 import { PluginRegistry } from './PluginRegistry';
 import { UI_CONSTANTS } from '../core/constants';
 
@@ -32,15 +31,22 @@ export class ConnectorMixin {
   }
 
   /**
-   * Get the binding point for a shape, optionally using a specific port ID.
+   * Get the binding point for a shape.
+   * Priority: portId > normalX/normalY (proportional float) > shape center.
    */
-  static getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
+  static getBindingPoint(shape: Shape, portId?: string, normalX?: number, normalY?: number): { x: number; y: number } {
     if (portId && PluginRegistry.hasPlugin(shape.type)) {
       const plugin = PluginRegistry.getPlugin(shape.type);
       if (plugin.getConnectionPoints) {
         const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
         if (port) return { x: port.x, y: port.y };
       }
+    }
+    if (normalX !== undefined && normalY !== undefined) {
+      return {
+        x: shape.x + (shape.width || 0) * normalX,
+        y: shape.y + (shape.height || 0) * normalY,
+      };
     }
     return { x: shape.x + (shape.width || 0) / 2, y: shape.y + (shape.height || 0) / 2 };
   }
@@ -74,26 +80,6 @@ export class ConnectorMixin {
         patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
         patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
       }
-    } else if (!payload.ctrlKey && !payload.metaKey) {
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && hit.id !== activeShapeId && !PluginRegistry.getPlugin(hit.type).isConnector && !!PluginRegistry.getPlugin(hit.type).getConnectionPoints) {
-        if (hit.id !== state.hoveredShapeId) api.setState({ hoveredShapeId: hit.id });
-        const center = ConnectorMixin.getBindingPoint(hit);
-        if (handle === 'start') {
-          patch.startBinding = { elementId: hit.id };
-          const p2wx = shape.x + (shape.points?.[1]?.x || 0);
-          const p2wy = shape.y + (shape.points?.[1]?.y || 0);
-          patch.x = center.x; patch.y = center.y;
-          patch.points = [{ x: 0, y: 0 }, { x: p2wx - center.x, y: p2wy - center.y }];
-        } else if (handle === 'end') {
-          patch.endBinding = { elementId: hit.id };
-          patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
-        }
-      } else {
-        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
-        if (handle === 'start') patch.startBinding = undefined;
-        if (handle === 'end') patch.endBinding = undefined;
-      }
     } else {
       if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
       if (handle === 'start') patch.startBinding = undefined;
@@ -116,11 +102,11 @@ export class ConnectorMixin {
 
       if (startId) {
         const sShape = allShapes.find(s => s.id === startId);
-        if (sShape) p1 = ConnectorMixin.getBindingPoint(sShape, shape.startBinding!.portId);
+        if (sShape) p1 = ConnectorMixin.getBindingPoint(sShape, shape.startBinding!.portId, shape.startBinding!.normalX, shape.startBinding!.normalY);
       }
       if (endId) {
         const eShape = allShapes.find(s => s.id === endId);
-        if (eShape) p2 = ConnectorMixin.getBindingPoint(eShape, shape.endBinding!.portId);
+        if (eShape) p2 = ConnectorMixin.getBindingPoint(eShape, shape.endBinding!.portId, shape.endBinding!.normalX, shape.endBinding!.normalY);
       }
 
       return {
@@ -140,15 +126,7 @@ export class ConnectorMixin {
     let x = snap ? snap.x : payload.world.x;
     let y = snap ? snap.y : payload.world.y;
 
-    if (!snap) {
-      // Fallback: if clicking inside a shape, bind to its center (only shapes with ports)
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && !PluginRegistry.getPlugin(hit.type).isConnector && !!PluginRegistry.getPlugin(hit.type).getConnectionPoints) {
-        startBinding = { elementId: hit.id };
-        const center = ConnectorMixin.getBindingPoint(hit);
-        x = center.x; y = center.y;
-      }
-    }
+    // No fallback: only bind to named ports, not arbitrary shape points
 
     return {
       x, y,
@@ -180,16 +158,8 @@ export class ConnectorMixin {
       if (state.hoveredShapeId !== snap.shape.id) api.setState({ hoveredShapeId: snap.shape.id });
       patch.endBinding = { elementId: snap.shape.id, portId: snap.portId };
       patch.points = [{ x: 0, y: 0 }, { x: snap.x - shape.x, y: snap.y - shape.y }];
-    } else if (!payload.ctrlKey && !payload.metaKey) {
-      const hit = getTopShapeAtPoint(allShapes, payload.world, api.getSpatialIndex());
-      if (hit && hit.id !== shape.id && !PluginRegistry.getPlugin(hit.type).isConnector && !!PluginRegistry.getPlugin(hit.type).getConnectionPoints) {
-        if (state.hoveredShapeId !== hit.id) api.setState({ hoveredShapeId: hit.id });
-        patch.endBinding = { elementId: hit.id };
-        const center = ConnectorMixin.getBindingPoint(hit);
-        patch.points = [{ x: 0, y: 0 }, { x: center.x - shape.x, y: center.y - shape.y }];
-      } else {
-        if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
-      }
+    } else {
+      if (state.hoveredShapeId) api.setState({ hoveredShapeId: null });
     }
     return patch;
   }

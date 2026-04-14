@@ -34,6 +34,15 @@ const I = {
   delete:        `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14M8 5V3h4v2M17 5l-1 12a1 1 0 01-1 1H5a1 1 0 01-1-1L3 5"/></svg>`,
   lock:          `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="14" height="9" rx="1.5"/><path d="M7 9V6a3 3 0 016 0v3"/></svg>`,
   unlock:        `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="14" height="9" rx="1.5"/><path d="M7 9V6a3 3 0 016 0"/></svg>`,
+  alignLeft:     `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="3" x2="2" y2="13"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="11" y2="10"/></svg>`,
+  alignCenter:   `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="10" y1="3" x2="10" y2="13"/><line x1="4" y1="6" x2="16" y2="6"/><line x1="6" y1="10" x2="14" y2="10"/></svg>`,
+  alignRight:    `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="3" x2="18" y2="13"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/></svg>`,
+  valignTop:     `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="2" x2="13" y2="2"/><line x1="6" y1="5" x2="6" y2="15"/><line x1="10" y1="5" x2="10" y2="11"/></svg>`,
+  valignMiddle:  `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="10" x2="13" y2="10"/><line x1="6" y1="4" x2="6" y2="16"/><line x1="10" y1="6" x2="10" y2="14"/></svg>`,
+  valignBottom:  `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="18" x2="13" y2="18"/><line x1="6" y1="5" x2="6" y2="15"/><line x1="10" y1="9" x2="10" y2="15"/></svg>`,
+  overflowFree:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1" stroke-dasharray="3 2"/><line x1="5" y1="6" x2="18" y2="6"/><line x1="5" y1="10" x2="16" y2="10"/></svg>`,
+  overflowWrap:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="11" y2="10"/><path d="M15 6 Q17 6 17 8 Q17 10 15 10" stroke-dasharray="2 1"/></svg>`,
+  overflowClip:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="15" y2="10"/><line x1="18" y1="2" x2="18" y2="14" stroke-width="2"/></svg>`,
 };
 
 // ─── HTML helpers ──────────────────────────────────────────────────────────────
@@ -154,7 +163,63 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     );
   }
   if (appearanceHtml) groups.push(appearanceHtml);
- 
+
+  // Group 1b: Text Color + Layout
+  if (has('textLayout')) {
+    const textColor = shape.textColor || '';
+    const textColorIcon = colorIcon(textColor || (shape.stroke || '#94a3b8'));
+    appearanceHtml += dropdown('Text color', textColorIcon,
+      `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('textColor', c, shape.textColor === c)).join('')}</div>`,
+      'Text Color'
+    );
+  }
+  if (has('textLayout')) {
+    const alignH = shape.textAlign || 'center';
+    const alignV = shape.textVerticalAlign || 'middle';
+    const overflow = shape.textOverflow || 'overflow';
+    const overflowIcon = overflow === 'wrap' ? I.overflowWrap : overflow === 'clip' ? I.overflowClip : I.overflowFree;
+
+    const alignGridIcon = (h: string, v: string) => {
+      const col = h === 'left' ? 0 : h === 'center' ? 1 : 2;
+      const row = v === 'top' ? 0 : v === 'middle' ? 1 : 2;
+      const dots: string[] = [];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const active = r === row && c === col;
+          const x = 5 + c * 8;
+          const y = 5 + r * 8;
+          dots.push(`<circle cx="${x}" cy="${y}" r="${active ? 2.5 : 1.5}" fill="currentColor" opacity="${active ? '1' : '0.25'}"/>`);
+        }
+      }
+      return `<svg viewBox="0 0 26 26">${dots.join('')}</svg>`;
+    };
+
+    const alignGridCell = (h: string, v: string) => {
+      const active = alignH === h && alignV === v;
+      const label = `${v} ${h}`;
+      return `<button class="pp-ibtn pp-align-cell${active ? ' active' : ''}"
+        data-prop="textAlign|textVerticalAlign" data-val="${h}|${v}" title="${label}" aria-label="${label}">
+        ${alignGridIcon(h, v)}
+      </button>`;
+    };
+
+    const gridContent = `<div class="pp-align-grid">
+      ${alignGridCell('left','top')}${alignGridCell('center','top')}${alignGridCell('right','top')}
+      ${alignGridCell('left','middle')}${alignGridCell('center','middle')}${alignGridCell('right','middle')}
+      ${alignGridCell('left','bottom')}${alignGridCell('center','bottom')}${alignGridCell('right','bottom')}
+    </div>`;
+
+    let textHtml = '';
+    textHtml += dropdown('Text align', alignGridIcon(alignH, alignV), gridContent, 'Text alignment');
+    textHtml += dropdown('Overflow', overflowIcon,
+      btnGroup(
+        iconBtn('textOverflow', 'overflow', I.overflowFree, overflow === 'overflow', 'Overflow freely'),
+        iconBtn('textOverflow', 'wrap',     I.overflowWrap, overflow === 'wrap',     'Wrap text'),
+        iconBtn('textOverflow', 'clip',     I.overflowClip, overflow === 'clip',     'Clip text'),
+      ), 'Text overflow');
+    groups.push(textHtml);
+  }
+
   // Group 2: Actions
   let actionsHtml = '';
   if (has('action')) {

@@ -21,9 +21,9 @@ function getCurvedControlPoint(p1: Point, p2: Point): Point {
   return { x: mx - (dy / len) * offset, y: my + (dx / len) * offset };
 }
 
-/** Use smart elbow routing when BOTH ends are bound, or edgeStyle is explicitly 'elbow'. */
+/** Use elbow routing only when explicitly selected. */
 function useSmartRouting(shape: Shape): boolean {
-  return shape.edgeStyle === 'elbow' || (!!(shape.startBinding && shape.endBinding) && shape.edgeStyle !== 'curved');
+  return shape.edgeStyle === 'elbow';
 }
 
 export class LinePlugin implements IShapePlugin {

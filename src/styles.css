@@ -550,6 +550,24 @@
   pointer-events: none;
 }
 
+/* Text align 3×3 grid */
+.pp-align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 1px;
+  padding: 4px;
+}
+
+.pp-align-cell {
+  width: 30px;
+  height: 28px;
+}
+
+.pp-align-cell svg {
+  width: 22px;
+  height: 22px;
+}
+
 /* Opacity Slider */
 .pp-opacity-row {
   padding: 4px 0;

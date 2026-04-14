@@ -294,6 +294,187 @@ function makeMindMap(): Template {
   return { label: 'Mind Map', shapes: [center, ...nodes, ...arrs] };
 }
 
+function makeSwot(): Template {
+  const QW = 300, QH = 200, GAP = 4;
+  const tl = s_rect(0,          0,          QW, QH, 'Güçlü Yönler\n(Strengths)',    { stroke: '#22c55e', fill: '#f0fdf4' });
+  const tr = s_rect(QW + GAP,   0,          QW, QH, 'Zayıf Yönler\n(Weaknesses)',   { stroke: '#ef4444', fill: '#fef2f2' });
+  const bl = s_rect(0,          QH + GAP,   QW, QH, 'Fırsatlar\n(Opportunities)',   { stroke: '#06b6d4', fill: '#f0f9ff' });
+  const br = s_rect(QW + GAP,   QH + GAP,   QW, QH, 'Tehditler\n(Threats)',         { stroke: '#f59e0b', fill: '#fffbeb' });
+  return { label: 'SWOT Analizi', shapes: [tl, tr, bl, br] };
+}
+
+function makeOrgChart(): Template {
+  const W = 140, H = 48, HGAP = 30, VGAP = 60;
+  const totalW = 3 * W + 2 * HGAP;
+
+  const ceo = s_rect(-W / 2, 0, W, H, 'CEO', { stroke: '#6366f1', fill: '#eef2ff' });
+
+  const mgrs = [0, 1, 2].map(i => {
+    const x = -totalW / 2 + i * (W + HGAP);
+    return s_rect(x, H + VGAP, W, H, `Müdür ${i + 1}`, { stroke: '#8b5cf6' });
+  });
+
+  const emps: TemplateShape[] = [];
+  mgrs.forEach((mgr, mi) => {
+    [0, 1].forEach(ei => {
+      const x = mgr.x + (ei === 0 ? -W * 0.6 : W * 0.6 + 10);
+      emps.push(s_rect(x, mgr.y + H + VGAP, W * 0.85, H * 0.85, `Çalışan ${mi * 2 + ei + 1}`, { stroke: '#a78bfa' }));
+    });
+  });
+
+  const arrows: TemplateShape[] = [
+    ...mgrs.map(m => s_arrow(port(ceo, 'bottom'), port(m, 'top'), { endArrowhead: 'none', edgeStyle: 'elbow' } as any)),
+    ...emps.map((e, i) => s_arrow(port(mgrs[Math.floor(i / 2)], 'bottom'), port(e, 'top'), { endArrowhead: 'none', edgeStyle: 'elbow' } as any)),
+  ];
+
+  return { label: 'Org Şeması', shapes: [ceo, ...mgrs, ...emps, ...arrows] };
+}
+
+function makeTimeline(): Template {
+  const MILESTONES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'];
+  const STEP = 180, OW = 44, OH = 44, CW = 130, CH = 52, ABOVE = 70;
+  const totalW = (MILESTONES.length - 1) * STEP;
+
+  // Binding-less horizontal axis arrow
+  const axisId = createId();
+  const axis: TemplateShape = {
+    ...getStylePreset('arrow'),
+    _tid: axisId, type: 'arrow',
+    x: 0, y: 0, width: 0, height: 0, zIndex: 0,
+    points: [{ x: 0, y: 0 }, { x: totalW + 60, y: 0 }],
+    seed: randomSeed(),
+  } as TemplateShape;
+
+  const dots = MILESTONES.map((label, i) => {
+    const cx = i * STEP;
+    return s_oval(cx - OW / 2, -OH / 2, OW, OH, '', { fill: '#6366f1', stroke: '#4f46e5', opacity: 1 });
+  });
+
+  const cards = MILESTONES.map((label, i) => {
+    const cx = i * STEP;
+    const above = i % 2 === 0;
+    const cardY = above ? -(OH / 2 + ABOVE + CH) : OH / 2 + ABOVE;
+    return s_rect(cx - CW / 2, cardY, CW, CH, label, { stroke: '#6366f1' });
+  });
+
+  // Vertical connector lines (binding-less)
+  const lines: TemplateShape[] = MILESTONES.map((_, i) => {
+    const cx = i * STEP;
+    const above = i % 2 === 0;
+    const lineStartY = above ? -(OH / 2) : OH / 2;
+    const lineEndY   = above ? -(OH / 2 + ABOVE) : OH / 2 + ABOVE;
+    const lineId = createId();
+    return {
+      ...getStylePreset('line'),
+      _tid: lineId, type: 'line',
+      x: cx, y: lineStartY, width: 0, height: 0, zIndex: 0,
+      points: [{ x: 0, y: 0 }, { x: 0, y: lineEndY - lineStartY }],
+      seed: randomSeed(),
+    } as TemplateShape;
+  });
+
+  return { label: 'Timeline', shapes: [axis, ...lines, ...dots, ...cards] };
+}
+
+function makeUmlClass(): Template {
+  const W = 200, HDR = 44, ROW = 28;
+  const ATTRS = ['- id: int', '- name: string', '- email: string'];
+  const METHS = ['+ getId(): int', '+ save(): void'];
+  const H = HDR + (ATTRS.length + METHS.length) * ROW;
+  const GAP = 120;
+
+  function umlClass(x: number, name: string): TemplateShape[] {
+    const header = s_rect(x, 0, W, HDR, name, { stroke: '#6366f1', fill: '#eef2ff', strokeWidth: 1.8 });
+    const attrBox = s_rect(x, HDR, W, ATTRS.length * ROW, ATTRS.join('\n'), { stroke: '#6366f1', strokeWidth: 1 });
+    const methBox = s_rect(x, HDR + ATTRS.length * ROW, W, METHS.length * ROW, METHS.join('\n'), { stroke: '#6366f1', strokeWidth: 1 });
+    return [header, attrBox, methBox];
+  }
+
+  const cls1 = umlClass(0, 'User');
+  const cls2 = umlClass(W + GAP, 'Order');
+
+  const arrow = s_arrow(
+    port(cls1[0], 'right'),
+    port(cls2[0], 'left'),
+    { endArrowhead: 'triangle', text: 'has many' } as any
+  );
+
+  return { label: 'UML Sınıf', shapes: [...cls1, ...cls2, arrow] };
+}
+
+function makeVennDiagram(): Template {
+  const R = 220, offset = 80;
+  const a = s_oval(-offset - R / 2, -R * 0.6, R, R, 'Küme A', { stroke: '#6366f1', fill: '#6366f1', opacity: 0.25 });
+  const b = s_oval(offset - R / 2,  -R * 0.6, R, R, 'Küme B', { stroke: '#ec4899', fill: '#ec4899', opacity: 0.25 });
+  const c = s_oval(-R / 2,           R * 0.6 - R * 0.85, R, R, 'Küme C', { stroke: '#f59e0b', fill: '#f59e0b', opacity: 0.25 });
+  return { label: 'Venn Diyagramı', shapes: [a, b, c] };
+}
+
+function makeFishbone(): Template {
+  // Spine: left to right, "Problem" label at the right end
+  const SPINE_W = 500, RIB_LEN = 140, RIB_ANGLE = 35;
+  const dy = Math.tan(RIB_ANGLE * Math.PI / 180) * RIB_LEN;
+
+  const headW = 120, headH = 52;
+  const head = s_rect(SPINE_W, -headH / 2, headW, headH, 'Problem', { stroke: '#ef4444', fill: '#fef2f2' });
+
+  // Spine (binding-less arrow pointing to head)
+  const spineId = createId();
+  const spine: TemplateShape = {
+    ...getStylePreset('arrow'),
+    _tid: spineId, type: 'arrow',
+    x: 0, y: 0, width: 0, height: 0, zIndex: 0,
+    points: [{ x: 0, y: 0 }, { x: SPINE_W, y: 0 }],
+    seed: randomSeed(),
+  } as TemplateShape;
+
+  const categories = ['Yöntem', 'Makine', 'Malzeme', 'İnsan'];
+  const positions = [SPINE_W * 0.2, SPINE_W * 0.45, SPINE_W * 0.2, SPINE_W * 0.45];
+  const sides: Array<1 | -1> = [1, 1, -1, -1]; // 1=above, -1=below
+
+  const LW = 110, LH = 44;
+  const ribs: TemplateShape[] = [];
+  const labels: TemplateShape[] = [];
+
+  categories.forEach((cat, i) => {
+    const sx = positions[i];
+    const side = sides[i];
+    const ribId = createId();
+    ribs.push({
+      ...getStylePreset('line'),
+      _tid: ribId, type: 'line',
+      x: sx, y: 0, width: 0, height: 0, zIndex: 0,
+      points: [{ x: 0, y: 0 }, { x: -RIB_LEN * Math.cos(RIB_ANGLE * Math.PI / 180), y: side * -dy }],
+      seed: randomSeed(),
+    } as TemplateShape);
+
+    const lx = sx - RIB_LEN * Math.cos(RIB_ANGLE * Math.PI / 180) - LW / 2;
+    const ly = side * -dy - (side === 1 ? LH + 8 : -8);
+    labels.push(s_rect(lx, ly, LW, LH, cat, { stroke: '#64748b' }));
+  });
+
+  return { label: 'Fishbone', shapes: [spine, ...ribs, head, ...labels] };
+}
+
+function makeWireframe(): Template {
+  const PW = 720, PH = 540;
+  const HDR_H = 60, FTR_H = 48, SIDE_W = 160, GAP = 8;
+  const contentX = SIDE_W + GAP, contentW = PW - SIDE_W - GAP;
+  const contentH = PH - HDR_H - FTR_H - GAP * 2;
+  const contentY = HDR_H + GAP;
+
+  const header  = s_rect(0, 0,          PW,      HDR_H,    'Header / Nav', { stroke: '#94a3b8', fill: '#f1f5f9' });
+  const sidebar = s_rect(0, contentY,   SIDE_W,  contentH, 'Sidebar',      { stroke: '#94a3b8', fill: '#f8fafc' });
+  const footer  = s_rect(0, PH - FTR_H, PW,     FTR_H,    'Footer',       { stroke: '#94a3b8', fill: '#f1f5f9' });
+
+  const cardH = (contentH - GAP * 2) / 3;
+  const cards = [0, 1, 2].map(i =>
+    s_rect(contentX, contentY + i * (cardH + GAP), contentW, cardH, `İçerik ${i + 1}`, { stroke: '#cbd5e1' })
+  );
+
+  return { label: 'Wireframe', shapes: [header, sidebar, footer, ...cards] };
+}
+
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const TEMPLATES: Record<string, Template> = {
@@ -302,4 +483,11 @@ export const TEMPLATES: Record<string, Template> = {
   'db-schema':     makeDbSchema(),
   'user-flow':     makeUserFlow(),
   'mind-map':      makeMindMap(),
+  'swot':          makeSwot(),
+  'org-chart':     makeOrgChart(),
+  'timeline':      makeTimeline(),
+  'uml-class':     makeUmlClass(),
+  'venn':          makeVennDiagram(),
+  'fishbone':      makeFishbone(),
+  'wireframe':     makeWireframe(),
 };

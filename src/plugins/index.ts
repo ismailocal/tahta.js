@@ -10,6 +10,8 @@ import { DiamondPlugin } from './DiamondPlugin';
 import { DbTablePlugin } from './DbTablePlugin';
 import { DbViewPlugin } from './DbViewPlugin';
 import { DbEnumPlugin } from './DbEnumPlugin';
+import { TrianglePlugin } from './TrianglePlugin';
+import { StickyNotePlugin } from './StickyNotePlugin';
 
 PluginRegistry.registerShape(new RectanglePlugin());
 PluginRegistry.registerShape(new EllipsePlugin());
@@ -22,5 +24,7 @@ PluginRegistry.registerShape(new DiamondPlugin());
 PluginRegistry.registerShape(new DbTablePlugin());
 PluginRegistry.registerShape(new DbViewPlugin());
 PluginRegistry.registerShape(new DbEnumPlugin());
+PluginRegistry.registerShape(new TrianglePlugin());
+PluginRegistry.registerShape(new StickyNotePlugin());
 
 export { PluginRegistry };

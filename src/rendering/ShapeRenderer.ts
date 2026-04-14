@@ -43,7 +43,8 @@ export function renderShape(
   isHovered: boolean = false,
   showPorts: boolean = false,
   theme: 'light' | 'dark' = 'light',
-  isDrawing: boolean = false
+  isDrawing: boolean = false,
+  activePortId?: string | null
 ) {
   if (shape.type === 'text' && isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
@@ -104,8 +105,8 @@ export function renderShape(
     ctx.restore();
   }
 
-  if (isHovered && !isSelected && plugin.getConnectionPoints && showPorts) {
-    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke, theme);
+  if ((isHovered || activePortId != null) && !isSelected && plugin.getConnectionPoints && showPorts) {
+    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke, theme, activePortId);
   }
 
   ctx.restore();

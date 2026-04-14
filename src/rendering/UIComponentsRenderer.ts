@@ -138,29 +138,37 @@ export function renderHandleBrackets(
 
 /**
  * Small diamond-shaped connection targets for arrows.
+ * If activePortId is provided, that port is rendered highlighted (filled blue, larger).
  */
 export function renderConnectionPoints(
-  ctx: CanvasRenderingContext2D, 
-  points: ConnectionPoint[], 
-  shapeStroke?: string, 
-  theme: 'light' | 'dark' = 'dark'
+  ctx: CanvasRenderingContext2D,
+  points: ConnectionPoint[],
+  shapeStroke?: string,
+  theme: 'light' | 'dark' = 'dark',
+  activePortId?: string | null
 ) {
-  const s = 5; // half-size of the diamond icon
   ctx.setLineDash([]);
-  ctx.strokeStyle = shapeStroke || (theme === 'light' ? '#475569' : '#cbd5e0');
-  ctx.lineWidth = 1.5;
-  
+
   points.forEach(cp => {
+    const isActive = activePortId != null && cp.id === activePortId;
+    const s = isActive ? 8 : 5; // half-size of the diamond icon
+
     ctx.beginPath();
     ctx.moveTo(cp.x,     cp.y - s);
     ctx.lineTo(cp.x + s, cp.y    );
     ctx.lineTo(cp.x,     cp.y + s);
     ctx.lineTo(cp.x - s, cp.y    );
     ctx.closePath();
-    
-    ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24'; 
-    ctx.strokeStyle = getThemeAdjustedStroke(shapeStroke, theme);
-    ctx.lineWidth = 1.2;
+
+    if (isActive) {
+      ctx.fillStyle = '#3b82f6';
+      ctx.strokeStyle = '#1d4ed8';
+      ctx.lineWidth = 1.5;
+    } else {
+      ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24';
+      ctx.strokeStyle = getThemeAdjustedStroke(shapeStroke, theme);
+      ctx.lineWidth = 1.2;
+    }
     ctx.fill();
     ctx.stroke();
   });

@@ -7,7 +7,7 @@ import type { Shape } from './types';
  */
 export const UI_CONSTANTS = {
   // Port and binding constants
-  PORT_SNAP_RADIUS: 40,
+  PORT_SNAP_RADIUS: 20,
   PORT_HIT_RADIUS: 12,
 
   // Selection and frame constants
@@ -65,6 +65,18 @@ export const STYLE_PRESETS: Record<string, any> = {
 };
 
 const STORAGE_KEY = 'tahta_style_cache';
+
+/**
+ * All style properties that get cached per shape type.
+ * Add new style fields here when extending the Shape interface.
+ */
+export const STYLE_PROPERTY_KEYS = [
+  'stroke', 'fill', 'strokeWidth', 'opacity', 'roughness',
+  'strokeStyle', 'edgeStyle', 'startArrowhead', 'endArrowhead',
+  'roundness', 'fontSize', 'fontFamily', 'fillStyle',
+  'textColor', 'textAlign', 'textVerticalAlign',
+  'textPaddingX', 'textPaddingY', 'textOverflow',
+] as const;
 
 /** Load style cache from localStorage */
 function loadCacheFromStorage(): Map<string, Partial<Shape>> {
@@ -141,9 +153,11 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
     key: 'shapes-group', label: 'Shapes', shortcut: 'R', isDropdown: true,
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>`,
     children: [
-      { key: 'rectangle', label: 'Rectangle', shortcut: 'R', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>` },
-      { key: 'ellipse', label: 'Ellipse', shortcut: 'E', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>` },
-      { key: 'diamond', label: 'Diamond', shortcut: 'D', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 12 12 22 2 12"/></svg>` },
+      { key: 'rectangle',     label: 'Rectangle',     shortcut: 'R', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>` },
+      { key: 'ellipse',       label: 'Ellipse',       shortcut: 'E', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>` },
+      { key: 'diamond',       label: 'Diamond',       shortcut: 'D', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 12 12 22 2 12"/></svg>` },
+      { key: 'triangle',      label: 'Triangle',      shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 22 21 2 21"/></svg>` },
+      { key: 'sticky-note',   label: 'Sticky Note',   shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h7l5-5V6a2 2 0 0 0-4-4z"/><polyline points="14 2 14 8 20 8"/></svg>` },
     ],
   },
   {
@@ -193,10 +207,17 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
     children: [
       { key: 'template-decision-tree', label: 'Decision Tree', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 21 12 12 21 3 12"/><line x1="3" y1="12" x2="3" y2="18"/><line x1="21" y1="12" x2="21" y2="18"/><rect x="0" y="18" width="6" height="4" rx="1"/><rect x="18" y="18" width="6" height="4" rx="1"/></svg>` },
-      { key: 'template-flowchart', label: 'Flowchart', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="4" rx="5" ry="2.5"/><rect x="7" y="9" width="10" height="5" rx="1"/><polygon points="12 17 17 21 7 21"/><line x1="12" y1="6.5" x2="12" y2="9"/><line x1="12" y1="14" x2="12" y2="17"/></svg>` },
-      { key: 'template-db-schema', label: 'DB Schema', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="8" height="14" rx="1"/><rect x="14" y="4" width="8" height="14" rx="1"/><line x1="2" y1="9" x2="10" y2="9"/><line x1="14" y1="9" x2="22" y2="9"/><line x1="10" y1="11" x2="14" y2="11"/></svg>` },
-      { key: 'template-user-flow', label: 'User Flow', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="17" y="9" width="6" height="5" rx="1"/><line x1="6" y1="11.5" x2="9" y2="11.5"/><line x1="14" y1="11.5" x2="17" y2="11.5"/></svg>` },
-      { key: 'template-mind-map', label: 'Mind Map', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="9" width="8" height="6" rx="1"/><rect x="1" y="4" width="5" height="4" rx="1"/><rect x="1" y="16" width="5" height="4" rx="1"/><rect x="18" y="4" width="5" height="4" rx="1"/><rect x="18" y="16" width="5" height="4" rx="1"/><line x1="8" y1="11" x2="6" y2="6"/><line x1="8" y1="14" x2="6" y2="18"/><line x1="16" y1="11" x2="18" y2="6"/><line x1="16" y1="14" x2="18" y2="18"/></svg>` },
+      { key: 'template-flowchart',     label: 'Flowchart',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="4" rx="5" ry="2.5"/><rect x="7" y="9" width="10" height="5" rx="1"/><polygon points="12 17 17 21 7 21"/><line x1="12" y1="6.5" x2="12" y2="9"/><line x1="12" y1="14" x2="12" y2="17"/></svg>` },
+      { key: 'template-db-schema',     label: 'DB Schema',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="8" height="14" rx="1"/><rect x="14" y="4" width="8" height="14" rx="1"/><line x1="2" y1="9" x2="10" y2="9"/><line x1="14" y1="9" x2="22" y2="9"/><line x1="10" y1="11" x2="14" y2="11"/></svg>` },
+      { key: 'template-user-flow',     label: 'User Flow',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="17" y="9" width="6" height="5" rx="1"/><line x1="6" y1="11.5" x2="9" y2="11.5"/><line x1="14" y1="11.5" x2="17" y2="11.5"/></svg>` },
+      { key: 'template-mind-map',      label: 'Mind Map',      shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="9" width="8" height="6" rx="1"/><rect x="1" y="4" width="5" height="4" rx="1"/><rect x="1" y="16" width="5" height="4" rx="1"/><rect x="18" y="4" width="5" height="4" rx="1"/><rect x="18" y="16" width="5" height="4" rx="1"/><line x1="8" y1="11" x2="6" y2="6"/><line x1="8" y1="14" x2="6" y2="18"/><line x1="16" y1="11" x2="18" y2="6"/><line x1="16" y1="14" x2="18" y2="18"/></svg>` },
+      { key: 'template-swot',          label: 'SWOT Analysis', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>` },
+      { key: 'template-org-chart',     label: 'Org Chart',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="5" rx="1"/><rect x="2" y="13" width="6" height="5" rx="1"/><rect x="9" y="13" width="6" height="5" rx="1"/><rect x="16" y="13" width="6" height="5" rx="1"/><line x1="12" y1="7" x2="12" y2="10"/><line x1="12" y1="10" x2="5" y2="10"/><line x1="12" y1="10" x2="19" y2="10"/><line x1="5" y1="10" x2="5" y2="13"/><line x1="12" y1="10" x2="12" y2="13"/><line x1="19" y1="10" x2="19" y2="13"/></svg>` },
+      { key: 'template-timeline',      label: 'Timeline',      shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><polyline points="18 8 22 12 18 16"/><circle cx="6" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18" cy="12" r="2" fill="currentColor"/><line x1="6" y1="10" x2="6" y2="7"/><line x1="12" y1="14" x2="12" y2="17"/><line x1="18" y1="10" x2="18" y2="7"/></svg>` },
+      { key: 'template-uml-class',     label: 'UML Class',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="18" height="20" rx="1"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="7" y1="12" x2="11" y2="12"/><line x1="7" y1="19" x2="11" y2="19"/></svg>` },
+      { key: 'template-venn',          label: 'Venn Diagram',  shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="7" opacity="0.7"/><circle cx="15" cy="12" r="7" opacity="0.7"/></svg>` },
+      { key: 'template-fishbone',      label: 'Fishbone',      shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="20" y2="12"/><polyline points="17 9 20 12 17 15"/><line x1="6" y1="12" x2="10" y2="7"/><line x1="11" y1="12" x2="15" y2="7"/><line x1="6" y1="12" x2="10" y2="17"/><line x1="11" y1="12" x2="15" y2="17"/></svg>` },
+      { key: 'template-wireframe',     label: 'Wireframe',     shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="4" rx="1"/><rect x="2" y="8" width="5" height="14" rx="1"/><rect x="9" y="8" width="13" height="6" rx="1"/><rect x="9" y="16" width="13" height="6" rx="1"/></svg>` },
     ],
   },
   { isSeparator: true, key: 'sep-mgmt' },

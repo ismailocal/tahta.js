@@ -23,6 +23,9 @@ export interface ShapeBinding {
   /** Click position relative to the bound shape's origin (shape.x / shape.y). Preserved on move. */
   offsetX?: number;
   offsetY?: number;
+  /** Normalized attachment point (0..1) relative to the bound shape's bounding box. Used for floating ports. */
+  normalX?: number;
+  normalY?: number;
 }
 
 export interface Shape {
@@ -56,6 +59,14 @@ export interface Shape {
   locked?: boolean;
   /** Type-specific data payload for custom plugins. */
   data?: Record<string, unknown>;
+  /** Text layout */
+  textColor?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  textVerticalAlign?: 'top' | 'middle' | 'bottom';
+  textPaddingX?: number;
+  textPaddingY?: number;
+  /** 'wrap' clips to shape bounds and wraps; 'clip' clips without wrapping; 'overflow' allows overflow (default) */
+  textOverflow?: 'wrap' | 'clip' | 'overflow';
 }
 
 export interface CanvasState {
@@ -66,6 +77,8 @@ export interface CanvasState {
   userToFollow?: { socketId: string; username: string } | null;
   collaborators?: Map<string, any>;
   hoveredShapeId: string | null;
+  hoveredPortShapeId?: string | null;
+  hoveredPortId?: string | null;
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
   isPanning: boolean;
