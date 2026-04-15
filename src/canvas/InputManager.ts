@@ -107,6 +107,16 @@ export class InputManager {
         });
         return;
       }
+      // Shift+scroll for horizontal panning
+      if (e.shiftKey) {
+        e.preventDefault();
+        this.api.setViewport({
+          ...state.viewport,
+          x: state.viewport.x - e.deltaY,
+          y: state.viewport.y,
+        });
+        return;
+      }
       this.api.setViewport({
         ...state.viewport,
         x: state.viewport.x - e.deltaX,

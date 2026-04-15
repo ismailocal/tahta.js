@@ -2,8 +2,9 @@
  * Basic shape plugins: rect, ellipse, diamond
  */
 
-import type { DSLShapePlugin, DSLShape, ParseContext, ValidationResult } from '../types';
 import { dslRegistry } from '../registry';
+import { extractPropertiesWithDefaults } from '../converter';
+import type { DSLShape, ParseContext, ValidationResult } from '../types';
 
 /**
  * Parse position from DSL line
@@ -94,21 +95,20 @@ function createBaseConverter(tahtaType: string): (dsl: DSLShape) => any {
   return (dsl: DSLShape): any => {
     const { id, type, position, properties, data, text } = dsl;
     
-    // Extract width/height from properties and remove them to avoid override
-    const { width, height, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+    const props = extractPropertiesWithDefaults(properties);
     
     return {
       id: id, // Will be regenerated in converter
       type: tahtaType,
       x: position?.x || 0,
       y: position?.y || 0,
-      width: width ? parseInt(width) : getDefaultWidth(tahtaType),
-      height: height ? parseInt(height) : getDefaultHeight(tahtaType),
+      width: props.width || getDefaultWidth(tahtaType),
+      height: props.height || getDefaultHeight(tahtaType),
       text: text || '',
-      strokeStyle: strokeStyle || 'solid',
-      strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
-      roughness: roughness ? parseInt(roughness) : 0,
-      ...otherProps,
+      strokeStyle: props.strokeStyle,
+      strokeWidth: props.strokeWidth,
+      roughness: props.roughness,
+      ...props.otherProps,
       ...data
     };
   };

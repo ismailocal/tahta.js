@@ -2,8 +2,9 @@
  * Database shape plugins: dbtable, dbview, dbenum
  */
 
-import type { DSLShapePlugin, DSLShape, ParseContext, ValidationResult } from '../types';
 import { dslRegistry } from '../registry';
+import { extractPropertiesWithDefaults } from '../converter';
+import type { DSLShape, ParseContext, ValidationResult } from '../types';
 
 /**
  * Parse column definitions from DSL line
@@ -129,20 +130,19 @@ export function registerDatabasePlugins(): void {
       const { id, position, properties, data } = dsl;
       const height = 36 + Math.max(1, data?.columns?.length || 0) * 28;
 
-      // Extract width/height from properties and remove them to avoid override
-      const { width, height: propHeight, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+      const props = extractPropertiesWithDefaults(properties);
 
       return {
         id: id,
         type: 'db-table',
         x: position?.x || 0,
         y: position?.y || 0,
-        width: width ? parseInt(width) : 220,
-        height: propHeight ? parseInt(propHeight) : height,
-        strokeStyle: strokeStyle || 'solid',
-        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
-        roughness: roughness ? parseInt(roughness) : 0,
-        data: { ...data, ...otherProps }
+        width: props.width || 220,
+        height: props.height || height,
+        strokeStyle: props.strokeStyle,
+        strokeWidth: props.strokeWidth,
+        roughness: props.roughness,
+        data: { ...data, ...props.otherProps }
       };
     },
     exporter: (shape: any): string | null => {
@@ -213,15 +213,20 @@ export function registerDatabasePlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties, data } = dsl;
 
+      const props = extractPropertiesWithDefaults(properties);
+
       return {
         id,
         type: 'db-view',
         x: position?.x || 0,
         y: position?.y || 0,
-        width: 220,
-        height: 60,
+        width: props.width || 220,
+        height: props.height || 60,
+        strokeStyle: props.strokeStyle,
+        strokeWidth: props.strokeWidth,
+        roughness: props.roughness,
         data: data || { viewName: '', columns: [] },
-        ...properties
+        ...props.otherProps
       };
     },
     exporter: (shape: any): string | null => {
@@ -293,15 +298,20 @@ export function registerDatabasePlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties, data } = dsl;
 
+      const props = extractPropertiesWithDefaults(properties);
+
       return {
         id,
         type: 'db-enum',
         x: position?.x || 0,
         y: position?.y || 0,
-        width: 160,
-        height: 52,
+        width: props.width || 160,
+        height: props.height || 52,
+        strokeStyle: props.strokeStyle,
+        strokeWidth: props.strokeWidth,
+        roughness: props.roughness,
         data: data || { enumName: '', values: [] },
-        ...properties
+        ...props.otherProps
       };
     },
     exporter: (shape: any): string | null => {

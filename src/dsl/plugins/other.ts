@@ -2,8 +2,9 @@
  * Other shape plugins: text, image, freehand
  */
 
-import type { DSLShapePlugin, DSLShape, ParseContext, ValidationResult } from '../types';
 import { dslRegistry } from '../registry';
+import { extractPropertiesWithDefaults } from '../converter';
+import type { DSLShape, ParseContext, ValidationResult } from '../types';
 
 /**
  * Parse position from DSL line
@@ -90,8 +91,7 @@ export function registerOtherPlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties, text } = dsl;
 
-      // Extract width/height from properties and remove them to avoid override
-      const { width, height, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+      const props = extractPropertiesWithDefaults(properties);
 
       return {
         id,
@@ -100,12 +100,12 @@ export function registerOtherPlugins(): void {
         y: position?.y || 0,
         text: text || '',
         fontSize: 24,
-        width: width ? parseInt(width) : undefined,
-        height: height ? parseInt(height) : undefined,
-        strokeStyle: strokeStyle || 'solid',
-        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
-        roughness: roughness ? parseInt(roughness) : 0,
-        ...otherProps
+        width: props.width,
+        height: props.height,
+        strokeStyle: props.strokeStyle,
+        strokeWidth: props.strokeWidth,
+        roughness: props.roughness,
+        ...props.otherProps
       };
     },
     exporter: (shape: any): string | null => {
