@@ -19,12 +19,17 @@ export function registerConnectorPlugins(): void {
     validator: () => ({ valid: true, errors: [], warnings: [] }),
     converter: (dsl: DSLShape): any => {
       const { from, to, fromPort, toPort, properties } = dsl as any;
+      const hasBinding = from || to;
+      const { strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
       return {
         type: 'arrow',
         startBinding: from ? { elementId: from, portId: fromPort } : undefined,
         endBinding: to ? { elementId: to, portId: toPort } : undefined,
-        points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
-        ...properties
+        points: hasBinding ? [{ x: 0, y: 0 }, { x: 100, y: 0 }] : [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+        strokeStyle: strokeStyle || 'solid',
+        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+        roughness: roughness ? parseInt(roughness) : 0,
+        ...otherProps
       };
     }
   });
@@ -37,12 +42,17 @@ export function registerConnectorPlugins(): void {
     validator: () => ({ valid: true, errors: [], warnings: [] }),
     converter: (dsl: DSLShape): any => {
       const { from, to, fromPort, toPort, properties } = dsl as any;
+      const hasBinding = from || to;
+      const { strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
       return {
         type: 'line',
         startBinding: from ? { elementId: from, portId: fromPort } : undefined,
         endBinding: to ? { elementId: to, portId: toPort } : undefined,
-        points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
-        ...properties
+        points: hasBinding ? [{ x: 0, y: 0 }, { x: 100, y: 0 }] : [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+        strokeStyle: strokeStyle || 'solid',
+        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+        roughness: roughness ? parseInt(roughness) : 0,
+        ...otherProps
       };
     }
   });

@@ -45,7 +45,7 @@ function parseEnumValues(line: string): string[] {
  * Parse position from DSL line
  */
 function parsePosition(line: string): { x: number; y: number } | undefined {
-  const match = line.match(/at\((\d+),\s*(\d+)\)/);
+  const match = line.match(/at\((-?\d+),\s*(-?\d+)\)/);
   if (!match) return undefined;
   return { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
 }
@@ -129,15 +129,20 @@ export function registerDatabasePlugins(): void {
       const { id, position, properties, data } = dsl;
       const height = 36 + Math.max(1, data?.columns?.length || 0) * 28;
 
+      // Extract width/height from properties and remove them to avoid override
+      const { width, height: propHeight, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+
       return {
-        id,
+        id: id,
         type: 'db-table',
         x: position?.x || 0,
         y: position?.y || 0,
-        width: 220,
-        height,
-        data: data || { tableName: '', columns: [] },
-        ...properties
+        width: width ? parseInt(width) : 220,
+        height: propHeight ? parseInt(propHeight) : height,
+        strokeStyle: strokeStyle || 'solid',
+        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+        roughness: roughness ? parseInt(roughness) : 0,
+        data: { ...data, ...otherProps }
       };
     },
     exporter: (shape: any): string | null => {

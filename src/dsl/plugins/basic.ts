@@ -9,7 +9,7 @@ import { dslRegistry } from '../registry';
  * Parse position from DSL line
  */
 function parsePosition(line: string): { x: number; y: number } | undefined {
-  const match = line.match(/at\((\d+),\s*(\d+)\)/);
+  const match = line.match(/at\((-?\d+),\s*(-?\d+)\)/);
   if (!match) return undefined;
   return { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
 }
@@ -94,15 +94,21 @@ function createBaseConverter(tahtaType: string): (dsl: DSLShape) => any {
   return (dsl: DSLShape): any => {
     const { id, type, position, properties, data, text } = dsl;
     
+    // Extract width/height from properties and remove them to avoid override
+    const { width, height, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+    
     return {
       id: id, // Will be regenerated in converter
       type: tahtaType,
       x: position?.x || 0,
       y: position?.y || 0,
-      width: getDefaultWidth(tahtaType),
-      height: getDefaultHeight(tahtaType),
+      width: width ? parseInt(width) : getDefaultWidth(tahtaType),
+      height: height ? parseInt(height) : getDefaultHeight(tahtaType),
       text: text || '',
-      ...properties,
+      strokeStyle: strokeStyle || 'solid',
+      strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+      roughness: roughness ? parseInt(roughness) : 0,
+      ...otherProps,
       ...data
     };
   };

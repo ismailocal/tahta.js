@@ -47,9 +47,9 @@ export function jsonToShapes(doc: DSLDocument): any[] {
     shapes.push(shape);
   }
 
-  // Convert connectors with ID remapping
+  // Convert connectors with ID remapping and point calculation
   for (const conn of doc.connectors) {
-    const connector = convertConnector(conn, idMap);
+    const connector = convertConnector(conn, idMap, shapes);
     if (connector) {
       shapes.push(connector);
     }
@@ -61,7 +61,7 @@ export function jsonToShapes(doc: DSLDocument): any[] {
 /**
  * Convert a single DSL connector to tahta.js connector with ID remapping
  */
-function convertConnector(conn: DSLConnector, idMap: Map<string, string>): any {
+function convertConnector(conn: DSLConnector, idMap: Map<string, string>, shapes: any[]): any {
   const fromId = idMap.get(conn.from);
   const toId = idMap.get(conn.to);
 
@@ -70,26 +70,66 @@ function convertConnector(conn: DSLConnector, idMap: Map<string, string>): any {
     return null;
   }
 
-  const connectorType = conn.type || 'arrow';
-  const plugin = dslRegistry.getPlugin(connectorType);
-  
-  if (!plugin) {
-    console.warn(`No plugin found for connector type: ${connectorType}`);
+  const fromShape = shapes.find(s => s.id === fromId);
+  const toShape = shapes.find(s => s.id === toId);
+
+  if (!fromShape || !toShape) {
+    console.warn(`Connector shapes not found: from=${fromId}, to=${toId}`);
     return null;
   }
 
-  const connector = plugin.converter({
+  // Calculate points based on shape positions and ports
+  const getPortPosition = (shape: any, portId: string | undefined) => {
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+    const cx = shape.x + w / 2;
+    const cy = shape.y + h / 2;
+
+    // Handle database column ports (col-0-right, col-0-left, etc.)
+    if (portId?.startsWith('col-')) {
+      const parts = portId.split('-');
+      const colIndex = parseInt(parts[1]);
+      const side = parts[2];
+      const columns = shape.data?.columns || [];
+      const HEADER_HEIGHT = 36;
+      const ROW_HEIGHT = 28;
+      
+      if (colIndex < columns.length) {
+        const rowY = shape.y + HEADER_HEIGHT + colIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+        if (side === 'left') return { x: shape.x, y: rowY };
+        if (side === 'right') return { x: shape.x + w, y: rowY };
+      }
+      return { x: cx, y: cy };
+    }
+
+    // Handle standard ports
+    switch (portId) {
+      case 'top': return { x: cx, y: shape.y };
+      case 'bottom': return { x: cx, y: shape.y + h };
+      case 'left': return { x: shape.x, y: cy };
+      case 'right': return { x: shape.x + w, y: cy };
+      default: return { x: cx, y: cy };
+    }
+  };
+
+  const fromPortPos = getPortPosition(fromShape, conn.fromPort);
+  const toPortPos = getPortPosition(toShape, conn.toPort);
+
+  const connectorType = conn.type || 'arrow';
+  const { strokeStyle, strokeWidth, roughness, ...otherProps } = conn.properties;
+  return {
     id: createId(),
     type: connectorType,
-    from: fromId,
-    to: toId,
-    fromPort: conn.fromPort,
-    toPort: conn.toPort,
-    properties: conn.properties
-  } as DSLShape);
-
-  connector.id = createId();
-  return connector;
+    x: 0,
+    y: 0,
+    startBinding: conn.fromPort ? { elementId: fromId, portId: conn.fromPort } : undefined,
+    endBinding: conn.toPort ? { elementId: toId, portId: conn.toPort } : undefined,
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    strokeStyle: strokeStyle || 'solid',
+    strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+    roughness: roughness ? parseInt(roughness) : 0,
+    ...otherProps
+  };
 }
 
 /**

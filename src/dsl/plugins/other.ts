@@ -9,7 +9,7 @@ import { dslRegistry } from '../registry';
  * Parse position from DSL line
  */
 function parsePosition(line: string): { x: number; y: number } | undefined {
-  const match = line.match(/at\((\d+),\s*(\d+)\)/);
+  const match = line.match(/at\((-?\d+),\s*(-?\d+)\)/);
   if (!match) return undefined;
   return { x: parseInt(match[1], 10), y: parseInt(match[2], 10) };
 }
@@ -90,6 +90,9 @@ export function registerOtherPlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties, text } = dsl;
 
+      // Extract width/height from properties and remove them to avoid override
+      const { width, height, strokeStyle, strokeWidth, roughness, ...otherProps } = properties;
+
       return {
         id,
         type: 'text',
@@ -97,7 +100,12 @@ export function registerOtherPlugins(): void {
         y: position?.y || 0,
         text: text || '',
         fontSize: 24,
-        ...properties
+        width: width ? parseInt(width) : undefined,
+        height: height ? parseInt(height) : undefined,
+        strokeStyle: strokeStyle || 'solid',
+        strokeWidth: strokeWidth ? parseInt(strokeWidth) : 1,
+        roughness: roughness ? parseInt(roughness) : 0,
+        ...otherProps
       };
     },
     exporter: (shape: any): string | null => {
@@ -161,15 +169,18 @@ export function registerOtherPlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties, text } = dsl;
 
+      // Extract width/height from properties and remove them to avoid override
+      const { width, height, ...otherProps } = properties;
+
       return {
         id,
         type: 'image',
         x: position?.x || 0,
         y: position?.y || 0,
-        width: 200,
-        height: 150,
+        width: width ? parseInt(width) : 200,
+        height: height ? parseInt(height) : 150,
         source: text || '',
-        ...properties
+        ...otherProps
       };
     },
     exporter: (shape: any): string | null => {
@@ -229,13 +240,18 @@ export function registerOtherPlugins(): void {
     converter: (dsl: DSLShape): any => {
       const { id, position, properties } = dsl;
 
+      // Extract width/height from properties and remove them to avoid override
+      const { width, height, ...otherProps } = properties;
+
       return {
         id,
         type: 'freehand',
         x: position?.x || 0,
         y: position?.y || 0,
+        width: width ? parseInt(width) : undefined,
+        height: height ? parseInt(height) : undefined,
         points: [{ x: 0, y: 0 }, { x: 50, y: 50 }, { x: 100, y: 0 }],
-        ...properties
+        ...otherProps
       };
     },
     exporter: (shape: any): string | null => {

@@ -1,6 +1,12 @@
 import type { Shape, Point } from '../core/types';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
+import { TEMPLATES_DSL } from './templates-dsl';
+import { dslToJson, jsonToShapes } from '../dsl/converter';
+import { registerAllPlugins } from '../dsl/plugins';
+
+// Ensure DSL plugins are registered
+registerAllPlugins();
 
 // ─── Core data model ──────────────────────────────────────────────────────────
 
@@ -85,6 +91,25 @@ export function selectionToTemplate(label: string, shapes: Shape[]): Template {
   return { label, shapes: templateShapes };
 }
 
+// ─── DSL to Template converter ───────────────────────────────────────────────────
+
+/**
+ * Convert DSL string to Template format
+ * This bridges the DSL system with the existing Template format
+ */
+function dslToTemplate(dslText: string, label: string): Template {
+  const doc = dslToJson(dslText);
+  const shapes = jsonToShapes(doc);
+  
+  // Convert Shape[] to TemplateShape[] by replacing id with _tid
+  const templateShapes: TemplateShape[] = shapes.map(s => {
+    const { id, ...rest } = s as any;
+    return { ...rest, _tid: id } as TemplateShape;
+  });
+  
+  return { label, shapes: templateShapes };
+}
+
 // ─── Build helpers (only used for defining built-in templates below) ──────────
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
@@ -161,173 +186,31 @@ function s_dbTable(x: number, y: number, tableName: string,
 // ─── Built-in templates ───────────────────────────────────────────────────────
 
 function makeDecisionTree(): Template {
-  const DW = 180, DH = 70, W = 160, H = 52, SIDE = 210, VERT = 100;
-  const cx = 0, y = 0;
-
-  const root   = s_diamond(cx - DW / 2, y, DW, DH, 'Karar?');
-  const yes    = s_rect(cx - SIDE - W / 2, y + DH + VERT, W, H, 'Evet',  { stroke: '#22c55e' });
-  const no     = s_rect(cx + SIDE - W / 2, y + DH + VERT, W, H, 'Hayır', { stroke: '#ef4444' });
-  const resY   = y + DH + VERT + H + VERT;
-  const yesEnd = s_oval(cx - SIDE - 70, resY, 140, H, 'Sonuç A');
-  const noEnd  = s_oval(cx + SIDE - 70, resY, 140, H, 'Sonuç B');
-
-  return {
-    label: 'Karar Ağacı',
-    shapes: [
-      root, yes, no, yesEnd, noEnd,
-      s_arrow(port(root, 'left'),    port(yes, 'right'),   { text: 'Evet'  }),
-      s_arrow(port(root, 'right'),   port(no, 'left'),     { text: 'Hayır' }),
-      s_arrow(port(yes, 'bottom'),   port(yesEnd, 'top')),
-      s_arrow(port(no, 'bottom'),    port(noEnd, 'top')),
-    ],
-  };
+  return dslToTemplate(TEMPLATES_DSL['decision-tree'], 'Decision Tree');
 }
 
 function makeFlowchart(): Template {
-  const W = 160, H = 52, DW = 200, DH = 72, GAP = 80, cx = 0;
-  const y0 = 0, y1 = y0 + H + GAP, y2 = y1 + H + GAP, y3 = y2 + DH + GAP, y4 = y3 + H + GAP;
-  const noX = cx + DW / 2 + 60, noY = y2 + DH / 2 - H / 2;
-
-  const start   = s_oval(cx - W / 2,     y0,  W,   H,  'Başlangıç');
-  const process = s_rect(cx - W / 2,     y1,  W,   H,  'İşlem');
-  const decide  = s_diamond(cx - DW / 2, y2,  DW,  DH, 'Koşul?');
-  const yes     = s_rect(cx - W / 2,     y3,  W,   H,  'Evet yolu', { stroke: '#22c55e' });
-  const no      = s_rect(noX,            noY, W,   H,  'Hayır yolu', { stroke: '#ef4444' });
-  const end     = s_oval(cx - W / 2,     y4,  W,   H,  'Bitiş');
-
-  return {
-    label: 'Akış Şeması',
-    shapes: [
-      start, process, decide, yes, no, end,
-      s_arrow(port(start,   'bottom'), port(process, 'top')),
-      s_arrow(port(process, 'bottom'), port(decide,  'top')),
-      s_arrow(port(decide,  'bottom'), port(yes,     'top'),  { text: 'Evet'  }),
-      s_arrow(port(decide,  'right'),  port(no,      'left'), { text: 'Hayır' }),
-      s_arrow(port(yes,     'bottom'), port(end,     'top')),
-    ],
-  };
+  return dslToTemplate(TEMPLATES_DSL['flowchart'], 'Flowchart');
 }
 
 function makeDbSchema(): Template {
-  const users  = s_dbTable(0,   0, 'users', [
-    { name: 'id', type: 'INT', pk: true }, { name: 'name', type: 'VARCHAR' },
-    { name: 'email', type: 'VARCHAR' },    { name: 'created_at', type: 'TIMESTAMP' },
-  ]);
-  const orders = s_dbTable(300, 0, 'orders', [
-    { name: 'id', type: 'INT', pk: true }, { name: 'user_id', type: 'INT', fk: true },
-    { name: 'total', type: 'DECIMAL' },    { name: 'status', type: 'VARCHAR' },
-    { name: 'created_at', type: 'TIMESTAMP' },
-  ]);
-  const items  = s_dbTable(600, 0, 'order_items', [
-    { name: 'id', type: 'INT', pk: true }, { name: 'order_id', type: 'INT', fk: true },
-    { name: 'product', type: 'VARCHAR' },  { name: 'quantity', type: 'INT' },
-    { name: 'price', type: 'DECIMAL' },
-  ]);
-
-  // Use column-level port IDs that match DbTablePlugin.getConnectionPoints output
-  function dbPort(s: TemplateShape, colIndex: number, side: 'left' | 'right') {
-    const w = s.width || 0;
-    const rowY = s.y + DB_HEADER + colIndex * DB_ROW + DB_ROW / 2;
-    return { x: side === 'left' ? s.x : s.x + w, y: rowY, id: `col-${colIndex}-${side}`, shapeId: s._tid };
-  }
-
-  return {
-    label: 'DB Şeması',
-    shapes: [
-      users, orders, items,
-      s_arrow(dbPort(users,  0, 'right'), dbPort(orders, 1, 'left')),
-      s_arrow(dbPort(orders, 0, 'right'), dbPort(items,  1, 'left')),
-    ],
-  };
+  return dslToTemplate(TEMPLATES_DSL['db-schema'], 'DB Schema');
 }
 
 function makeUserFlow(): Template {
-  const W = 150, H = 52, DW = 180, DH = 72, GAP = 60;
-  const x0 = 0, x1 = x0 + W + GAP, x2 = x1 + W + GAP, x3 = x2 + DW + GAP;
-  const dY = H / 2 - DH / 2;
-
-  const login     = s_rect(x0, 0,           W,  H,  'Giriş',     { stroke: '#06b6d4' });
-  const dashboard = s_rect(x1, 0,           W,  H,  'Dashboard');
-  const action    = s_diamond(x2, dY,       DW, DH, 'Aksiyon?');
-  const success   = s_rect(x3, -20,         W,  H,  'Başarı',    { stroke: '#22c55e' });
-  const error     = s_rect(x3, H + 20,      W,  H,  'Hata',      { stroke: '#ef4444' });
-  const logout    = s_oval(x0, H + 100,     W,  H,  'Çıkış');
-
-  return {
-    label: 'Kullanıcı Akışı',
-    shapes: [
-      login, dashboard, action, success, error, logout,
-      s_arrow(port(login,     'right'),  port(dashboard, 'left')),
-      s_arrow(port(dashboard, 'right'),  port(action,    'left')),
-      s_arrow(port(action,    'right'),  port(success,   'left'), { text: 'Evet'  }),
-      s_arrow(port(action,    'bottom'), port(error,     'left'), { text: 'Hayır' }),
-      s_arrow(port(login,     'bottom'), port(logout,    'top')),
-    ],
-  };
+  return dslToTemplate(TEMPLATES_DSL['user-flow'], 'User Flow');
 }
 
 function makeMindMap(): Template {
-  const CW = 160, CH = 52, BW = 130, BH = 44, HGAP = 100, VGAP = 30;
-
-  const center = s_rect(-CW / 2, -CH / 2, CW, CH, 'Ana Fikir', {
-    stroke: '#f59e0b', fill: '#1c1310',
-  });
-
-  const branches = [
-    { bx: -CW / 2 - HGAP - BW, by: -CH / 2 - BH - VGAP, label: 'Konu 1', color: '#8b5cf6' },
-    { bx: -CW / 2 - HGAP - BW, by:  CH / 2 + VGAP,       label: 'Konu 3', color: '#22c55e' },
-    { bx:  CW / 2 + HGAP,      by: -CH / 2 - BH - VGAP,  label: 'Konu 2', color: '#06b6d4' },
-    { bx:  CW / 2 + HGAP,      by:  CH / 2 + VGAP,        label: 'Konu 4', color: '#f43f5e' },
-  ];
-
-  const nodes = branches.map(b => s_rect(b.bx, b.by, BW, BH, b.label, { stroke: b.color }));
-
-  const arrs = branches.map((b, i) => {
-    const isLeft = b.bx < 0;
-    return s_arrow(
-      port(nodes[i], isLeft ? 'right' : 'left'),
-      port(center,   isLeft ? 'left'  : 'right'),
-      { endArrowhead: 'none', stroke: branches[i].color }
-    );
-  });
-
-  return { label: 'Mind Map', shapes: [center, ...nodes, ...arrs] };
+  return dslToTemplate(TEMPLATES_DSL['mind-map'], 'Mind Map');
 }
 
 function makeSwot(): Template {
-  const QW = 300, QH = 200, GAP = 4;
-  const tl = s_rect(0,          0,          QW, QH, 'Güçlü Yönler\n(Strengths)',    { stroke: '#22c55e', fill: '#f0fdf4' });
-  const tr = s_rect(QW + GAP,   0,          QW, QH, 'Zayıf Yönler\n(Weaknesses)',   { stroke: '#ef4444', fill: '#fef2f2' });
-  const bl = s_rect(0,          QH + GAP,   QW, QH, 'Fırsatlar\n(Opportunities)',   { stroke: '#06b6d4', fill: '#f0f9ff' });
-  const br = s_rect(QW + GAP,   QH + GAP,   QW, QH, 'Tehditler\n(Threats)',         { stroke: '#f59e0b', fill: '#fffbeb' });
-  return { label: 'SWOT Analizi', shapes: [tl, tr, bl, br] };
+  return dslToTemplate(TEMPLATES_DSL['swot'], 'SWOT Analysis');
 }
 
 function makeOrgChart(): Template {
-  const W = 140, H = 48, HGAP = 30, VGAP = 60;
-  const totalW = 3 * W + 2 * HGAP;
-
-  const ceo = s_rect(-W / 2, 0, W, H, 'CEO', { stroke: '#6366f1', fill: '#eef2ff' });
-
-  const mgrs = [0, 1, 2].map(i => {
-    const x = -totalW / 2 + i * (W + HGAP);
-    return s_rect(x, H + VGAP, W, H, `Müdür ${i + 1}`, { stroke: '#8b5cf6' });
-  });
-
-  const emps: TemplateShape[] = [];
-  mgrs.forEach((mgr, mi) => {
-    [0, 1].forEach(ei => {
-      const x = mgr.x + (ei === 0 ? -W * 0.6 : W * 0.6 + 10);
-      emps.push(s_rect(x, mgr.y + H + VGAP, W * 0.85, H * 0.85, `Çalışan ${mi * 2 + ei + 1}`, { stroke: '#a78bfa' }));
-    });
-  });
-
-  const arrows: TemplateShape[] = [
-    ...mgrs.map(m => s_arrow(port(ceo, 'bottom'), port(m, 'top'), { endArrowhead: 'none', edgeStyle: 'elbow' } as any)),
-    ...emps.map((e, i) => s_arrow(port(mgrs[Math.floor(i / 2)], 'bottom'), port(e, 'top'), { endArrowhead: 'none', edgeStyle: 'elbow' } as any)),
-  ];
-
-  return { label: 'Org Şeması', shapes: [ceo, ...mgrs, ...emps, ...arrows] };
+  return dslToTemplate(TEMPLATES_DSL['org-chart'], 'Org Chart');
 }
 
 function makeTimeline(): Template {
@@ -399,15 +282,11 @@ function makeUmlClass(): Template {
     { endArrowhead: 'triangle', text: 'has many' } as any
   );
 
-  return { label: 'UML Sınıf', shapes: [...cls1, ...cls2, arrow] };
+  return { label: 'UML Class', shapes: [...cls1, ...cls2, arrow] };
 }
 
 function makeVennDiagram(): Template {
-  const R = 220, offset = 80;
-  const a = s_oval(-offset - R / 2, -R * 0.6, R, R, 'Küme A', { stroke: '#6366f1', fill: '#6366f1', opacity: 0.25 });
-  const b = s_oval(offset - R / 2,  -R * 0.6, R, R, 'Küme B', { stroke: '#ec4899', fill: '#ec4899', opacity: 0.25 });
-  const c = s_oval(-R / 2,           R * 0.6 - R * 0.85, R, R, 'Küme C', { stroke: '#f59e0b', fill: '#f59e0b', opacity: 0.25 });
-  return { label: 'Venn Diyagramı', shapes: [a, b, c] };
+  return dslToTemplate(TEMPLATES_DSL['venn'], 'Venn Diagram');
 }
 
 function makeFishbone(): Template {
@@ -428,7 +307,7 @@ function makeFishbone(): Template {
     seed: randomSeed(),
   } as TemplateShape;
 
-  const categories = ['Yöntem', 'Makine', 'Malzeme', 'İnsan'];
+  const categories = ['Method', 'Machine', 'Material', 'People'];
   const positions = [SPINE_W * 0.2, SPINE_W * 0.45, SPINE_W * 0.2, SPINE_W * 0.45];
   const sides: Array<1 | -1> = [1, 1, -1, -1]; // 1=above, -1=below
 
@@ -457,22 +336,7 @@ function makeFishbone(): Template {
 }
 
 function makeWireframe(): Template {
-  const PW = 720, PH = 540;
-  const HDR_H = 60, FTR_H = 48, SIDE_W = 160, GAP = 8;
-  const contentX = SIDE_W + GAP, contentW = PW - SIDE_W - GAP;
-  const contentH = PH - HDR_H - FTR_H - GAP * 2;
-  const contentY = HDR_H + GAP;
-
-  const header  = s_rect(0, 0,          PW,      HDR_H,    'Header / Nav', { stroke: '#94a3b8', fill: '#f1f5f9' });
-  const sidebar = s_rect(0, contentY,   SIDE_W,  contentH, 'Sidebar',      { stroke: '#94a3b8', fill: '#f8fafc' });
-  const footer  = s_rect(0, PH - FTR_H, PW,     FTR_H,    'Footer',       { stroke: '#94a3b8', fill: '#f1f5f9' });
-
-  const cardH = (contentH - GAP * 2) / 3;
-  const cards = [0, 1, 2].map(i =>
-    s_rect(contentX, contentY + i * (cardH + GAP), contentW, cardH, `İçerik ${i + 1}`, { stroke: '#cbd5e1' })
-  );
-
-  return { label: 'Wireframe', shapes: [header, sidebar, footer, ...cards] };
+  return dslToTemplate(TEMPLATES_DSL['wireframe'], 'Wireframe');
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
