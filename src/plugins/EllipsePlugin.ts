@@ -53,9 +53,20 @@ export class EllipsePlugin extends BaseRectPlugin {
     const t = Math.max(8, (shape.strokeWidth || 1) + 7);
     const rx = b.width / 2, ry = b.height / 2;
     const dx = point.x - cx, dy = point.y - cy;
+    
     // Accept clicks anywhere inside the (slightly inflated) ellipse bounding area
     const distOuter = (dx * dx) / ((rx + t) * (rx + t)) + (dy * dy) / ((ry + t) * (ry + t));
-    return distOuter <= 1;
+    if (distOuter > 1) return false;
+
+    const isTransparent = !shape.fill || shape.fill === 'transparent' || shape.fill === 'none';
+    if (isTransparent) {
+        const rxi = Math.max(0.1, rx - t);
+        const ryi = Math.max(0.1, ry - t);
+        const distInner = (dx * dx) / (rxi * rxi) + (dy * dy) / (ryi * ryi);
+        return distInner >= 1;
+    }
+
+    return true;
   }
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {

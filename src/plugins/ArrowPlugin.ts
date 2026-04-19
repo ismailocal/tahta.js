@@ -1,7 +1,7 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
+import { pointToSegmentDistance, getTopShapeAtPoint, pointToQuadraticBezierDistance } from '../geometry/Geometry';
 import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions, getRoundedPathData } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 import { UI_CONSTANTS } from '../core/constants';
@@ -42,7 +42,7 @@ export class ArrowPlugin implements IShapePlugin {
   isConnector = true;
   canBind = true;
   defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'roughness', 'layer', 'action'];
 
   getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
     const pts = shape.points || [];
@@ -210,11 +210,27 @@ export class ArrowPlugin implements IShapePlugin {
 
     const xs = pts.map(p => shape.x + p.x);
     const ys = pts.map(p => shape.y + p.y);
+
+    if (shape.edgeStyle === 'curved' && pts.length >= 2) {
+      const p1 = { x: xs[0], y: ys[0] };
+      const p2 = { x: xs[1], y: ys[1] };
+      const cp = getCurvedControlPoint(p1, p2);
+      xs.push(cp.x);
+      ys.push(cp.y);
+    }
+
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
-    return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+    const pad = 30; // Larger padding for arrowheads
+
+    return {
+      x: minX - pad,
+      y: minY - pad,
+      width: Math.max(1, maxX - minX) + pad * 2,
+      height: Math.max(1, maxY - minY) + pad * 2,
+    };
   }
 
   getHandleAtPoint(shape: Shape, point: Point, allShapes: Shape[]): string | null {
@@ -235,17 +251,24 @@ export class ArrowPlugin implements IShapePlugin {
     // Use the *visually clipped* endpoints for hit testing
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
 
+    const threshold = Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4);
+
     if (useSmartRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
       const path = getElbowPath(p1, p2, b1, b2);
       for (let i = 0; i < path.length - 1; i++) {
-        if (pointToSegmentDistance(point, path[i], path[i + 1]) <= Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4)) return true;
+        if (pointToSegmentDistance(point, path[i], path[i + 1]) <= threshold) return true;
       }
       return false;
     }
 
-    return pointToSegmentDistance(point, p1, p2) <= Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4);
+    if (shape.edgeStyle === 'curved') {
+      const cp = getCurvedControlPoint(p1, p2);
+      return pointToQuadraticBezierDistance(point, p1, cp, p2) <= threshold;
+    }
+
+    return pointToSegmentDistance(point, p1, p2) <= threshold;
   }
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload, _dragStart: Point): Partial<Shape> {

@@ -72,7 +72,7 @@ export class DbTablePlugin extends BaseRectPlugin {
     ctx.fillRect(x, y + HEADER_HEIGHT - 2, w, 2);
 
     ctx.fillStyle = isLight ? '#1e293b' : '#f1f5f9';
-    ctx.font = 'bold 13px "Inter", system-ui, sans-serif';
+    ctx.font = 'bold 13px "Architects Daughter", cursive';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(tableName, x + 12, y + HEADER_HEIGHT / 2, w - 24);
@@ -91,23 +91,23 @@ export class DbTablePlugin extends BaseRectPlugin {
       let badgeOffset = x + 12;
       if (col.pk) {
         ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 9px "Inter", system-ui, sans-serif';
+        ctx.font = 'bold 9px "Architects Daughter", cursive';
         ctx.fillText('PK', badgeOffset, rowY + ROW_HEIGHT / 2);
         badgeOffset += 22;
       } else if (col.fk) {
         ctx.fillStyle = '#a78bfa';
-        ctx.font = 'bold 9px "Inter", system-ui, sans-serif';
+        ctx.font = 'bold 9px "Architects Daughter", cursive';
         ctx.fillText('FK', badgeOffset, rowY + ROW_HEIGHT / 2);
         badgeOffset += 22;
       }
 
       ctx.fillStyle = col.pk ? (isLight ? '#92400e' : '#fde68a') : col.fk ? (isLight ? '#5b21b6' : '#ddd6fe') : (isLight ? '#475569' : '#e2e8f0');
-      ctx.font = '12px "Inter", system-ui, sans-serif';
+      ctx.font = '12px "Architects Daughter", cursive';
       ctx.textAlign = 'left';
       ctx.fillText(col.name + (col.nullable ? '?' : ''), badgeOffset, rowY + ROW_HEIGHT / 2, w * 0.55 - badgeOffset + x);
 
       ctx.fillStyle = '#64748b';
-      ctx.font = '11px "Inter", system-ui, sans-serif';
+      ctx.font = '11px "Architects Daughter", cursive';
       ctx.textAlign = 'right';
       ctx.fillText(col.type, x + w - 10, rowY + ROW_HEIGHT / 2);
       ctx.textAlign = 'left';

@@ -46,7 +46,12 @@ export function toSvgPath(pts: Point[]): string {
  * Shared hit-test for polygon-bounded shapes.
  * Always tests both interior and edge proximity regardless of fill.
  */
-export function polygonHitTest(point: Point, polygon: Point[], strokeWidth: number, _fill?: string): boolean {
+export function polygonHitTest(point: Point, polygon: Point[], strokeWidth: number, fill?: string): boolean {
   const t = Math.max(8, (strokeWidth || 1) + 7);
-  return isPointInPolygon(point.x, point.y, polygon) || isPointNearEdge(point.x, point.y, polygon, t);
+  const nearEdge = isPointNearEdge(point.x, point.y, polygon, t);
+  const isTransparent = !fill || fill === 'transparent' || fill === 'none';
+  if (!isTransparent) {
+    return nearEdge || isPointInPolygon(point.x, point.y, polygon);
+  }
+  return nearEdge;
 }

@@ -1,5 +1,6 @@
 import type { Shape, ICanvasAPI } from '../../core/types';
 import { getShapePropertyKeys, STROKE_COLORS, FILL_COLORS } from './PropertyConstants';
+import { getCachedStyle } from '../../core/constants';
 
 // ─── SVGs ─────────────────────────────────────────────────────────────────────
 
@@ -11,8 +12,8 @@ const I = {
   styleDashed:   `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>`,
   styleDotted:   `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 4" stroke-linecap="round"/></svg>`,
   fillSolid:     `<svg viewBox="0 0 20 14"><rect x="1" y="1" width="18" height="12" rx="2" fill="currentColor" fill-opacity="0.7" stroke="currentColor" stroke-width="1"/></svg>`,
-  fillHachure:   `<svg viewBox="0 0 20 14"><rect x="1" y="1" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><line x1="5" y1="1" x2="1" y2="5" stroke="currentColor" stroke-width="1"/><line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" stroke-width="1"/><line x1="15" y1="1" x2="4" y2="12" stroke="currentColor" stroke-width="1"/><line x1="20" y1="1" x2="9" y2="12" stroke="currentColor" stroke-width="1"/><line x1="20" y1="5" x2="14" y2="11" stroke="currentColor" stroke-width="1"/></svg>`,
-  fillCrossHatch:`<svg viewBox="0 0 20 14"><rect x="1" y="1" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><line x1="5" y1="1" x2="1" y2="5" stroke="currentColor" stroke-width="1"/><line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" stroke-width="1"/><line x1="15" y1="1" x2="4" y2="12" stroke="currentColor" stroke-width="1"/><line x1="20" y1="1" x2="9" y2="12" stroke="currentColor" stroke-width="1"/><line x1="19" y1="5" x2="15" y2="1" stroke="currentColor" stroke-width="1"/><line x1="19" y1="10" x2="10" y2="1" stroke="currentColor" stroke-width="1"/><line x1="16" y1="13" x2="5" y2="2" stroke="currentColor" stroke-width="1"/></svg>`,
+  fillHachure:   `<svg viewBox="0 0 20 14"><rect x="1" y="1" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><line x1="5" y1="12" x2="11" y2="2" stroke="currentColor" stroke-width="1"/><line x1="11" y1="12" x2="17" y2="2" stroke="currentColor" stroke-width="1"/></svg>`,
+  fillCrossHatch:`<svg viewBox="0 0 20 14"><rect x="1" y="1" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><line x1="5" y1="12" x2="11" y2="2" stroke="currentColor" stroke-width="1"/><line x1="11" y1="12" x2="17" y2="2" stroke="currentColor" stroke-width="1"/><line x1="5" y1="2" x2="11" y2="12" stroke="currentColor" stroke-width="1"/><line x1="11" y1="2" x2="17" y2="12" stroke="currentColor" stroke-width="1"/></svg>`,
   roughNone:     `<svg viewBox="0 0 40 10"><path d="M2 5h36" stroke="currentColor" stroke-width="1.5"/></svg>`,
   roughLow:      `<svg viewBox="0 0 40 10"><path d="M2 5 Q10 3 18 5 Q26 7 34 4 L38 5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   roughHigh:     `<svg viewBox="0 0 40 10"><path d="M2 6 Q7 2 12 7 Q17 2 22 7 Q27 2 32 7 Q36 3 38 5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
@@ -23,13 +24,14 @@ const I = {
   ahArrow:       `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="18" y2="5" stroke="currentColor" stroke-width="1.5"/><polyline points="13,2 18,5 13,8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   ahTriangle:    `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1.5"/><polygon points="14,2 20,5 14,8" fill="currentColor"/></svg>`,
   ahCircle:      `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="5" r="3" fill="currentColor"/></svg>`,
+  ahDiamond:     `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1.5"/><polygon points="18,2 21,5 18,8 15,5" fill="currentColor"/></svg>`,
   ahBar:         `<svg viewBox="0 0 24 10"><line x1="2" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="1.5"/><line x1="22" y1="1" x2="22" y2="9" stroke="currentColor" stroke-width="2"/></svg>`,
   roundSharp:    `<svg viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
   roundRound:    `<svg viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" rx="5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
-  layerBack:     `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="9" width="8" height="8" rx="1"/><rect x="10" y="3" width="8" height="8" rx="1"/></svg>`,
-  layerBwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 5v10M6 11l4 4 4-4"/></svg>`,
-  layerFwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 15V5M6 9l4-4 4 4"/></svg>`,
-  layerFront:    `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="9" width="8" height="8" rx="1" opacity="0.4"/><rect x="10" y="3" width="8" height="8" rx="1"/></svg>`,
+  layerBack:     `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="8" rx="1.5"/><polyline points="7 11 10 14 13 11"/><polyline points="7 14 10 17 13 14"/></svg>`,
+  layerBwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="9" rx="1.5"/><polyline points="7 14 10 17 13 14"/></svg>`,
+  layerFwd:      `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="1.5"/><polyline points="7 6 10 3 13 6"/></svg>`,
+  layerFront:    `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="12" height="8" rx="1.5"/><polyline points="7 9 10 6 13 9"/><polyline points="7 6 10 3 13 6"/></svg>`,
   duplicate:     `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M13 7V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h3"/></svg>`,
   delete:        `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14M8 5V3h4v2M17 5l-1 12a1 1 0 01-1 1H5a1 1 0 01-1-1L3 5"/></svg>`,
   lock:          `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="14" height="9" rx="1.5"/><path d="M7 9V6a3 3 0 016 0v3"/></svg>`,
@@ -40,9 +42,9 @@ const I = {
   valignTop:     `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="2" x2="13" y2="2"/><line x1="6" y1="5" x2="6" y2="15"/><line x1="10" y1="5" x2="10" y2="11"/></svg>`,
   valignMiddle:  `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="10" x2="13" y2="10"/><line x1="6" y1="4" x2="6" y2="16"/><line x1="10" y1="6" x2="10" y2="14"/></svg>`,
   valignBottom:  `<svg viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="18" x2="13" y2="18"/><line x1="6" y1="5" x2="6" y2="15"/><line x1="10" y1="9" x2="10" y2="15"/></svg>`,
-  overflowFree:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1" stroke-dasharray="3 2"/><line x1="5" y1="6" x2="18" y2="6"/><line x1="5" y1="10" x2="16" y2="10"/></svg>`,
-  overflowWrap:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="11" y2="10"/><path d="M15 6 Q17 6 17 8 Q17 10 15 10" stroke-dasharray="2 1"/></svg>`,
-  overflowClip:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="15" y2="10"/><line x1="18" y1="2" x2="18" y2="14" stroke-width="2"/></svg>`,
+  overflowFree:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="15" y2="10"/></svg>`,
+  overflowWrap:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="10" y2="6"/><line x1="10" y1="6" x2="10" y2="10"/><line x1="10" y1="10" x2="15" y2="10"/></svg>`,
+  overflowClip:  `<svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="16" height="12" rx="1"/><line x1="5" y1="6" x2="15" y2="6"/><line x1="5" y1="10" x2="15" y2="10"/><line x1="16" y1="2" x2="16" y2="14" stroke-width="2"/></svg>`,
 };
 
 // ─── HTML helpers ──────────────────────────────────────────────────────────────
@@ -61,7 +63,13 @@ function iconBtn(prop: string, val: string, svg: string, active: boolean, title:
 
 function section(label: string, content: string): string {
   return `<div class="pp-section">
-    <div class="pp-label">${label}</div>
+    ${content}
+  </div>`;
+}
+
+function row(label: string, content: string): string {
+  return `<div class="pp-row">
+    <span class="pp-label">${label}</span>
     <div class="pp-controls">${content}</div>
   </div>`;
 }
@@ -76,7 +84,7 @@ function dropdown(label: string, icon: string, content: string, title: string): 
   return `<div class="pp-dropdown-wrap">
     <button class="pp-dbat" title="${title}" aria-label="${title}">
       <span class="pp-dbat-icon">${icon}</span>
-      <span class="tool-dropdown-arrow">▾</span>
+      <span class="tool-dropdown-arrow">▸</span>
     </button>
     <div class="pp-dropdown-menu">
       <div class="pp-dropdown-label" aria-label="${label}">${label}</div>
@@ -91,13 +99,148 @@ function colorIcon(color: string): string {
     style="${isTrans ? '' : `background:${color}; border: 1px solid rgba(0,0,0,0.1);`}"></div>`;
 }
 
+const PROPERTIES_ICONS = {
+  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+};
+
 export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   const state = api.getState();
   const selectedShapes = state.selectedIds
     .map((id: string) => state.shapes.find((s: Shape) => s.id === id))
     .filter((s): s is Shape => !!s);
 
-  if (!selectedShapes.length) return '';
+  // Eğer seçili şekil yoksa ama aktif bir çizim aracı varsa, cached style'ı göster
+  const isDrawingTool = [
+    'rectangle', 'ellipse', 'diamond', 'triangle', 'sticky-note',
+    'arrow', 'freehand', 'text', 'db-table', 'db-view', 'db-enum',
+    'hexagon', 'star', 'parallelogram', 'cylinder', 'cloud', 'callout'
+  ].includes(state.activeTool);
+
+  if (!selectedShapes.length) {
+    if (!isDrawingTool) return '';
+
+    // Aktif araç için cached style'ı al ve mock shape oluştur
+    const cachedStyle = getCachedStyle(state.activeTool);
+    const shape: Shape = {
+      id: '',
+      type: state.activeTool as any,
+      x: 0, y: 0,
+      width: 0, height: 0,
+      ...cachedStyle
+    };
+
+    // Tek bir şekil gibi davran
+    const props = getShapePropertyKeys(shape.type);
+    const has = (k: string) => props.includes(k);
+    const sw = shape.strokeWidth ?? 2;
+    const groups: string[] = [];
+
+    // Group 1: Appearance (Stroke, Fill)
+    let appearanceHtml = '';
+    if (has('stroke')) {
+      appearanceHtml += row('Stroke', `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`);
+    }
+    if (has('strokeWidth')) {
+      appearanceHtml += row('Thickness',
+        btnGroup(
+          iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'Thin'),
+          iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Medium'),
+          iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Thick'),
+        )
+      );
+    }
+    if (has('roughness')) {
+      const r = shape.roughness ?? 0;
+      appearanceHtml += row('Roughness',
+        btnGroup(
+          iconBtn('roughness', '0', I.roughNone, r === 0, 'None'),
+          iconBtn('roughness', '1', I.roughLow,  r === 1, 'Low'),
+          iconBtn('roughness', '2', I.roughHigh, r === 2, 'High'),
+        )
+      );
+    }
+    if (has('strokeStyle')) {
+      const s = shape.strokeStyle || 'solid';
+      appearanceHtml += row('Line style',
+        btnGroup(
+          iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Solid'),
+          iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Dashed'),
+          iconBtn('strokeStyle', 'dotted', I.styleDotted, s === 'dotted', 'Dotted'),
+        )
+      );
+    }
+    if (has('edgeStyle')) {
+      const es = shape.edgeStyle || 'straight';
+      appearanceHtml += row('Edge style',
+        btnGroup(
+          iconBtn('edgeStyle', 'straight', I.edgeStraight, es === 'straight', 'Straight'),
+          iconBtn('edgeStyle', 'elbow',    I.edgeElbow,    es === 'elbow',    'Elbow'),
+          iconBtn('edgeStyle', 'curved',   I.edgeCurved,   es === 'curved',   'Curved'),
+        )
+      );
+    }
+    if (has('startArrowhead')) {
+      const sa = shape.startArrowhead || 'none';
+      appearanceHtml += row('Start arrow',
+        btnGroup(
+          iconBtn('startArrowhead', 'none',     I.ahNone,     sa === 'none',     'None'),
+          iconBtn('startArrowhead', 'arrow',    I.ahArrow,    sa === 'arrow',    'Arrow'),
+          iconBtn('startArrowhead', 'triangle', I.ahTriangle, sa === 'triangle', 'Triangle'),
+          iconBtn('startArrowhead', 'circle',   I.ahCircle,   sa === 'circle',   'Circle'),
+          iconBtn('startArrowhead', 'diamond',  I.ahDiamond,  sa === 'diamond',  'Diamond'),
+          iconBtn('startArrowhead', 'bar',      I.ahBar,      sa === 'bar',      'Bar'),
+        )
+      );
+    }
+    if (has('endArrowhead')) {
+      const ea = shape.endArrowhead || 'arrow';
+      appearanceHtml += row('End arrow',
+        btnGroup(
+          iconBtn('endArrowhead', 'none',     I.ahNone,     ea === 'none',     'None'),
+          iconBtn('endArrowhead', 'arrow',    I.ahArrow,    ea === 'arrow',    'Arrow'),
+          iconBtn('endArrowhead', 'triangle', I.ahTriangle, ea === 'triangle', 'Triangle'),
+          iconBtn('endArrowhead', 'circle',   I.ahCircle,   ea === 'circle',   'Circle'),
+          iconBtn('endArrowhead', 'diamond',  I.ahDiamond,  ea === 'diamond',  'Diamond'),
+          iconBtn('endArrowhead', 'bar',      I.ahBar,      ea === 'bar',      'Bar'),
+        )
+      );
+    }
+    if (has('fill')) {
+      appearanceHtml += row('Fill', `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`);
+    }
+    if (has('fillStyle')) {
+      const s = shape.fillStyle || 'hachure';
+      appearanceHtml += row('Fill style',
+        btnGroup(
+          iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Solid fill'),
+          iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Hachure'),
+          iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, s === 'cross-hatch', 'Cross-hatch'),
+        )
+      );
+    }
+    if (has('opacity')) {
+      const o = shape.opacity ?? 1;
+      appearanceHtml += row('Opacity',
+        btnGroup(
+          iconBtn('opacity', '1',   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="1"/></svg>`,   o == 1,   '100%'),
+          iconBtn('opacity', '0.5', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.5"/></svg>`, o == 0.5, '50%'),
+          iconBtn('opacity', '0.25', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.25"/></svg>`, o == 0.25, '25%'),
+        )
+      );
+    }
+    if (appearanceHtml) groups.push(section('Appearance', appearanceHtml));
+
+    return `
+      <div class="properties-header">
+        <div class="properties-header-left">
+          <span class="properties-header-icon">${PROPERTIES_ICONS.settings}</span>
+          <h3 class="properties-header-title">Properties</h3>
+          <span class="properties-count-badge">Tool Settings</span>
+        </div>
+      </div>
+      <div class="pp-toolbar pp--tool-settings">${groups.join('')}</div>
+    `;
+  }
 
   const shape = selectedShapes[0]!;
 
@@ -116,136 +259,168 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   // Group 1: Appearance (Stroke, Fill)
   let appearanceHtml = '';
   if (has('stroke')) {
-    appearanceHtml += dropdown('Stroke color', colorIcon(shape.stroke || '#000'),
-      `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`,
-      'Stroke Color'
-    );
+    appearanceHtml += row('Stroke', `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('stroke', c, shape.stroke === c)).join('')}</div>`);
   }
   if (has('strokeWidth')) {
-    const icon = sw <= 2 ? I.strokeThin : (sw >= 5 ? I.strokeThick : I.strokeMed);
-    appearanceHtml += dropdown('Thickness', icon,
+    appearanceHtml += row('Thickness',
       btnGroup(
         iconBtn('strokeWidth', '1.8', I.strokeThin,   sw <= 2,              'Thin'),
         iconBtn('strokeWidth', '3.5', I.strokeMed,    sw > 2 && sw < 5,      'Medium'),
         iconBtn('strokeWidth', '6',   I.strokeThick,  sw >= 5,              'Thick'),
-      ),
-      'Stroke Width'
+      )
+    );
+  }
+  if (has('roughness')) {
+    const r = shape.roughness ?? 0;
+    appearanceHtml += row('Roughness',
+      btnGroup(
+        iconBtn('roughness', '0', I.roughNone, r === 0, 'None'),
+        iconBtn('roughness', '1', I.roughLow,  r === 1, 'Low'),
+        iconBtn('roughness', '2', I.roughHigh, r === 2, 'High'),
+      )
     );
   }
   if (has('strokeStyle')) {
     const s = shape.strokeStyle || 'solid';
-    const icon = s === 'dashed' ? I.styleDashed : (s === 'dotted' ? I.styleDotted : I.styleSolid);
-    appearanceHtml += dropdown('Line style', icon,
+    appearanceHtml += row('Line style',
       btnGroup(
         iconBtn('strokeStyle', 'solid',  I.styleSolid,  s === 'solid',  'Solid'),
         iconBtn('strokeStyle', 'dashed', I.styleDashed, s === 'dashed', 'Dashed'),
         iconBtn('strokeStyle', 'dotted', I.styleDotted, s === 'dotted', 'Dotted'),
-      ),
-      'Line Style'
+      )
+    );
+  }
+  if (has('edgeStyle')) {
+    const es = shape.edgeStyle || 'straight';
+    appearanceHtml += row('Edge style',
+      btnGroup(
+        iconBtn('edgeStyle', 'straight', I.edgeStraight, es === 'straight', 'Straight'),
+        iconBtn('edgeStyle', 'elbow',    I.edgeElbow,    es === 'elbow',    'Elbow'),
+        iconBtn('edgeStyle', 'curved',   I.edgeCurved,   es === 'curved',   'Curved'),
+      )
+    );
+  }
+  if (has('startArrowhead')) {
+    const sa = shape.startArrowhead || 'none';
+    appearanceHtml += row('Start arrow',
+      btnGroup(
+        iconBtn('startArrowhead', 'none',     I.ahNone,     sa === 'none',     'None'),
+        iconBtn('startArrowhead', 'arrow',    I.ahArrow,    sa === 'arrow',    'Arrow'),
+        iconBtn('startArrowhead', 'triangle', I.ahTriangle, sa === 'triangle', 'Triangle'),
+        iconBtn('startArrowhead', 'circle',   I.ahCircle,   sa === 'circle',   'Circle'),
+        iconBtn('startArrowhead', 'diamond',  I.ahDiamond,  sa === 'diamond',  'Diamond'),
+        iconBtn('startArrowhead', 'bar',      I.ahBar,      sa === 'bar',      'Bar'),
+      )
+    );
+  }
+  if (has('endArrowhead')) {
+    const ea = shape.endArrowhead || 'arrow';
+    appearanceHtml += row('End arrow',
+      btnGroup(
+        iconBtn('endArrowhead', 'none',     I.ahNone,     ea === 'none',     'None'),
+        iconBtn('endArrowhead', 'arrow',    I.ahArrow,    ea === 'arrow',    'Arrow'),
+        iconBtn('endArrowhead', 'triangle', I.ahTriangle, ea === 'triangle', 'Triangle'),
+        iconBtn('endArrowhead', 'circle',   I.ahCircle,   ea === 'circle',   'Circle'),
+        iconBtn('endArrowhead', 'diamond',  I.ahDiamond,  ea === 'diamond',  'Diamond'),
+        iconBtn('endArrowhead', 'bar',      I.ahBar,      ea === 'bar',      'Bar'),
+      )
     );
   }
   if (has('fill')) {
-    appearanceHtml += dropdown('Fill color', colorIcon(shape.fill || 'transparent'),
-      `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`,
-      'Fill Color'
-    );
+    appearanceHtml += row('Fill', `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`);
   }
   if (has('fillStyle')) {
     const s = shape.fillStyle || 'hachure';
-    const icon = s === 'solid' ? I.fillSolid : (s === 'cross-hatch' ? I.fillCrossHatch : I.fillHachure);
-    appearanceHtml += dropdown('Fill style', icon,
+    appearanceHtml += row('Fill style',
       btnGroup(
         iconBtn('fillStyle', 'solid',       I.fillSolid,      s === 'solid',      'Solid fill'),
         iconBtn('fillStyle', 'hachure',     I.fillHachure,    s === 'hachure',    'Hachure'),
         iconBtn('fillStyle', 'cross-hatch', I.fillCrossHatch, s === 'cross-hatch', 'Cross-hatch'),
-      ),
-      'Fill Style'
+      )
     );
   }
-  if (appearanceHtml) groups.push(appearanceHtml);
+  if (has('opacity')) {
+    const o = shape.opacity ?? 1;
+    appearanceHtml += row('Opacity',
+      btnGroup(
+        iconBtn('opacity', '1',   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="1"/></svg>`,   o == 1,   '100%'),
+        iconBtn('opacity', '0.5', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.5"/></svg>`, o == 0.5, '50%'),
+        iconBtn('opacity', '0.25', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.25"/></svg>`, o == 0.25, '25%'),
+      )
+    );
+  }
+  if (appearanceHtml) groups.push(section('Appearance', appearanceHtml));
 
   // Group 1b: Text Color + Layout
+  let textHtml = '';
   if (has('textLayout')) {
     const textColor = shape.textColor || '';
-    const textColorIcon = colorIcon(textColor || (shape.stroke || '#94a3b8'));
-    appearanceHtml += dropdown('Text color', textColorIcon,
-      `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('textColor', c, shape.textColor === c)).join('')}</div>`,
-      'Text Color'
-    );
+    textHtml += row('Text color', `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('textColor', c, shape.textColor === c)).join('')}</div>`);
   }
   if (has('textLayout')) {
     const alignH = shape.textAlign || 'center';
     const alignV = shape.textVerticalAlign || 'middle';
-    const overflow = shape.textOverflow || 'overflow';
-    const overflowIcon = overflow === 'wrap' ? I.overflowWrap : overflow === 'clip' ? I.overflowClip : I.overflowFree;
 
-    const alignGridIcon = (h: string, v: string) => {
-      const col = h === 'left' ? 0 : h === 'center' ? 1 : 2;
-      const row = v === 'top' ? 0 : v === 'middle' ? 1 : 2;
-      const dots: string[] = [];
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
-          const active = r === row && c === col;
-          const x = 5 + c * 8;
-          const y = 5 + r * 8;
-          dots.push(`<circle cx="${x}" cy="${y}" r="${active ? 2.5 : 1.5}" fill="currentColor" opacity="${active ? '1' : '0.25'}"/>`);
-        }
-      }
-      return `<svg viewBox="0 0 26 26">${dots.join('')}</svg>`;
-    };
-
-    const alignGridCell = (h: string, v: string) => {
-      const active = alignH === h && alignV === v;
-      const label = `${v} ${h}`;
-      return `<button class="pp-ibtn pp-align-cell${active ? ' active' : ''}"
-        data-prop="textAlign|textVerticalAlign" data-val="${h}|${v}" title="${label}" aria-label="${label}">
-        ${alignGridIcon(h, v)}
-      </button>`;
-    };
-
-    const gridContent = `<div class="pp-align-grid">
-      ${alignGridCell('left','top')}${alignGridCell('center','top')}${alignGridCell('right','top')}
-      ${alignGridCell('left','middle')}${alignGridCell('center','middle')}${alignGridCell('right','middle')}
-      ${alignGridCell('left','bottom')}${alignGridCell('center','bottom')}${alignGridCell('right','bottom')}
-    </div>`;
-
-    let textHtml = '';
-    textHtml += dropdown('Text align', alignGridIcon(alignH, alignV), gridContent, 'Text alignment');
-    textHtml += dropdown('Overflow', overflowIcon,
-      btnGroup(
-        iconBtn('textOverflow', 'overflow', I.overflowFree, overflow === 'overflow', 'Overflow freely'),
-        iconBtn('textOverflow', 'wrap',     I.overflowWrap, overflow === 'wrap',     'Wrap text'),
-        iconBtn('textOverflow', 'clip',     I.overflowClip, overflow === 'clip',     'Clip text'),
-      ), 'Text overflow');
-    groups.push(textHtml);
+    textHtml += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div>
+          <div class="pp-label" style="margin-bottom: 4px;">Horizontal</div>
+          ${btnGroup(
+            iconBtn('textAlign', 'left',   I.alignLeft,   alignH === 'left',   'Left'),
+            iconBtn('textAlign', 'center', I.alignCenter, alignH === 'center', 'Center'),
+            iconBtn('textAlign', 'right',  I.alignRight,  alignH === 'right',  'Right'),
+          )}
+        </div>
+        <div>
+          <div class="pp-label" style="margin-bottom: 4px;">Vertical</div>
+          ${btnGroup(
+            iconBtn('textVerticalAlign', 'top',    I.valignTop,    alignV === 'top',    'Top'),
+            iconBtn('textVerticalAlign', 'middle', I.valignMiddle, alignV === 'middle', 'Middle'),
+            iconBtn('textVerticalAlign', 'bottom', I.valignBottom, alignV === 'bottom', 'Bottom'),
+          )}
+        </div>
+      </div>`;
   }
+  if (textHtml) groups.push(section('Text', textHtml));
 
   // Group 2: Actions
   let actionsHtml = '';
   if (has('action')) {
-    actionsHtml += iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Duplicate',       isLocked ? 'pp-ibtn--dim' : '');
-    actionsHtml += iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Unlock' : 'Lock', 'pp-ibtn--lock');
-    actionsHtml += iconBtn('action', 'delete',      I.delete,                      false,     'Delete',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`);
+    actionsHtml += row('Actions',
+      btnGroup(
+        iconBtn('action', 'duplicate',   I.duplicate,                   false,     'Duplicate',       isLocked ? 'pp-ibtn--dim' : ''),
+        iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Unlock' : 'Lock', 'pp-ibtn--lock'),
+        iconBtn('action', 'delete',      I.delete,                      false,     'Delete',           `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`)
+      )
+    );
   }
-  if (actionsHtml) groups.push(actionsHtml);
- 
+  if (actionsHtml) groups.push(section('Actions', actionsHtml));
+
   // Group 3: Layers
   let layersHtml = '';
   if (has('layer')) {
-    layersHtml += dropdown('Layers', I.layerFront,
-      `<div class="pp-btn-group">
-        ${iconBtn('layer', 'back',     I.layerBack,  false, 'Move to back')}
-        ${iconBtn('layer', 'backward', I.layerBwd,   false, 'Move backward')}
-        ${iconBtn('layer', 'forward',  I.layerFwd,   false, 'Move forward')}
-        ${iconBtn('layer', 'front',    I.layerFront, false, 'Move to front')}
-      </div>`,
-      'Layers'
+    layersHtml += row('Layer',
+      btnGroup(
+        iconBtn('layer', 'back',     I.layerBack,  false, 'Move to back'),
+        iconBtn('layer', 'backward', I.layerBwd,   false, 'Move backward'),
+        iconBtn('layer', 'forward',  I.layerFwd,   false, 'Move forward'),
+        iconBtn('layer', 'front',    I.layerFront, false, 'Move to front'),
+      )
     );
   }
-  if (layersHtml) groups.push(layersHtml);
+  if (layersHtml) groups.push(section('Layers', layersHtml));
 
-  const separator = `<div class="toolbar-separator"></div>`;
-  return `<div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join(separator)}</div>`;
+  const countLabel = selectedShapes.length === 1 ? '1 object' : `${selectedShapes.length} objects`;
+
+  return `
+    <div class="properties-header">
+      <div class="properties-header-left">
+        <span class="properties-header-icon">${PROPERTIES_ICONS.settings}</span>
+        <h3 class="properties-header-title">Properties</h3>
+        <span class="properties-count-badge">${countLabel}</span>
+      </div>
+    </div>
+    <div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join('')}</div>
+  `;
 }
 
 // backward compat exports (referenced by PropertiesPanel.ts re-export)

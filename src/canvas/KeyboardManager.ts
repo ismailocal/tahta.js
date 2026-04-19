@@ -1,5 +1,6 @@
 import type { ICanvasAPI, ToolDefinition, Shape } from '../core/types';
 import { UI_CONSTANTS } from '../core/constants';
+import { createId } from '../core/Utils';
 
 export function setupKeyboard(
   api: ICanvasAPI,
@@ -66,7 +67,7 @@ export function setupKeyboard(
         const state = api.getState();
         const selectedIds = state.selectedIds;
         if (selectedIds.length > 1) {
-          const groupId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9);
+          const groupId = createId();
           selectedIds.forEach(id => api.updateShape(id, { groupId }));
           api.commitState();
         } else if (selectedIds.length > 0) {

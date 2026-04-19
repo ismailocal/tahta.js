@@ -5,7 +5,34 @@ import { drawLockIcon } from '../core/Utils';
 import { renderShapeText } from './TextRenderer';
 import { renderSelectionFrame, renderHandleBrackets, renderConnectionPoints } from './UIComponentsRenderer';
 
-const roughCache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
+interface ShapeRenderOptions {
+  isSelected: boolean;
+  isErasing: boolean;
+  isEditingText: boolean;
+  isHovered: boolean;
+  showPorts: boolean;
+  theme: 'light' | 'dark';
+  isDrawing: boolean;
+  activePortId: string | null | undefined;
+}
+
+class RoughCache {
+  private cache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
+
+  get(shapeId: string) {
+    return this.cache.get(shapeId);
+  }
+
+  set(shapeId: string, value: { drawables: any[], version: string, x: number, y: number }) {
+    this.cache.set(shapeId, value);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const roughCache = new RoughCache();
 
 // Shapes that don't go through roughjs and must not be blocked by the
 // zero-dimension guard. Point-based types use a points array instead of
@@ -36,17 +63,10 @@ export function renderShape(
   rc: any,
   ctx: CanvasRenderingContext2D,
   shape: Shape,
-  isSelected: boolean,
-  isErasing: boolean = false,
-  allShapes: Shape[] = [],
-  isEditingText: boolean = false,
-  isHovered: boolean = false,
-  showPorts: boolean = false,
-  theme: 'light' | 'dark' = 'light',
-  isDrawing: boolean = false,
-  activePortId?: string | null
+  allShapes: Shape[],
+  options: ShapeRenderOptions
 ) {
-  if (shape.type === 'text' && isEditingText) return;
+  if (shape.type === 'text' && options.isEditingText) return;
   if (!PluginRegistry.hasPlugin(shape.type)) return;
 
   // Guard: box-like shapes (rectangle, ellipse, diamond, db-*) require positive
@@ -61,39 +81,40 @@ export function renderShape(
 
   ctx.save();
   let alpha = shape.opacity ?? 1;
-  if (isErasing) alpha *= 0.3;
+  if (options.isErasing) alpha *= 0.3;
   ctx.globalAlpha = alpha;
 
-  const currentVersion = getShapeVersionHash(shape, theme);
+  const currentVersion = getShapeVersionHash(shape, options.theme);
   const cacheEntry = roughCache.get(shape.id);
-  
-  if (isDrawing && plugin.renderFast) {
-    plugin.renderFast(ctx, shape, theme);
+
+  if (options.isDrawing && plugin.renderFast) {
+    plugin.renderFast(ctx, shape, options.theme);
   } else if (cacheEntry && cacheEntry.version === currentVersion) {
     cacheEntry.drawables.forEach(d => rc.draw(d));
   } else if (plugin.getDrawable) {
-    const drawables = plugin.getDrawable(rc.generator, shape, allShapes, theme);
+    const drawables = plugin.getDrawable(rc.generator, shape, allShapes, options.theme);
     roughCache.set(shape.id, { drawables, version: currentVersion, x: shape.x, y: shape.y });
     drawables.forEach(d => rc.draw(d));
   } else {
     // Fallback for plugins that don't implement getDrawable yet
-    plugin.render(rc, ctx, shape, isSelected, isErasing, allShapes, theme);
+    plugin.render(rc, ctx, shape, options.isSelected, options.isErasing, allShapes, options.theme);
   }
-  
-  renderShapeText(ctx, shape, plugin, allShapes, isEditingText, theme);
 
-  if (isSelected) {
+  renderShapeText(ctx, shape, plugin, allShapes, options.isEditingText, options.theme);
+
+  if (options.isSelected) {
     ctx.save();
 
-    // Universal selection frame — only when selected, skip connectors and freehand family
-    const isFreehand = shape.type === 'freehand' || shape.type === 'freehand-thick' || shape.type === 'freehand-highlighter';
-    if (isSelected && !plugin.isConnector && !isFreehand && plugin.getBounds) {
-      renderSelectionFrame(ctx, plugin.getBounds(shape), theme, true);
+    // Universal selection frame — only when selected, skip connectors
+    // Also skip for freehand while drawing
+    const hasResizeHandles = !plugin.getResizeHandlePositions || plugin.getResizeHandlePositions(shape).length > 0;
+    if (options.isSelected && !plugin.isConnector && plugin.getBounds && !(shape.type === 'freehand' && options.isDrawing)) {
+      renderSelectionFrame(ctx, plugin.getBounds(shape), options.theme, hasResizeHandles);
     }
 
     // Plugin-specific selection overlay (arrow/line endpoint handles, etc.)
     if (plugin.renderSelection) {
-      plugin.renderSelection(ctx, shape, allShapes, theme);
+      plugin.renderSelection(ctx, shape, allShapes, options.theme);
     }
 
     // Centralized lock icon
@@ -105,8 +126,8 @@ export function renderShape(
     ctx.restore();
   }
 
-  if ((isHovered || activePortId != null) && !isSelected && plugin.getConnectionPoints && showPorts) {
-    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke, theme, activePortId);
+  if ((options.isHovered || options.activePortId != null) && !options.isSelected && plugin.getConnectionPoints && options.showPorts) {
+    renderConnectionPoints(ctx, plugin.getConnectionPoints(shape), shape.stroke, options.theme, options.activePortId);
   }
 
   ctx.restore();

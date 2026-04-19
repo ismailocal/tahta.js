@@ -160,15 +160,9 @@ export function renderConnectionPoints(
     ctx.lineTo(cp.x - s, cp.y    );
     ctx.closePath();
 
-    if (isActive) {
-      ctx.fillStyle = '#3b82f6';
-      ctx.strokeStyle = '#1d4ed8';
-      ctx.lineWidth = 1.5;
-    } else {
-      ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24';
-      ctx.strokeStyle = getThemeAdjustedStroke(shapeStroke, theme);
-      ctx.lineWidth = 1.2;
-    }
+    ctx.fillStyle = theme === 'light' ? '#ffffff' : '#1e1e24';
+    ctx.strokeStyle = getThemeAdjustedStroke(shapeStroke, theme);
+    ctx.lineWidth = 1.2;
     ctx.fill();
     ctx.stroke();
   });

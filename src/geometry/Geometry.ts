@@ -2,9 +2,33 @@ import type { Point, Shape, CanvasState } from '../core/types';
 import { UI_CONSTANTS } from '../core/constants';
 import { getTextMetrics } from '../core/Utils';
 
-import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance } from './GeometryUtils';
+import { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance, pointToQuadraticBezierDistance } from './GeometryUtils';
 
-export { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance };
+export function getSelectionBounds(shapes: Shape[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  shapes.forEach(s => {
+    if (s.points && Array.isArray(s.points)) {
+      s.points.forEach((p: Point | number[]) => {
+        const px = s.x + (typeof p === 'object' && 'x' in p ? p.x : (p as number[])[0]);
+        const py = s.y + (typeof p === 'object' && 'y' in p ? p.y : (p as number[])[1]);
+        minX = Math.min(minX, px);
+        minY = Math.min(minY, py);
+        maxX = Math.max(maxX, px);
+        maxY = Math.max(maxY, py);
+      });
+    } else {
+      const w = s.width || 0;
+      const h = s.height || 0;
+      minX = Math.min(minX, s.x);
+      minY = Math.min(minY, s.y);
+      maxX = Math.max(maxX, s.x + w);
+      maxY = Math.max(maxY, s.y + h);
+    }
+  });
+  return { minX, minY, maxX, maxY };
+}
+
+export { distance, getRayBoxIntersection, getRayEllipseIntersection, pointToSegmentDistance, pointToQuadraticBezierDistance };
 export const screenToWorld = (screen: Point, viewport: CanvasState['viewport']): Point => ({
   x: (screen.x - viewport.x) / viewport.zoom,
   y: (screen.y - viewport.y) / viewport.zoom,

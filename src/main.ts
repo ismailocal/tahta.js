@@ -2,7 +2,7 @@ import { mountCanvas } from './index';
 import './styles.css';
 
 // Preload handwriting font
-document.fonts.load("20px 'Architects Daughter'");
+document.fonts.load("20px 'Architects Daughter', cursive");
 
 function init() {
   const rootElement = document.getElementById('app');

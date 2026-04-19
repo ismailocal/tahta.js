@@ -1,23 +1,37 @@
 import { WhiteboardStore } from '../../core/Store';
 import { TOOLBAR_ITEMS } from '../../core/constants';
-import { hexToRgba } from '../../core/Utils';
+import { hexToRgba, createId } from '../../core/Utils';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
 import { initLayersPanel } from './LayersPanel';
 import { imageCache } from '../../plugins/ImagePlugin';
 import type { ICanvasAPI } from '../../core/types';
 
+function calculateZoomToCenter(canvas: HTMLCanvasElement, currentZoom: number, newZoom: number, viewport: { x: number; y: number; zoom: number }) {
+  const rect = canvas.getBoundingClientRect();
+  const centerX = rect.width / 2;
+  const centerY = rect.height / 2;
+
+  // World coordinates of center before zoom
+  const worldCenterX = (centerX - viewport.x) / currentZoom;
+  const worldCenterY = (centerY - viewport.y) / currentZoom;
+
+  // New scroll position to keep center at same world coordinates
+  const newX = centerX - worldCenterX * newZoom;
+  const newY = centerY - worldCenterY * newZoom;
+
+  return { x: newX, y: newY, zoom: newZoom };
+}
+
 export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
   root.innerHTML = `
     <div class="tahta-shell">
       <div class="board-shell">
         <div class="toolbar-wrap">
-          <div style="display: flex; gap: 8px;">
-             <div class="toolbar" data-toolbar></div>
-          </div>
+          <div class="toolbar" data-toolbar></div>
         </div>
         <section class="board-area">
-          <div class="properties-panel hidden" data-properties></div>
+          <div class="properties-panel" data-properties></div>
           <div class="zoom-controls" data-zoom-controls>
             <button class="zoom-btn" data-zoom-fit title="Focus Content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M3 17v2a2 2 0 0 1 2 2h2"/></svg>
@@ -76,22 +90,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const newZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    // Calculate zoom to center
-    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-
-      // World coordinates of center before zoom
-      const worldCenterX = (centerX - viewport.x) / currentZoom;
-      const worldCenterY = (centerY - viewport.y) / currentZoom;
-
-      // New scroll position to keep center at same world coordinates
-      const newX = centerX - worldCenterX * newZoom;
-      const newY = centerY - worldCenterY * newZoom;
-
-      store.setViewport({ x: newX, y: newY, zoom: newZoom });
+    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvasEl) {
+      const newViewport = calculateZoomToCenter(canvasEl, currentZoom, newZoom, viewport);
+      store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: newZoom });
     }
@@ -103,22 +105,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const newZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    // Calculate zoom to center
-    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-
-      // World coordinates of center before zoom
-      const worldCenterX = (centerX - viewport.x) / currentZoom;
-      const worldCenterY = (centerY - viewport.y) / currentZoom;
-
-      // New scroll position to keep center at same world coordinates
-      const newX = centerX - worldCenterX * newZoom;
-      const newY = centerY - worldCenterY * newZoom;
-
-      store.setViewport({ x: newX, y: newY, zoom: newZoom });
+    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvasEl) {
+      const newViewport = calculateZoomToCenter(canvasEl, currentZoom, newZoom, viewport);
+      store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: newZoom });
     }
@@ -128,22 +118,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const state = store.getState();
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    // Calculate zoom to center for reset
-    const canvas = document.querySelector('.board-canvas') as HTMLCanvasElement;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-
-      // World coordinates of center before zoom
-      const worldCenterX = (centerX - viewport.x) / (viewport.zoom || 1);
-      const worldCenterY = (centerY - viewport.y) / (viewport.zoom || 1);
-
-      // New scroll position to keep center at same world coordinates
-      const newX = centerX - worldCenterX * 1;
-      const newY = centerY - worldCenterY * 1;
-
-      store.setViewport({ x: newX, y: newY, zoom: 1 });
+    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    if (canvasEl) {
+      const newViewport = calculateZoomToCenter(canvasEl, viewport.zoom || 1, 1, viewport);
+      store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: 1 });
     }
@@ -224,31 +202,20 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       .map((id: string) => state.shapes.find((s: any) => s.id === id))
       .filter((s: any) => !!s);
 
-    if (selectedShapes.length === 0) {
+    const isDrawingTool = [
+      'rectangle', 'ellipse', 'diamond', 'triangle', 'sticky-note',
+      'arrow', 'freehand', 'text', 'db-table', 'db-view', 'db-enum',
+      'hexagon', 'star', 'parallelogram', 'cylinder', 'cloud', 'callout'
+    ].includes(state.activeTool);
+
+    if (selectedShapes.length === 0 && !isDrawingTool) {
       properties.classList.add('hidden');
       properties.innerHTML = '';
       return;
     }
-    
+
     properties.classList.remove('hidden');
     properties.innerHTML = renderPropertiesPanelHTML(api);
-
-    // Dynamic positioning above selection
-    const bounds = getSelectionBounds(selectedShapes);
-    const zoom = state.viewport.zoom;
-    const vx = state.viewport.x;
-    const vy = state.viewport.y;
-
-    const screenTop = (bounds.minY * zoom) + vy;
-    const screenLeft = (bounds.minX * zoom) + vx;
-    const screenRight = (bounds.maxX * zoom) + vx;
-    const screenCenterX = (screenLeft + screenRight) / 2;
-
-    // Position panel
-    properties.style.top = `${screenTop - 54}px`; // 44px height + 10px gap
-    properties.style.left = `${screenCenterX}px`;
-    properties.style.right = 'auto'; // Reset right: 16px from CSS
-    properties.style.transform = 'translateX(-50%)';
 
     // Hover-based dropdown for property panel
     properties.querySelectorAll<HTMLElement>('.pp-dropdown-wrap').forEach(wrap => {
@@ -265,30 +232,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       });
     });
   };
-
-  function getSelectionBounds(shapes: any[]) {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    shapes.forEach(s => {
-      if (s.points && Array.isArray(s.points)) {
-        s.points.forEach((p: any) => {
-          const px = s.x + (p.x !== undefined ? p.x : p[0]);
-          const py = s.y + (p.y !== undefined ? p.y : p[1]);
-          minX = Math.min(minX, px);
-          minY = Math.min(minY, py);
-          maxX = Math.max(maxX, px);
-          maxY = Math.max(maxY, py);
-        });
-      } else {
-        const w = s.width || 0;
-        const h = s.height || 0;
-        minX = Math.min(minX, s.x);
-        minY = Math.min(minY, s.y);
-        maxX = Math.max(maxX, s.x + w);
-        maxY = Math.max(maxY, s.y + h);
-      }
-    });
-    return { minX, minY, maxX, maxY };
-  }
 
   initPropertiesPanel(properties, api);
   const disposeLayers = initLayersPanel(root, store, canvas, api);
@@ -347,7 +290,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
               const ratio = Math.min(maxDim / w, maxDim / h);
               w *= ratio; h *= ratio;
             }
-            const id = Math.random().toString(36).slice(2, 10);
+            const id = createId();
 
             imageCache.set(imageSrc, img);
 
@@ -383,9 +326,9 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       cursor = state.isPanning ? 'grabbing' : 'grab';
     } else if (state.activeTool === 'text') {
       cursor = 'text';
-    } else if (['rectangle', 'ellipse', 'line', 'line-dashed', 'line-dotted',
-                'arrow', 'arrow-double', 'arrow-elbow', 'arrow-curved', 'arrow-filled',
-                'freehand', 'freehand-highlighter', 'freehand-thick',
+    } else if (['rectangle', 'ellipse',
+                'arrow',
+                'freehand',
                 'eraser', 'diamond', 'db-table', 'db-view', 'db-enum',
                 'triangle', 'hexagon', 'star', 'parallelogram',
                 'cylinder', 'cloud', 'callout', 'sticky-note'].includes(state.activeTool)) {

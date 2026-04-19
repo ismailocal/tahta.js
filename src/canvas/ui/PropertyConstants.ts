@@ -7,8 +7,8 @@ export const STROKE_COLORS = [
 
 export const FILL_COLORS = [
   'transparent',
-  '#7f1d1d', '#14532d', '#1e3a8a', '#713f12',
-  '#4c1d95', '#831843', '#1e293b',
+  '#64748b', '#f87171', '#4ade80', '#60a5fa',
+  '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
 ];
 
 export const ICONS = {
@@ -67,12 +67,11 @@ export const ICONS = {
 };
 
 export const SHAPE_PROPERTIES: Record<string, string[]> = {
-  rectangle: ['stroke', 'fill', 'roundness', 'layer', 'action'],
-  ellipse: ['stroke', 'fill', 'layer', 'action'],
-  arrow: ['stroke', 'layer', 'action'],
-  line: ['stroke', 'layer', 'action'],
-  freehand: ['stroke', 'layer', 'action'],
-  text: ['stroke', 'layer', 'action'],
+  rectangle: ['stroke', 'fill', 'roundness', 'roughness', 'layer', 'action'],
+  ellipse: ['stroke', 'fill', 'roughness', 'layer', 'action'],
+  arrow: ['stroke', 'edgeStyle', 'startArrowhead', 'endArrowhead', 'roughness', 'layer', 'action'],
+  freehand: ['stroke', 'roughness', 'layer', 'action'],
+  text: ['stroke', 'roughness', 'layer', 'action'],
   image: ['layer', 'action']
 };
 

@@ -1,42 +1,55 @@
 import type { CanvasState } from '../core/types';
+import { RENDERING_CONSTANTS } from './RenderingConstants';
 
-let gridPattern: CanvasPattern | null = null;
-let lastGridSize = -1;
-let lastZoom = -1;
-let lastTheme = '';
+class GridCache {
+  private pattern: CanvasPattern | null = null;
+  private lastGridSize = -1;
+  private lastZoom = -1;
+  private lastTheme = '';
+
+  getPattern(
+    ctx: CanvasRenderingContext2D,
+    gridSize: number,
+    zoom: number,
+    theme: string
+  ): CanvasPattern | null {
+    if (!this.pattern || this.lastGridSize !== gridSize || this.lastZoom !== zoom || this.lastTheme !== theme) {
+      const size = gridSize * zoom;
+      const patternCanvas = document.createElement('canvas');
+      patternCanvas.width = size;
+      patternCanvas.height = size;
+      const pCtx = patternCanvas.getContext('2d')!;
+
+      pCtx.strokeStyle = theme === 'light' ? RENDERING_CONSTANTS.GRID_LIGHT_COLOR : RENDERING_CONSTANTS.GRID_DARK_COLOR;
+      pCtx.lineWidth = RENDERING_CONSTANTS.GRID_LINE_WIDTH;
+      pCtx.beginPath();
+      pCtx.moveTo(size, 0);
+      pCtx.lineTo(0, 0);
+      pCtx.lineTo(0, size);
+      pCtx.stroke();
+
+      this.pattern = ctx.createPattern(patternCanvas, 'repeat');
+      this.lastGridSize = gridSize;
+      this.lastZoom = zoom;
+      this.lastTheme = theme;
+    }
+    return this.pattern;
+  }
+}
+
+const gridCache = new GridCache();
 
 export function renderGrid(ctx: CanvasRenderingContext2D, state: CanvasState, width: number, height: number) {
   if (!state.showGrid || !state.gridSize) return;
 
-  const size = state.gridSize * state.viewport.zoom;
+  const pattern = gridCache.getPattern(ctx, state.gridSize, state.viewport.zoom, state.theme || 'light');
 
-  if (!gridPattern || lastGridSize !== state.gridSize || lastZoom !== state.viewport.zoom || lastTheme !== state.theme) {
-    const patternCanvas = document.createElement('canvas');
-    patternCanvas.width = size;
-    patternCanvas.height = size;
-    const pCtx = patternCanvas.getContext('2d')!;
-    
-    pCtx.strokeStyle = state.theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
-    pCtx.lineWidth = 1;
-    pCtx.beginPath();
-    pCtx.moveTo(size, 0);
-    pCtx.lineTo(0, 0);
-    pCtx.lineTo(0, size);
-    pCtx.stroke();
-    
-    gridPattern = ctx.createPattern(patternCanvas, 'repeat');
-    lastGridSize = state.gridSize;
-    lastZoom = state.viewport.zoom;
-    lastTheme = state.theme || '';
-  }
-
-  if (gridPattern) {
+  if (pattern) {
     ctx.save();
-    // Offset pattern by viewport
     const matrix = new DOMMatrix().translate(state.viewport.x, state.viewport.y);
-    gridPattern.setTransform(matrix);
-    
-    ctx.fillStyle = gridPattern;
+    pattern.setTransform(matrix);
+
+    ctx.fillStyle = pattern;
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }

@@ -55,7 +55,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
       if (shape) {
         editor.innerText = shape.text || '';
         editor.style.display = 'block';
-        editor.style.color = shape.textColor || shape.stroke || '#f8fafc';
+        editor.style.setProperty('color', shape.textColor || shape.stroke || '#f8fafc', 'important');
 
         setTimeout(() => {
           editor.focus();
@@ -78,8 +78,9 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
       if (shape) {
         const zoom = state.viewport.zoom;
         const fontSz = (shape.fontSize || 20) * zoom;
-        editor.style.fontSize = `${fontSz}px`;
-        editor.style.fontFamily = shape.fontFamily || "'Architects Daughter', cursive";
+        editor.style.setProperty('font-size', `${fontSz}px`, 'important');
+        editor.style.setProperty('font-family', shape.fontFamily || "'Patrick Hand', cursive", 'important');
+        editor.style.setProperty('color', shape.stroke || '#f8fafc', 'important');
 
         const canvasEl = document.querySelector('.board-canvas');
         let offsetX = 0;
@@ -180,17 +181,32 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
     if (currentEditingId) {
       const state = store.getState();
       const shape = state.shapes.find(s => s.id === currentEditingId);
+      let selectedId: string | null = currentEditingId;
+
       if (shape && shape.type === 'text' && (!shape.text || shape.text.trim() === '')) {
         store.deleteShape(currentEditingId);
-      } else if (shape) {
+        selectedId = null;
+      }
+
+      store.setState({
+        editingShapeId: null,
+        selectedIds: selectedId ? [selectedId] : [],
+        activeTool: 'select'
+      });
+
+      if (shape && !selectedId) {
+        // Shape silindi, commit gerek yok
+      } else {
         store.commitState();
       }
-      store.setState({ editingShapeId: null, selectedIds: shape ? [shape.id] : [] });
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
+      e.preventDefault();
+      editor.blur();
+    } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       editor.blur();
     }

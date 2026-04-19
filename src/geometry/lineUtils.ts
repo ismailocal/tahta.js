@@ -126,7 +126,3 @@ export function getPathMidpoint(path: Point[]): Point {
   
   return path[path.length - 1];
 }
-
-// Stub functions for elbow routing cache (not currently implemented)
-export function clearElbowCache() {}
-export function setSkipObstacles(_v: boolean) {}

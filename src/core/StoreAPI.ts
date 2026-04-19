@@ -33,6 +33,7 @@ export function createWhiteboardAPI(store: WhiteboardStore, canvas: HTMLCanvasEl
     redo: () => store.redo(),
     batchUpdate: (fn: () => void) => store.batchUpdate(fn),
     getSpatialIndex: () => store.getSpatialIndex(),
+    forceNotify: () => store.forceNotify(),
     scrollToContent: () => {
       const state = store.getState();
       const targetViewport = calculateCenteredViewport(

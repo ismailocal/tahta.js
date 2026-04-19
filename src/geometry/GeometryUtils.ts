@@ -11,6 +11,27 @@ export function pointToSegmentDistance(point: Point, a: Point, b: Point): number
   return distance(point, { x: a.x + tClamped * dx, y: a.y + tClamped * dy });
 }
 
+export function pointToQuadraticBezierDistance(point: Point, p1: Point, cp: Point, p2: Point, steps: number = 20): number {
+  let minDistance = Infinity;
+  let prevPoint = p1;
+  
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const mt = 1 - t;
+    const currentPoint = {
+      x: mt * mt * p1.x + 2 * mt * t * cp.x + t * t * p2.x,
+      y: mt * mt * p1.y + 2 * mt * t * cp.y + t * t * p2.y
+    };
+    const dist = pointToSegmentDistance(point, prevPoint, currentPoint);
+    if (dist < minDistance) {
+      minDistance = dist;
+    }
+    prevPoint = currentPoint;
+  }
+  
+  return minDistance;
+}
+
 export function lineIntersection(p1: Point, p2: Point, p3: Point, p4: Point): Point | null {
   const num = (p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x);
   const den = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);

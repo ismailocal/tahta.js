@@ -130,10 +130,22 @@ export class DiamondPlugin extends BaseRectPlugin {
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
     const t = Math.max(8, (shape.strokeWidth || 1) + 7);
+    
     // Accept any click inside the (slightly inflated) diamond area
     const dxOuter = Math.abs(point.x - cx) / (w / 2 + t);
     const dyOuter = Math.abs(point.y - cy) / (h / 2 + t);
-    return dxOuter + dyOuter <= 1;
+    if (dxOuter + dyOuter > 1) return false;
+
+    const isTransparent = !shape.fill || shape.fill === 'transparent' || shape.fill === 'none';
+    if (isTransparent) {
+        const wi = Math.max(0.1, w / 2 - t);
+        const hi = Math.max(0.1, h / 2 - t);
+        const dxInner = Math.abs(point.x - cx) / wi;
+        const dyInner = Math.abs(point.y - cy) / hi;
+        return dxInner + dyInner >= 1;
+    }
+
+    return true;
   }
 
 }

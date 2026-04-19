@@ -8,7 +8,7 @@ import { findNearestPort } from '../plugins/ArrowPlugin';
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
   private currentShapeId: string | null = null;
-  private toolKey: ShapeType;  // used for preset lookup (e.g. 'arrow-elbow')
+  private toolKey: ShapeType;  // used for preset lookup
   private shapeType: ShapeType; // actual plugin/shape type (e.g. 'arrow')
 
   /**
@@ -122,7 +122,10 @@ export class ShapeTool implements ToolDefinition {
           }
         }
         api.commitState();
-        api.setTool('select', true);
+        // Switch to select tool after drawing, except for freehand
+        if (this.shapeType !== 'freehand') {
+          api.setTool('select', true);
+        }
       }
     }
     

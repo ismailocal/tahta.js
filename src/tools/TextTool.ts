@@ -16,7 +16,6 @@ export class TextTool implements ToolDefinition {
     } as Shape;
     
     api.addShape(shape);
-    api.setTool('select');
-    api.setState({ editingShapeId: shape.id, selectedIds: [] }); // Switch back to select tool so they can click elsewhere
+    api.setState({ editingShapeId: shape.id, selectedIds: [] });
   }
 }

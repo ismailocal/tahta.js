@@ -6,7 +6,7 @@ import { buildRoughOptions } from '../geometry/lineUtils';
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
   defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'roughness', 'layer', 'action'];
 
   render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];

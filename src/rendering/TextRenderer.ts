@@ -1,61 +1,62 @@
 import { getThemeAdjustedStroke } from '../core/Utils';
 import type { Shape } from '../core/types';
 
-/**
- * Renders a text label for a shape.
- * For connectors: always centered at path midpoint.
- * For bounded shapes: respects textAlign, textVerticalAlign, textPaddingX/Y, textOverflow.
- */
-export function renderShapeText(
+function renderConnectorText(
   ctx: CanvasRenderingContext2D,
   shape: Shape,
   plugin: any,
   allShapes: Shape[],
-  isEditingText: boolean,
   theme: 'light' | 'dark'
-) {
-  if (shape.type === 'text' || !shape.text || isEditingText) return;
+): void {
+  const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
+  if (!textAnchor) return;
 
   const fontSize = shape.fontSize || 20;
   const fontFamily = shape.fontFamily || "'Architects Daughter', cursive";
   ctx.font = `${fontSize}px ${fontFamily}`;
 
   const lineHeight = fontSize * 1.2;
-  const rawLines = shape.text.split('\n');
+  const rawLines = shape.text!.split('\n');
+  const cx = textAnchor.x;
+  const cy = textAnchor.y;
 
-  // Connectors: simple centered label with background mask
-  if (plugin.isConnector) {
-    const textAnchor = plugin.getTextAnchor?.(shape, allShapes);
-    if (!textAnchor) return;
-    const cx = textAnchor.x;
-    const cy = textAnchor.y;
+  const totalHeight = rawLines.length * lineHeight;
+  let maxWidth = 0;
+  rawLines.forEach(line => {
+    const w = ctx.measureText(line).width;
+    if (w > maxWidth) maxWidth = w;
+  });
 
-    const totalHeight = rawLines.length * lineHeight;
-    let maxWidth = 0;
-    rawLines.forEach(line => {
-      const w = ctx.measureText(line).width;
-      if (w > maxWidth) maxWidth = w;
-    });
+  const padding = 4;
+  ctx.fillStyle = theme === 'light' ? '#f8fafc' : '#131316';
+  ctx.fillRect(cx - maxWidth / 2 - padding, cy - totalHeight / 2 - padding, maxWidth + padding * 2, totalHeight + padding * 2);
 
-    const padding = 4;
-    ctx.fillStyle = theme === 'light' ? '#f8fafc' : '#131316';
-    ctx.fillRect(cx - maxWidth / 2 - padding, cy - totalHeight / 2 - padding, maxWidth + padding * 2, totalHeight + padding * 2);
+  ctx.fillStyle = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
 
-    ctx.fillStyle = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+  let y = cy - (totalHeight / 2) + (lineHeight / 2);
+  rawLines.forEach(line => {
+    ctx.fillText(line, cx, y);
+    y += lineHeight;
+  });
+}
 
-    let y = cy - (totalHeight / 2) + (lineHeight / 2);
-    rawLines.forEach(line => {
-      ctx.fillText(line, cx, y);
-      y += lineHeight;
-    });
-    return;
-  }
-
-  // Bounded shapes: use bounds + layout options
+function renderBoundedShapeText(
+  ctx: CanvasRenderingContext2D,
+  shape: Shape,
+  plugin: any,
+  theme: 'light' | 'dark'
+): void {
   const bounds = plugin.getBounds?.(shape);
   if (!bounds) return;
+
+  const fontSize = shape.fontSize || 20;
+  const fontFamily = shape.fontFamily || "'Architects Daughter', cursive";
+  ctx.font = `${fontSize}px ${fontFamily}`;
+
+  const lineHeight = fontSize * 1.2;
+  const rawLines = shape.text!.split('\n');
 
   const textAlign: 'left' | 'center' | 'right' = shape.textAlign || 'center';
   const verticalAlign: 'top' | 'middle' | 'bottom' = shape.textVerticalAlign || 'middle';
@@ -136,6 +137,28 @@ export function renderShapeText(
 
   if (overflow === 'clip' || overflow === 'wrap') {
     ctx.restore();
+  }
+}
+
+/**
+ * Renders a text label for a shape.
+ * For connectors: always centered at path midpoint.
+ * For bounded shapes: respects textAlign, textVerticalAlign, textPaddingX/Y, textOverflow.
+ */
+export function renderShapeText(
+  ctx: CanvasRenderingContext2D,
+  shape: Shape,
+  plugin: any,
+  allShapes: Shape[],
+  isEditingText: boolean,
+  theme: 'light' | 'dark'
+) {
+  if (shape.type === 'text' || !shape.text || isEditingText) return;
+
+  if (plugin.isConnector) {
+    renderConnectorText(ctx, shape, plugin, allShapes, theme);
+  } else {
+    renderBoundedShapeText(ctx, shape, plugin, theme);
   }
 }
 

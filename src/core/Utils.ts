@@ -1,7 +1,7 @@
 import type { Shape, CanvasState, ICanvasAPI } from './types';
 import { PluginRegistry } from '../plugins/index';
 
-export const createId = () => Math.random().toString(36).slice(2, 10);
+export const createId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
 
 export function randomSeed() {
   return Math.floor(Math.random() * 2 ** 31);

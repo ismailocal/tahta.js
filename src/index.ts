@@ -48,28 +48,13 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
     'db-table': new ShapeTool('db-table' as ShapeType),
     'db-view': new ShapeTool('db-view' as ShapeType),
     'db-enum': new ShapeTool('db-enum' as ShapeType),
-    line: new ShapeTool('line' as ShapeType),
-    'line-dashed': new ShapeTool('line-dashed' as ShapeType, 'line' as ShapeType),
-    'line-dotted': new ShapeTool('line-dotted' as ShapeType, 'line' as ShapeType),
     arrow: new ShapeTool('arrow' as ShapeType),
-    'arrow-double': new ShapeTool('arrow-double' as ShapeType, 'arrow' as ShapeType),
-    'arrow-elbow': new ShapeTool('arrow-elbow' as ShapeType, 'arrow' as ShapeType),
-    'arrow-curved': new ShapeTool('arrow-curved' as ShapeType, 'arrow' as ShapeType),
-    'arrow-filled': new ShapeTool('arrow-filled' as ShapeType, 'arrow' as ShapeType),
     freehand: new ShapeTool('freehand' as ShapeType),
-    'freehand-thick': new ShapeTool('freehand-thick' as ShapeType, 'freehand' as ShapeType),
-    'freehand-highlighter': new ShapeTool('freehand-highlighter' as ShapeType, 'freehand' as ShapeType),
     image: new ShapeTool('image' as ShapeType),
   };
 
   // Register tool aliases so Renderer and other subsystems can resolve
   // tool keys to their underlying plugins without ad-hoc string manipulation.
-  PluginRegistry.registerToolAlias('arrow-double', 'arrow');
-  PluginRegistry.registerToolAlias('arrow-elbow', 'arrow');
-  PluginRegistry.registerToolAlias('arrow-curved', 'arrow');
-  PluginRegistry.registerToolAlias('arrow-filled', 'arrow');
-  PluginRegistry.registerToolAlias('line-dashed', 'line');
-  PluginRegistry.registerToolAlias('line-dotted', 'line');
 
   Object.assign(tools, {
     eraser: new EraserTool(),

@@ -3,6 +3,21 @@ import { PluginRegistry } from '../plugins/PluginRegistry';
 
 const CLEARANCE = 20;
 
+interface InflatedBox {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+interface PathNode {
+  i: number;
+  j: number;
+  dir: number;
+  g: number;
+  parent: PathNode | null;
+}
+
 /** Direction indices: 0=right, 1=down, 2=left, 3=up */
 const DIRS = [
   { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 }
@@ -33,11 +48,11 @@ function dirIndex(d: { x: number; y: number }): number {
   return 3;
 }
 
-function inflate(b: { x: number; y: number; width: number; height: number }, pad: number) {
+function inflate(b: { x: number; y: number; width: number; height: number }, pad: number): InflatedBox {
   return { left: b.x - pad, right: b.x + b.width + pad, top: b.y - pad, bottom: b.y + b.height + pad };
 }
 
-function midpointBlocked(ax: number, ay: number, bx: number, by: number, boxes: any[]): boolean {
+function midpointBlocked(ax: number, ay: number, bx: number, by: number, boxes: InflatedBox[]): boolean {
   const mx = (ax + bx) / 2, my = (ay + by) / 2;
   return boxes.some(bb => mx > bb.left && mx < bb.right && my > bb.top && my < bb.bottom);
 }
@@ -64,7 +79,7 @@ export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Poin
 
   const raw1 = b1 ? getShapeBoundsLocal(b1) : null;
   const raw2 = b2 ? getShapeBoundsLocal(b2) : null;
-  const boxes = [raw1 ? inflate(raw1, CLEARANCE * 0.4) : null, raw2 ? inflate(raw2, CLEARANCE * 0.4) : null].filter(Boolean);
+  const boxes = [raw1 ? inflate(raw1, CLEARANCE * 0.4) : null, raw2 ? inflate(raw2, CLEARANCE * 0.4) : null].filter((b): b is InflatedBox => b !== null);
 
   const xSet = new Set([d1.x, d2.x]);
   const ySet = new Set([d1.y, d2.y]);
@@ -78,10 +93,10 @@ export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Poin
   const h = (i: number, j: number) => Math.abs(xs[i] - d2.x) + Math.abs(ys[j] - d2.y);
   const BEND = Math.max((Math.abs(d1.x - d2.x) + Math.abs(d1.y - d2.y))**2, 1);
 
-  const open: any[] = [{ i: startI, j: startJ, dir: dirIndex(ed1), g: 0, parent: null }];
+  const open: PathNode[] = [{ i: startI, j: startJ, dir: dirIndex(ed1), g: 0, parent: null }];
   gScore[startI][startJ][dirIndex(ed1)] = 0;
 
-  let found: any = null;
+  let found: PathNode | null = null;
   while (open.length > 0) {
     const cur = open.shift()!;
     if (cur.g > gScore[cur.i][cur.j][cur.dir]) continue;
@@ -92,13 +107,29 @@ export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Poin
       if (ni < 0 || ni >= xs.length || nj < 0 || nj >= ys.length || di === (cur.dir + 2) % 4) continue;
       if (midpointBlocked(xs[cur.i], ys[cur.j], xs[ni], ys[nj], boxes)) continue;
       const ng = cur.g + Math.abs(xs[ni] - xs[cur.i]) + Math.abs(ys[nj] - ys[cur.j]) + (di !== cur.dir ? BEND : 0);
-      if (ng < gScore[ni][nj][di]) { gScore[ni][nj][di] = ng; const s = { i: ni, j: nj, dir: di, g: ng, parent: cur }; let lo = 0, hi = open.length, f = ng + h(ni, nj); while (lo < hi) { const m = (lo + hi) >> 1; if (open[m].g + h(open[m].i, open[m].j) <= f) lo = m + 1; else hi = m; } open.splice(lo, 0, s); }
+      if (ng < gScore[ni][nj][di]) {
+        gScore[ni][nj][di] = ng;
+        const s = { i: ni, j: nj, dir: di, g: ng, parent: cur };
+        const f = ng + h(ni, nj);
+        
+        // Binary search insertion to maintain priority queue
+        let lo = 0, hi = open.length;
+        while (lo < hi) {
+          const m = (lo + hi) >> 1;
+          if (open[m].g + h(open[m].i, open[m].j) <= f) {
+            lo = m + 1;
+          } else {
+            hi = m;
+          }
+        }
+        open.splice(lo, 0, s);
+      }
     }
   }
 
   if (!found) return [p1, d1, d2, p2];
   const res: Point[] = [];
-  let curr = found;
+  let curr: PathNode | null = found;
   while (curr) { res.push({ x: xs[curr.i], y: ys[curr.j] }); curr = curr.parent; }
   return collapseCollinear([p1, ...res.reverse(), p2]);
 }

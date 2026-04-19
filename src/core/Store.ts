@@ -8,6 +8,13 @@ import { getArrowClippedEndpoints } from '../geometry/lineUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants';
 
+// Static mapping for variant cache keys
+const VARIANT_CACHE_KEYS: Record<string, (shape: Shape) => string | null> = {
+  arrow: (s) => {
+    return null;
+  },
+};
+
 /** Default initial state for a new canvas. */
 export const DEFAULT_STATE: CanvasState = {
   shapes: [],
@@ -188,27 +195,6 @@ export class WhiteboardStore {
           }
         });
         
-        // Static mapping for variant cache keys
-        const VARIANT_CACHE_KEYS: Record<string, (shape: Shape) => string | null> = {
-          freehand: (s) => {
-            if (s.strokeWidth === 4) return 'freehand-thick';
-            if (s.strokeWidth === 14) return 'freehand-highlighter';
-            return null;
-          },
-          line: (s) => {
-            if (s.strokeStyle === 'dashed') return 'line-dashed';
-            if (s.strokeStyle === 'dotted') return 'line-dotted';
-            return null;
-          },
-          arrow: (s) => {
-            if (s.startArrowhead === 'arrow' && s.endArrowhead === 'arrow') return 'arrow-double';
-            if (s.edgeStyle === 'elbow') return 'arrow-elbow';
-            if (s.edgeStyle === 'curved') return 'arrow-curved';
-            if (s.endArrowhead === 'triangle') return 'arrow-filled';
-            return null;
-          },
-        };
-        
         const variantKey = updated ? VARIANT_CACHE_KEYS[updated.type as string]?.(updated) : null;
         
         // Cache for both base type and variant key
@@ -263,5 +249,10 @@ export class WhiteboardStore {
     this.state = { ...this.state, selectedIds: ids };
     this.notify();
     this.bus.emit('selection:changed', { ids });
+  }
+
+  /** Force notify without state change - useful for external cache updates */
+  forceNotify(): void {
+    this.notify();
   }
 }

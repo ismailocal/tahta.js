@@ -1,6 +1,7 @@
 import type { ICanvasAPI, ShapeType } from '../core/types';
 import { screenToWorld } from '../geometry/Geometry';
 import { UI_CONSTANTS } from '../core/constants';
+import { createId } from '../core/Utils';
 
 export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file: File, clientX: number, clientY: number) {
   if (!file.type.startsWith('image/')) return;
@@ -26,7 +27,7 @@ export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file
          h *= ratio;
       }
 
-      const id = Math.random().toString(36).slice(2, 10);
+      const id = createId();
       api.addShape({
         id,
         type: 'image' as ShapeType,
@@ -78,7 +79,7 @@ export function setupClipboard(api: ICanvasAPI, canvas: HTMLCanvasElement): (() 
         const oldToNewGroupId = new Map<string, string>();
         
         newShapes.forEach((s: any) => {
-           const newId = Math.random().toString(36).slice(2, 10);
+           const newId = createId();
            oldToNewId.set(s.id, newId);
            s.id = newId;
            s.x += 20;
@@ -88,7 +89,7 @@ export function setupClipboard(api: ICanvasAPI, canvas: HTMLCanvasElement): (() 
            
            if (s.groupId) {
              if (!oldToNewGroupId.has(s.groupId)) {
-               oldToNewGroupId.set(s.groupId, Math.random().toString(36).slice(2, 10));
+               oldToNewGroupId.set(s.groupId, createId());
              }
            }
         });

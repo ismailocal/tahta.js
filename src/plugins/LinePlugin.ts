@@ -1,7 +1,7 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance, getTopShapeAtPoint } from '../geometry/Geometry';
+import { pointToSegmentDistance, getTopShapeAtPoint, pointToQuadraticBezierDistance } from '../geometry/Geometry';
 import { getPathMidpoint, renderEndpointHandles, buildRoughOptions, getElbowPath, drawRoundedPath, getRoundedPathData } from '../geometry/lineUtils';
 import { PluginRegistry } from './PluginRegistry';
 import { UI_CONSTANTS } from '../core/constants';
@@ -127,13 +127,29 @@ export class LinePlugin implements IShapePlugin {
   getBounds(shape: Shape) {
     const pts = shape.points || [];
     if (pts.length === 0) return { x: shape.x, y: shape.y, width: 0, height: 0 };
+    
     const xs = pts.map(p => shape.x + p.x);
     const ys = pts.map(p => shape.y + p.y);
+
+    if (shape.edgeStyle === 'curved' && pts.length >= 2) {
+      const p1 = { x: xs[0], y: ys[0] };
+      const p2 = { x: xs[1], y: ys[1] };
+      const cp = getCurvedControlPoint(p1, p2);
+      xs.push(cp.x);
+      ys.push(cp.y);
+    }
+
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const pad = 20;
+
     return {
-      x: Math.min(...xs),
-      y: Math.min(...ys),
-      width: Math.max(1, Math.max(...xs) - Math.min(...xs)),
-      height: Math.max(1, Math.max(...ys) - Math.min(...ys)),
+      x: minX - pad,
+      y: minY - pad,
+      width: Math.max(1, maxX - minX) + pad * 2,
+      height: Math.max(1, maxY - minY) + pad * 2,
     };
   }
 
@@ -174,7 +190,13 @@ export class LinePlugin implements IShapePlugin {
       return false;
     }
 
-    // For straight and curved, use simple segment distance (curved approximation is acceptable)
+    // Handle curved lines using quadratic bezier hit testing
+    if (shape.edgeStyle === 'curved') {
+      const cp = getCurvedControlPoint(p1, p2);
+      return pointToQuadraticBezierDistance(point, p1, cp, p2) <= threshold;
+    }
+
+    // For straight lines, use simple segment distance
     return pointToSegmentDistance(point, p1, p2) <= threshold;
   }
 

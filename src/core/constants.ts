@@ -11,7 +11,7 @@ export const UI_CONSTANTS = {
   PORT_HIT_RADIUS: 12,
 
   // Selection and frame constants
-  FRAME_PAD: 8,
+  FRAME_PAD: 0,
   SELECTION_PAD: 8,
   FRAME_HIT_TOLERANCE: 6,
 
@@ -50,17 +50,8 @@ export const UI_CONSTANTS = {
 export const STYLE_PRESETS: Record<string, any> = {
   rectangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'sharp', opacity: 1 },
   ellipse: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
-  line: { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1 },
-  'line-dashed': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dashed' },
-  'line-dotted': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1, strokeStyle: 'dotted' },
   arrow: { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 },
-  'arrow-double': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'arrow', endArrowhead: 'arrow', opacity: 1 },
-  'arrow-elbow': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'elbow', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 },
-  'arrow-curved': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'curved', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 },
-  'arrow-filled': { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'triangle', opacity: 1 },
   freehand: { stroke: '#64748b', strokeWidth: 1, roughness: 0, opacity: 1 },
-  'freehand-thick': { stroke: '#64748b', strokeWidth: 4, roughness: 0, opacity: 1 },
-  'freehand-highlighter': { stroke: '#fde047', strokeWidth: 14, roughness: 0, opacity: 0.35 },
   text: { stroke: '#64748b', fontSize: 24, opacity: 1 },
 };
 
@@ -127,11 +118,14 @@ export function getCachedStyle(type: string): Partial<Shape> {
 
 /**
  * Cache the style for a shape type when a shape is created/modified.
+ * Merges with existing cached style to preserve other properties.
  * @param type Shape type
  * @param style Style properties to cache
  */
 export function cacheStyle(type: string, style: Partial<Shape>): void {
-  STYLE_CACHE.set(type, style);
+  const existing = STYLE_CACHE.get(type) || {};
+  const merged = { ...existing, ...style };
+  STYLE_CACHE.set(type, merged);
   saveCacheToStorage(STYLE_CACHE);
 }
 
@@ -160,36 +154,9 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
       { key: 'sticky-note',   label: 'Sticky Note',   shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h7l5-5V6a2 2 0 0 0-4-4z"/><polyline points="14 2 14 8 20 8"/></svg>` },
     ],
   },
-  {
-    key: 'arrows-group', label: 'Arrows', shortcut: 'A', isDropdown: true,
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>`,
-    children: [
-      { key: 'arrow', label: 'Arrow', shortcut: 'A', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>` },
-      { key: 'arrow-double', label: 'Double Arrow', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="11 5 4 12 11 19"/><polyline points="13 5 20 12 13 19"/></svg>` },
-      { key: 'arrow-elbow', label: 'Elbow Arrow', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 18 4 6 20 6"/><polyline points="13 1 20 6 13 11"/></svg>` },
-      { key: 'arrow-curved', label: 'Curved Arrow', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 Q12 4 20 12"/><polyline points="14 7 20 12 15 17"/></svg>` },
-      { key: 'arrow-filled', label: 'Filled Arrow', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="17" y2="12"/><polygon points="17 7 23 12 17 17" fill="currentColor"/></svg>` },
-    ],
-  },
-  {
-    key: 'lines-group', label: 'Lines', shortcut: 'L', isDropdown: true,
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>`,
-    children: [
-      { key: 'line', label: 'Line', shortcut: 'L', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
-      { key: 'line-dashed', label: 'Dashed Line', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
-      { key: 'line-dotted', label: 'Dotted Line', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"><line x1="4" y1="20" x2="20" y2="4"/></svg>` },
-    ],
-  },
+  { key: 'arrow', label: 'Arrow', shortcut: 'A', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>` },
   { isSeparator: true, key: 'sep-shapes' },
-  {
-    key: 'draw-group', label: 'Draw', shortcut: 'P', isDropdown: true,
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>`,
-    children: [
-      { key: 'freehand', label: 'Pen', shortcut: 'P', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` },
-      { key: 'freehand-thick', label: 'Thick Pen', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4.0" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` },
-      { key: 'freehand-highlighter', label: 'Highlighter', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="8" rx="2" opacity="0.5" fill="currentColor"/><line x1="8" y1="18" x2="6" y2="22"/><line x1="16" y1="18" x2="18" y2="22"/></svg>` },
-    ],
-  },
+  { key: 'freehand', label: 'Pen', shortcut: 'P', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` },
   { key: 'text', label: 'Text', shortcut: 'T', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M12 4v16M9 20h6"/></svg>` },
   { key: 'image', label: 'Image', shortcut: 'I', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>` },
   { isSeparator: true, key: 'sep-draw' },
