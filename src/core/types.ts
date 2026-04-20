@@ -66,7 +66,6 @@ export interface Shape {
   textVerticalAlign?: 'top' | 'middle' | 'bottom';
   textPaddingX?: number;
   textPaddingY?: number;
-  textPaddingY?: number;
 }
 
 export interface CanvasState {
