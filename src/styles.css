@@ -464,8 +464,8 @@
 }
 
 .properties-panel {
-  position: fixed;
-  left: 24px;
+  position: absolute;
+  left: calc(var(--ui-left-offset, 0px) + 24px);
   top: 24px;
   width: 280px;
   background: rgba(255, 255, 255, 0.95);
@@ -905,7 +905,7 @@
 /* ─── Layers Panel (Premium 1:1 Vanilla Version) ─────────────────────────── */
 
 .layers-toggle-btn {
-  position: fixed;
+  position: absolute;
   top: 37px;
   right: 32px;
   width: 32px;
@@ -976,9 +976,9 @@
 /* ─── Properties Toggle Button ─────────────────────────────────────────── */
 
 .properties-toggle-btn {
-  position: fixed;
+  position: absolute;
   top: 37px;
-  left: 32px;
+  left: calc(var(--ui-left-offset, 0px) + 32px);
   width: 32px;
   height: 32px;
   display: flex;
@@ -1059,7 +1059,7 @@
 }
 
 .layers-panel-container {
-  position: fixed;
+  position: absolute;
   right: 24px;
   top: 24px;
   bottom: 96px;
