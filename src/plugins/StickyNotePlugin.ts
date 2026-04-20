@@ -2,7 +2,7 @@ import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { getThemeAdjustedStroke } from '../geometry/lineUtils';
 
-const FOLD = 18; // folded-corner size in px (scales with shape if smaller)
+const FOLD = 24; // folded-corner size in px (scales with shape if smaller)
 
 /**
  * Sticky note shape — solid colored background with a folded top-right corner.
@@ -18,6 +18,8 @@ export class StickyNotePlugin extends BaseRectPlugin {
     strokeWidth: 1,
     roughness: 0,
     opacity: 1,
+    textPaddingX: 16,
+    textPaddingY: 16,
   };
   defaultProperties = ['fill', 'stroke', 'opacity', 'textLayout', 'layer', 'action'];
 
@@ -46,32 +48,81 @@ export class StickyNotePlugin extends BaseRectPlugin {
     ctx.arcTo(x, y, x + r, y, r);
     ctx.closePath();
 
+    // 1. Draw Main Drop Shadow
+    ctx.save();
+    ctx.shadowColor = theme === 'light' ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 6;
+    ctx.shadowOffsetX = 2;
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Fill Main Body
     ctx.fillStyle = fill;
     ctx.fill();
 
-    // Subtle inner shadow along fold
-    const grad = ctx.createLinearGradient(x + w - fold, y, x + w, y + fold);
-    grad.addColorStop(0, 'rgba(0,0,0,0.08)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.0)');
-    ctx.fillStyle = grad;
-    ctx.fill();
+    // (Body gradient removed per user request)
 
-    // Stroke border
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = shape.strokeWidth || 1;
-    ctx.stroke();
-
-    // Fold triangle — slightly darker tint
+    // 4. Draw Fold Shadow (Clipped so it doesn't bleed outside paper)
+    ctx.save();
+    ctx.clip(); // Clip to main body path
     ctx.beginPath();
     ctx.moveTo(x + w - fold, y);
     ctx.lineTo(x + w, y + fold);
     ctx.lineTo(x + w - fold, y + fold);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.shadowColor = theme === 'light' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = -2;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = fill;
+    ctx.fill(); // Casts shadow onto main body
+    ctx.restore(); // Remove clip
+
+    // 5. Draw Fold Triangle
+    ctx.beginPath();
+    ctx.moveTo(x + w - fold, y);
+    ctx.lineTo(x + w, y + fold);
+    ctx.lineTo(x + w - fold, y + fold);
+    ctx.closePath();
+
+    // Fold back base color
+    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = shape.strokeWidth || 1;
+
+    // Fold 3D Gradient
+    const foldGrad = ctx.createLinearGradient(x + w - fold, y, x + w - fold, y + fold);
+    foldGrad.addColorStop(0, theme === 'light' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.15)');
+    foldGrad.addColorStop(1, theme === 'light' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.4)');
+    ctx.fillStyle = foldGrad;
+    ctx.fill();
+
+    // 6. Crease Highlight Line
+    ctx.beginPath();
+    ctx.moveTo(x + w - fold, y);
+    ctx.lineTo(x + w, y + fold);
+    ctx.strokeStyle = theme === 'light' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    // 7. Subtle Border Stroke (if requested)
+    if (shape.strokeWidth && shape.strokeWidth > 0 && shape.stroke !== 'transparent') {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - fold, y);
+      ctx.lineTo(x + w, y + fold);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+      ctx.strokeStyle = theme === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = shape.strokeWidth;
+      ctx.stroke();
+    }
 
     ctx.restore();
   }

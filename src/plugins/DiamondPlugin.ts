@@ -1,6 +1,7 @@
 import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
+import { toRoundedSvgPath } from './PolygonUtils';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
   const n = pts.length;
@@ -23,35 +24,15 @@ function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number
   ctx.closePath();
 }
 
-function buildDiamondSvgPath(pts: Point[], r: number): string {
-  const n = pts.length;
-  let d = '';
-  for (let i = 0; i < n; i++) {
-    const prev = pts[(i - 1 + n) % n];
-    const curr = pts[i];
-    const next = pts[(i + 1) % n];
-    const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
-    const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
-    const t1 = d1 > 0 ? Math.min(r / d1, 0.45) : 0;
-    const t2 = d2 > 0 ? Math.min(r / d2, 0.45) : 0;
-    const p1x = curr.x + (prev.x - curr.x) * t1;
-    const p1y = curr.y + (prev.y - curr.y) * t1;
-    const p2x = curr.x + (next.x - curr.x) * t2;
-    const p2y = curr.y + (next.y - curr.y) * t2;
-    d += i === 0 ? `M ${p1x} ${p1y}` : ` L ${p1x} ${p1y}`;
-    d += ` Q ${curr.x} ${curr.y} ${p2x} ${p2y}`;
-  }
-  return d + ' Z';
-}
-
 export class DiamondPlugin extends BaseRectPlugin {
   type = 'diamond';
   defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'textLayout', 'layer', 'action'];
+  defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'cornerRadius', 'opacity', 'textLayout', 'layer', 'action'];
 
   getCornerRadius(shape: Shape): number {
     const w = shape.width || 0, h = shape.height || 0;
-    return Math.min(w, h) * 0.15;
+    const customRadius = shape.cornerRadius ?? 16;
+    return Math.min(customRadius, w / 2, h / 2);
   }
 
   render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
@@ -68,7 +49,7 @@ export class DiamondPlugin extends BaseRectPlugin {
     ];
 
     const options = buildRoughOptions(shape, theme);
-    rc.path(buildDiamondSvgPath(tips, r), options);
+    rc.path(toRoundedSvgPath(tips, r), options);
   }
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
@@ -83,25 +64,23 @@ export class DiamondPlugin extends BaseRectPlugin {
     ctx.stroke();
   }
 
-  /** 4-point handle hit test at the actual rendered tip positions (matching bracket locations). */
+  /** 8-point handle hit test using bounding box - allows corner resize like rectangle */
   getHandleAtPoint(shape: Shape, point: Point): string | null {
     const d = 14;
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
-    const hyp = Math.hypot(w / 2, h / 2);
-    const t = hyp > 0 ? Math.min(this.getCornerRadius(shape) / hyp, 0.45) : 0;
 
-    const nTipY = shape.y     + (h / 4) * t;
-    const eTipX = shape.x + w - (w / 4) * t;
-    const sTipY = shape.y + h - (h / 4) * t;
-    const wTipX = shape.x     + (w / 4) * t;
-
-    if (Math.abs(point.x - cx)    <= d && Math.abs(point.y - nTipY) <= d) return 'n';
-    if (Math.abs(point.x - eTipX) <= d && Math.abs(point.y - cy)    <= d) return 'e';
-    if (Math.abs(point.x - cx)    <= d && Math.abs(point.y - sTipY) <= d) return 's';
-    if (Math.abs(point.x - wTipX) <= d && Math.abs(point.y - cy)    <= d) return 'w';
+    // 8-point handle positions at bounding box corners and midpoints
+    if (Math.abs(point.x - shape.x)         <= d && Math.abs(point.y - shape.y)         <= d) return 'nw';
+    if (Math.abs(point.x - cx)              <= d && Math.abs(point.y - shape.y)         <= d) return 'n';
+    if (Math.abs(point.x - (shape.x + w))   <= d && Math.abs(point.y - shape.y)         <= d) return 'ne';
+    if (Math.abs(point.x - shape.x)         <= d && Math.abs(point.y - cy)              <= d) return 'w';
+    if (Math.abs(point.x - (shape.x + w))   <= d && Math.abs(point.y - cy)              <= d) return 'e';
+    if (Math.abs(point.x - shape.x)         <= d && Math.abs(point.y - (shape.y + h))   <= d) return 'sw';
+    if (Math.abs(point.x - cx)              <= d && Math.abs(point.y - (shape.y + h))   <= d) return 's';
+    if (Math.abs(point.x - (shape.x + w))   <= d && Math.abs(point.y - (shape.y + h))   <= d) return 'se';
     return null;
   }
 

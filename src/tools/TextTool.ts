@@ -14,7 +14,7 @@ export class TextTool implements ToolDefinition {
       text: '', // Start empty
       fontFamily: "'Architects Daughter', cursive",
     } as Shape;
-    
+
     api.addShape(shape);
     api.setState({ editingShapeId: shape.id, selectedIds: [] });
   }

@@ -5,6 +5,7 @@
 import { dslRegistry } from '../registry';
 import { extractPropertiesWithDefaults } from '../converter';
 import type { DSLShape, ParseContext, ValidationResult } from '../types';
+import { PluginRegistry } from '../../plugins/PluginRegistry';
 
 /**
  * Parse position from DSL line
@@ -96,8 +97,10 @@ function createBaseConverter(tahtaType: string): (dsl: DSLShape) => any {
     const { id, type, position, properties, data, text } = dsl;
     
     const props = extractPropertiesWithDefaults(properties);
+    const defaultStyle = PluginRegistry.getDefaultStyle(tahtaType);
     
     return {
+      ...defaultStyle,
       id: id, // Will be regenerated in converter
       type: tahtaType,
       x: position?.x || 0,
@@ -105,9 +108,9 @@ function createBaseConverter(tahtaType: string): (dsl: DSLShape) => any {
       width: props.width || getDefaultWidth(tahtaType),
       height: props.height || getDefaultHeight(tahtaType),
       text: text || '',
-      strokeStyle: props.strokeStyle,
-      strokeWidth: props.strokeWidth,
-      roughness: props.roughness,
+      strokeStyle: props.strokeStyle || (defaultStyle.strokeStyle as any),
+      strokeWidth: props.strokeWidth || (defaultStyle.strokeWidth as any),
+      roughness: props.roughness !== undefined ? props.roughness : (defaultStyle.roughness as any),
       ...props.otherProps,
       ...data
     };

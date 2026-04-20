@@ -15,7 +15,7 @@ export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
 
   ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(203, 213, 224, 0.6)';
   ctx.font = `20px 'Architects Daughter', cursive`;
-  ctx.fillText('Bir araç seçin ve çizime başlayın.', width / 2, height / 2 + 40);
+  ctx.fillText('Choose a tool and start drawing.', width / 2, height / 2 + 40);
   ctx.restore();
 }
 

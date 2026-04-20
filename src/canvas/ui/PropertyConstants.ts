@@ -1,7 +1,7 @@
 // ─── Colour palettes (single source of truth) ─────────────────────────────────
 // #64748b (slate-500) is the first entry: neutral grey visible in both dark and light mode.
 export const STROKE_COLORS = [
-  '#64748b', '#f87171', '#4ade80', '#60a5fa',
+  '#000000', '#64748b', '#f87171', '#4ade80', '#60a5fa',
   '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
 ];
 
@@ -11,11 +11,16 @@ export const FILL_COLORS = [
   '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
 ];
 
+export const CANVAS_COLORS = [
+  '#ffffff', '#f1f5f9', '#e2e8f0', // Whites/Greys
+  '#fff7ed', '#fef2f2', '#f0fdf4', '#eff6ff', // Light tints         // Darks
+];
+
 export const ICONS = {
   strokeWidth: [
     { val: '1.8', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="1.2"/></svg>` },
     { val: '3.5', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2.5"/></svg>` },
-    { val: '6',   svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="4"/></svg>` }
+    { val: '6', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="4"/></svg>` }
   ],
   strokeStyle: [
     { val: 'solid', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="12" x2="20" y2="12" stroke-width="2"/></svg>` },
@@ -63,14 +68,17 @@ export const ICONS = {
     { val: 'group', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/><path d="M10 10l4 4"/></svg>` },
     { val: 'ungroup', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/><path d="M10 10l4 4"/><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/></svg>` },
     { val: 'toggle-lock', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>` },
+    { val: 'create-template', svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/><path d="M21 3v6M18 6h6" stroke-width="2.5"/></svg>` },
   ]
 };
 
 export const SHAPE_PROPERTIES: Record<string, string[]> = {
-  rectangle: ['stroke', 'fill', 'roundness', 'roughness', 'layer', 'action'],
+  rectangle: ['stroke', 'fill', 'roundness', 'cornerRadius', 'roughness', 'layer', 'action'],
   ellipse: ['stroke', 'fill', 'roughness', 'layer', 'action'],
+  diamond: ['stroke', 'fill', 'cornerRadius', 'roughness', 'layer', 'action'],
+  triangle: ['stroke', 'fill', 'cornerRadius', 'roughness', 'layer', 'action'],
   arrow: ['stroke', 'edgeStyle', 'startArrowhead', 'endArrowhead', 'roughness', 'layer', 'action'],
-  freehand: ['stroke', 'roughness', 'layer', 'action'],
+  freehand: ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'],
   text: ['stroke', 'roughness', 'layer', 'action'],
   image: ['layer', 'action']
 };

@@ -1,4 +1,5 @@
 import type { CanvasState, ICanvasAPI, PointerPayload, ToolDefinition } from '../core/types';
+import { TemplateTool } from '../tools/TemplateTool';
 import { screenToWorld } from '../geometry/Geometry';
 import { clamp } from '../core/Utils';
 import { setupKeyboard } from './KeyboardManager';
@@ -64,7 +65,15 @@ export class InputManager {
     }
 
     const toolName = this.getActiveTool();
-    const tool = this.tools[toolName];
+    let tool = this.tools[toolName];
+    
+    // Lazy resolution for dynamic tools (e.g. custom user templates)
+    if (!tool && toolName.startsWith('template-')) {
+      const templateKey = toolName.replace('template-', '');
+      tool = new TemplateTool(templateKey);
+      this.tools[toolName] = tool;
+    }
+
     if (!tool) return;
 
     if (kind === 'down' && tool.onPointerDown) tool.onPointerDown(payload, this.api);
@@ -145,6 +154,7 @@ export class InputManager {
     this.canvas.addEventListener('pointerleave', onLeave);
     this.canvas.addEventListener('dblclick', onDoubleClick);
     this.canvas.addEventListener('wheel', onWheel, { passive: false });
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     this.disposeHandlers = [
       () => this.canvas.removeEventListener('pointerdown', onDown),

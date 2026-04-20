@@ -1,6 +1,8 @@
 import type { ICanvasAPI, Shape } from '../../core/types';
 import { createId } from '../../core/Utils';
 import { cacheStyle } from '../../core/constants';
+import { UserTemplateManager } from '../../tools/UserTemplateManager';
+import { selectionToTemplate } from '../../tools/templates';
 export { renderPropertiesPanelHTML } from './PropertiesHTML';
 
 function handleActionClick(val: string, selectedIds: string[], api: ICanvasAPI) {
@@ -33,6 +35,19 @@ function handleActionClick(val: string, selectedIds: string[], api: ICanvasAPI) 
     const allLocked = selectedIds.every((id: string) => state.shapes.find((s: Shape) => s.id === id)?.locked);
     selectedIds.forEach((id: string) => api.updateShape(id, { locked: !allLocked }));
     api.commitState();
+  } else if (val === 'create-template') {
+    const state = api.getState();
+    const selectedShapes = state.shapes.filter((s: Shape) => selectedIds.includes(s.id));
+    if (selectedShapes.length === 0) return;
+
+    const name = prompt('Template Name:', 'My Custom Template');
+    if (name) {
+      const template = selectionToTemplate(name, selectedShapes);
+      UserTemplateManager.addTemplate(name, template);
+      // We might need to refresh the UI to show the new template in the library
+      api.forceNotify();
+      alert('Template saved to library!');
+    }
   }
 }
 
@@ -69,7 +84,7 @@ function handleMultiPropClick(prop: string, val: string, selectedIds: string[], 
 
 function handlePropClick(prop: string, val: string, selectedIds: string[], api: ICanvasAPI) {
   let parsedVal: any = val;
-  if (prop === 'strokeWidth' || prop === 'roughness' || prop === 'opacity') {
+  if (prop === 'strokeWidth' || prop === 'roughness' || prop === 'opacity' || prop === 'cornerRadius' || prop === 'fontSize') {
     parsedVal = parseFloat(val);
   } else if (prop === 'locked') {
     parsedVal = val === 'true';
@@ -89,6 +104,12 @@ function handlePropClick(prop: string, val: string, selectedIds: string[], api: 
     cacheStyle(state.activeTool, { [prop]: parsedVal });
     // Panelin re-render edilmesi için force notify
     api.forceNotify();
+    return;
+  }
+  
+  if (prop === 'canvasBackground') {
+    api.setState({ canvasBackground: val });
+    api.commitState();
     return;
   }
   

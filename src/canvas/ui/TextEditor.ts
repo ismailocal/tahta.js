@@ -1,6 +1,8 @@
 import { WhiteboardStore } from '../../core/Store';
 import { getShapeBounds } from '../../geometry/Geometry';
 import { PluginRegistry } from '../../plugins/index';
+import { getCachedStyle } from '../../core/constants';
+import { getThemeAdjustedStroke } from '../../core/Utils';
 
 export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
   const overlay = document.createElement('div');
@@ -55,7 +57,16 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
       if (shape) {
         editor.innerText = shape.text || '';
         editor.style.display = 'block';
-        editor.style.setProperty('color', shape.textColor || shape.stroke || '#f8fafc', 'important');
+        // Şekillere çift tıklama ile text eklerken shape'in text color'ını kullan
+        const theme = state.theme || 'dark';
+        let textColor = '#f8fafc';
+        if (shape.type === 'text') {
+          const isLight = theme === 'light';
+          textColor = shape.stroke || (isLight ? '#475569' : '#cbd5e0');
+        } else {
+          textColor = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
+        }
+        editor.style.setProperty('color', textColor, 'important');
 
         setTimeout(() => {
           editor.focus();
@@ -79,8 +90,17 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
         const zoom = state.viewport.zoom;
         const fontSz = (shape.fontSize || 20) * zoom;
         editor.style.setProperty('font-size', `${fontSz}px`, 'important');
-        editor.style.setProperty('font-family', shape.fontFamily || "'Patrick Hand', cursive", 'important');
-        editor.style.setProperty('color', shape.stroke || '#f8fafc', 'important');
+        editor.style.setProperty('font-family', shape.fontFamily || "'Architects Daughter', cursive", 'important');
+        // Şekillere çift tıklama ile text eklerken yazarken de shape'in text color'ını kullan
+        const theme = state.theme || 'dark';
+        let textColor = '#f8fafc';
+        if (shape.type === 'text') {
+          const isLight = theme === 'light';
+          textColor = shape.stroke || (isLight ? '#475569' : '#cbd5e0');
+        } else {
+          textColor = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
+        }
+        editor.style.setProperty('color', textColor, 'important');
 
         const canvasEl = document.querySelector('.board-canvas');
         let offsetX = 0;
@@ -98,6 +118,9 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
           editor.style.marginTop = `-${fontSz * 0.16}px`;
           editor.style.textAlign = shape.textAlign || 'left';
           editor.style.transform = 'none';
+          editor.style.whiteSpace = 'pre';
+          editor.style.wordBreak = 'normal';
+          editor.style.maxWidth = 'none';
         } else {
           let cx = 0;
           let cy = 0;
@@ -113,6 +136,9 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
             editor.style.marginTop = `0`;
             editor.style.textAlign = 'center';
             editor.style.transform = 'translate(-50%, -50%)';
+            editor.style.whiteSpace = 'pre';
+            editor.style.wordBreak = 'normal';
+            editor.style.maxWidth = 'none';
           } else {
             const bounds = getShapeBounds(shape);
             const paddingX = (shape.textPaddingX ?? 8) * zoom;
@@ -124,6 +150,10 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
             const by = offsetY + state.viewport.y + bounds.y * zoom;
             const bw = bounds.width * zoom;
             const bh = bounds.height * zoom;
+            
+            editor.style.whiteSpace = 'pre-wrap';
+            editor.style.wordBreak = 'break-word';
+            editor.style.maxWidth = `${Math.max(0, bw - paddingX * 2)}px`;
 
             if (textAlign === 'left') {
               editor.style.left = `${bx + paddingX}px`;
@@ -160,6 +190,9 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
           editor.style.marginTop = `0`;
           editor.style.textAlign = 'center';
           editor.style.transform = 'translate(-50%, -50%)';
+          editor.style.whiteSpace = 'pre';
+          editor.style.wordBreak = 'normal';
+          editor.style.maxWidth = 'none';
         }
         }
       }

@@ -1,44 +1,87 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { pointToSegmentDistance } from '../geometry/Geometry';
-import { buildRoughOptions } from '../geometry/lineUtils';
+import { getThemeAdjustedStroke } from '../core/Utils';
+import { getStroke } from 'perfect-freehand';
 
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
-  defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1, roughness: 0, opacity: 1 };
-  defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'roughness', 'layer', 'action'];
+  defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, opacity: 1 };
+  defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'];
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
 
-    const options = buildRoughOptions(shape, theme);
-    rc.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options);
-  }
+    const strokeColor = getThemeAdjustedStroke(shape.stroke, theme);
+    const strokeWidth = shape.strokeWidth || 1.8;
 
-  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
-    const pts = shape.points || [];
-    if (pts.length < 2) return [];
-    const options = buildRoughOptions(shape, theme);
-    return [generator.curve(pts.map(p => [shape.x + p.x, shape.y + p.y]), options)];
+    // Convert points to perfect-freehand format [x, y, pressure]
+    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, 0.5]);
+    const outlinePoints = getStroke(inputPoints, {
+      size: strokeWidth * 4,
+      smoothing: 0.5,
+      thinning: 0.5,
+      streamline: 0.5,
+      easing: (t: number) => t,
+      start: {
+        taper: 0,
+        cap: true,
+      },
+      end: {
+        taper: 0,
+        cap: true,
+      },
+    });
+
+    if (outlinePoints.length === 0) return;
+
+    ctx.fillStyle = strokeColor;
+    ctx.beginPath();
+    ctx.moveTo(outlinePoints[0][0], outlinePoints[0][1]);
+    for (let i = 1; i < outlinePoints.length; i++) {
+      const [x, y] = outlinePoints[i];
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
   }
 
   renderFast(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void {
     const pts = shape.points || [];
     if (pts.length < 2) return;
-    const options = buildRoughOptions(shape, theme);
-    ctx.save();
-    ctx.strokeStyle = options.stroke as string;
-    ctx.lineWidth = (options.strokeWidth as number) || 1.8;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+
+    const strokeColor = getThemeAdjustedStroke(shape.stroke, theme);
+    const strokeWidth = shape.strokeWidth || 1.8;
+
+    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, 0.5]);
+    const outlinePoints = getStroke(inputPoints, {
+      size: strokeWidth * 4,
+      smoothing: 0.5,
+      thinning: 0.5,
+      streamline: 0.5,
+      easing: (t: number) => t,
+      start: {
+        taper: 0,
+        cap: true,
+      },
+      end: {
+        taper: 0,
+        cap: true,
+      },
+    });
+
+    if (outlinePoints.length === 0) return;
+
+    ctx.fillStyle = strokeColor;
     ctx.beginPath();
-    ctx.moveTo(shape.x + pts[0].x, shape.y + pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(shape.x + pts[i].x, shape.y + pts[i].y);
+    ctx.moveTo(outlinePoints[0][0], outlinePoints[0][1]);
+    for (let i = 1; i < outlinePoints.length; i++) {
+      const [x, y] = outlinePoints[i];
+      ctx.lineTo(x, y);
     }
-    ctx.stroke();
-    ctx.restore();
+    ctx.closePath();
+    ctx.fill();
   }
 
   getResizeHandlePositions(_shape: Shape): Array<any> {
@@ -92,9 +135,9 @@ getBounds(shape: Shape) {
       const last = pts[pts.length - 1];
       const dx = next.x - last.x;
       const dy = next.y - last.y;
-      // Increased threshold to 9 (3 pixels) to further reduce point density
-      // and improve rendering speed without sacrificing visual quality.
-      if (dx * dx + dy * dy < 9) return {};
+      // Reduced threshold to 1 (1 pixel) for smoother curves
+      // Higher point density reduces jagged edges when zoomed
+      if (dx * dx + dy * dy < 1) return {};
     }
 
     return { points: [...pts, next] };

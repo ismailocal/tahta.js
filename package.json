@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "mermaid": "^11.13.0",
+    "perfect-freehand": "^1.2.2",
     "roughjs": "^4.6.6"
   }
 }

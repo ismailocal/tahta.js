@@ -42,6 +42,28 @@ export function toSvgPath(pts: Point[]): string {
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
 }
 
+/** Converts polygon points to a closed SVG path string with rounded corners. */
+export function toRoundedSvgPath(pts: Point[], r: number): string {
+  const n = pts.length;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const d1 = Math.hypot(prev.x - curr.x, prev.y - curr.y);
+    const d2 = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const t1 = d1 > 0 ? Math.min(r / d1, 0.45) : 0;
+    const t2 = d2 > 0 ? Math.min(r / d2, 0.45) : 0;
+    const p1x = curr.x + (prev.x - curr.x) * t1;
+    const p1y = curr.y + (prev.y - curr.y) * t1;
+    const p2x = curr.x + (next.x - curr.x) * t2;
+    const p2y = curr.y + (next.y - curr.y) * t2;
+    d += i === 0 ? `M ${p1x} ${p1y}` : ` L ${p1x} ${p1y}`;
+    d += ` Q ${curr.x} ${curr.y} ${p2x} ${p2y}`;
+  }
+  return d + ' Z';
+}
+
 /**
  * Shared hit-test for polygon-bounded shapes.
  * Always tests both interior and edge proximity regardless of fill.

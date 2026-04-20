@@ -52,6 +52,7 @@ export interface Shape {
   startArrowhead?: ArrowheadStyle;
   endArrowhead?: ArrowheadStyle;
   roundness?: 'sharp' | 'round';
+  cornerRadius?: number;
   zIndex?: number;
   startBinding?: ShapeBinding;
   endBinding?: ShapeBinding;
@@ -65,8 +66,7 @@ export interface Shape {
   textVerticalAlign?: 'top' | 'middle' | 'bottom';
   textPaddingX?: number;
   textPaddingY?: number;
-  /** 'wrap' clips to shape bounds and wraps; 'clip' clips without wrapping; 'overflow' allows overflow (default) */
-  textOverflow?: 'wrap' | 'clip' | 'overflow';
+  textPaddingY?: number;
 }
 
 export interface CanvasState {
@@ -91,6 +91,7 @@ export interface CanvasState {
   editingShapeId?: string | null;
   snapLines?: { x1: number; y1: number; x2: number; y2: number }[];
   theme?: 'light' | 'dark';
+  canvasBackground?: string;
   readOnly?: boolean;
   version: number;
 }

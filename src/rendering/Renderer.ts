@@ -156,7 +156,7 @@ function renderFullScene(
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG;
+  ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
   ctx.fillRect(0, 0, rect.width, rect.height);
   renderGrid(ctx, state, rect.width, rect.height);
   if (!state.shapes.length) renderWelcome(canvas, ctx, state.theme);
@@ -267,7 +267,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
     renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG;
+    ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(rs.staticCanvas!, 0, 0, canvas.width, canvas.height);
 

@@ -5,7 +5,7 @@ import { getTextMetrics } from '../core/Utils';
 export class TextPlugin implements IShapePlugin {
   type = 'text';
   defaultStyle: Partial<Shape> = { stroke: '#94a3b8', fontSize: 24, opacity: 1 };
-  defaultProperties = ['stroke', 'layer', 'action'];
+  defaultProperties = ['stroke', 'fontSize', 'layer', 'action'];
 
   render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     if (!shape.text) return;

@@ -62,14 +62,12 @@ function renderBoundedShapeText(
   const verticalAlign: 'top' | 'middle' | 'bottom' = shape.textVerticalAlign || 'middle';
   const paddingX = shape.textPaddingX ?? 8;
   const paddingY = shape.textPaddingY ?? 8;
-  const overflow = shape.textOverflow || 'overflow';
-
   const availW = bounds.width - paddingX * 2;
   const availH = bounds.height - paddingY * 2;
 
-  // Word-wrap if needed
+  // Word-wrap is always applied
   let lines = rawLines;
-  if ((overflow === 'wrap') && availW > 0) {
+  if (availW > 0) {
     lines = [];
     for (const rawLine of rawLines) {
       const wrapped = wrapLine(ctx, rawLine, availW);
@@ -79,7 +77,7 @@ function renderBoundedShapeText(
 
   // Auto-shrink font to fit height if wrapping
   let effectiveFontSize = fontSize;
-  if (overflow === 'wrap' && availH > 0) {
+  if (availH > 0) {
     while (effectiveFontSize > 8 && lines.length * effectiveFontSize * 1.2 > availH) {
       effectiveFontSize -= 1;
       ctx.font = `${effectiveFontSize}px ${fontFamily}`;
@@ -123,21 +121,17 @@ function renderBoundedShapeText(
 
   ctx.fillStyle = shape.textColor || getThemeAdjustedStroke(shape.stroke, theme);
 
-  if (overflow === 'clip' || overflow === 'wrap') {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(bounds.x + paddingX - 2, bounds.y + paddingY - 2, availW + 4, availH + 4);
-    ctx.clip();
-  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(bounds.x + paddingX - 2, bounds.y + paddingY - 2, availW + 4, availH + 4);
+  ctx.clip();
 
   lines.forEach(line => {
     ctx.fillText(line, anchorX, startY);
     startY += effectiveLineHeight;
   });
 
-  if (overflow === 'clip' || overflow === 'wrap') {
-    ctx.restore();
-  }
+  ctx.restore();
 }
 
 /**

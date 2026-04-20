@@ -1,6 +1,7 @@
 import { WhiteboardStore } from '../../core/Store';
-import { TOOLBAR_ITEMS } from '../../core/constants';
+import { TOOLBAR_ITEMS, ToolbarItem } from '../../core/constants';
 import { hexToRgba, createId } from '../../core/Utils';
+import { UserTemplateManager } from '../../tools/UserTemplateManager';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
 import { initLayersPanel } from './LayersPanel';
@@ -137,24 +138,50 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
       if (tool.isDropdown && tool.children) {
         const activeChild = tool.children.find(c => c.key === state.activeTool);
-        const displayIcon = (activeChild || tool.children[0]).icon;
-        const displayLabel = activeChild ? activeChild.label : tool.label;
+        const displayIcon = tool.icon || (activeChild || tool.children[0]).icon;
+        const displayLabel = tool.label;
         const groupActive = !!activeChild;
         // The parent button sets the currently active child tool (or first child)
         const parentToolKey = (activeChild || tool.children[0]).key;
         return `
           <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
-            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool="${parentToolKey}" title="${displayLabel}" aria-label="${displayLabel}">
+            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool-group="${tool.key}" title="${displayLabel}" aria-label="${displayLabel}">
               <span class="tool-icon">${displayIcon}</span>
-              <span class="tool-dropdown-arrow">▾</span>
             </button>
-            <div class="tool-dropdown-menu" id="dropdown-${tool.key}">
-              ${tool.children.map(child => `
-                <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}" aria-label="${child.label}">
-                  <span class="tool-icon">${child.icon}</span>
-                  <span>${child.label}</span>
-                </button>
-              `).join('')}
+            <div class="tool-dropdown-menu dropdown-grid-6" id="dropdown-${tool.key}">
+              ${(() => {
+                let children = [...tool.children];
+                if (tool.key === 'library-group') {
+                  const userTemplates = UserTemplateManager.getTemplates();
+                  const userItems = Object.entries(userTemplates).map(([id, t]) => ({
+                    key: `template-${id}`,
+                    label: t.label,
+                    isUserTemplate: true,
+                    templateId: id,
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/></svg>`
+                  }));
+                  if (userItems.length > 0) {
+                    children.push({ isHeader: true, label: 'User Templates' } as any);
+                    children.push(...userItems);
+                  }
+                }
+                return children.map(child => {
+                  if ((child as any).isHeader) {
+                    return `<div class="dropdown-header">${child.label}</div>`;
+                  }
+                  return `
+                    <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}" aria-label="${child.label}">
+                      <span class="tool-icon">${child.icon}</span>
+                      <span class="tool-item-label">${child.label}</span>
+                      ${(child as any).isUserTemplate ? `
+                      <div class="template-delete-btn" data-delete-template="${(child as any).templateId}" title="Delete Template">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </div>
+                      ` : ''}
+                    </button>
+                  `;
+                }).join('');
+              })()}
             </div>
           </div>
         `;
@@ -163,6 +190,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       return `
         <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${disabled ? 'disabled' : ''} aria-label="${tool.label}">
           <span class="tool-icon">${tool.icon}</span>
+          ${tool.shortcut ? `<span class="tool-shortcut">${tool.shortcut}</span>` : ''}
         </button>
       `;
     }).join('');
@@ -171,22 +199,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-wrap').forEach(wrap => {
       const menu = wrap.querySelector<HTMLElement>('.tool-dropdown-menu');
       if (!menu) return;
-      let closeTimer: ReturnType<typeof setTimeout> | null = null;
-
-      wrap.addEventListener('mouseenter', () => {
-        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-        closeAllDropdowns();
-        menu.classList.add('open');
-      });
-      wrap.addEventListener('mouseleave', () => {
-        closeTimer = setTimeout(() => menu.classList.remove('open'), 120);
-      });
-      menu.addEventListener('mouseenter', () => {
-        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-      });
-      menu.addEventListener('mouseleave', () => {
-        closeTimer = setTimeout(() => menu.classList.remove('open'), 120);
-      });
+      // Dropdowns are now click-only as per user request
     });
   };
 
@@ -196,6 +209,18 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   const onDocumentClick = () => closeAllDropdowns();
   document.addEventListener('click', onDocumentClick);
+
+  let propertiesOpen = true;
+  const propToggleBtn = document.createElement('button');
+  propToggleBtn.className = 'properties-toggle-btn active';
+  propToggleBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  propToggleBtn.title = "Close Settings";
+  root.appendChild(propToggleBtn);
+
+  propToggleBtn.addEventListener('click', () => {
+    propertiesOpen = !propertiesOpen;
+    renderProperties(store.getState());
+  });
 
   const renderProperties = (state: any) => {
     const selectedShapes = state.selectedIds
@@ -208,14 +233,24 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       'hexagon', 'star', 'parallelogram', 'cylinder', 'cloud', 'callout'
     ].includes(state.activeTool);
 
-    if (selectedShapes.length === 0 && !isDrawingTool) {
-      properties.classList.add('hidden');
-      properties.innerHTML = '';
-      return;
-    }
-
     properties.classList.remove('hidden');
     properties.innerHTML = renderPropertiesPanelHTML(api);
+    if (!properties.innerHTML.trim()) {
+      properties.classList.add('hidden');
+      propToggleBtn.style.display = 'none';
+    } else {
+      propToggleBtn.style.display = 'flex';
+      properties.classList.toggle('closed', !propertiesOpen);
+      
+      const hasSelection = selectedShapes.length > 0;
+      propToggleBtn.className = `properties-toggle-btn ${propertiesOpen ? 'active' : ''} ${hasSelection ? 'has-selection' : ''}`;
+      
+      const paletteIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125 0-.941.732-1.688 1.688-1.688h1.941c3.191 0 5.593-2.515 5.593-5.593C22 5.593 15.5 2 12 2z"/></svg>`;
+      const chevronIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+      
+      propToggleBtn.innerHTML = propertiesOpen ? chevronIcon : paletteIcon;
+      propToggleBtn.title = propertiesOpen ? "Close Settings" : "Open Settings";
+    }
 
     // Hover-based dropdown for property panel
     properties.querySelectorAll<HTMLElement>('.pp-dropdown-wrap').forEach(wrap => {
@@ -238,10 +273,34 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
-    // Close dropdowns if clicked
+    // Close dropdowns if clicked on an item or color swatch
     if (target.closest('.tool-dropdown-item') || target.closest('.pp-ibtn') || target.closest('.pp-swatch')) {
       closeAllDropdowns();
       properties.querySelectorAll('.pp-dropdown-menu').forEach(m => m.classList.remove('open'));
+    }
+
+    const deleteBtn = target.closest('[data-delete-template]') as HTMLElement | null;
+    if (deleteBtn) {
+      event.stopPropagation();
+      const templateId = deleteBtn.getAttribute('data-delete-template');
+      if (templateId && confirm('Are you sure you want to delete this template?')) {
+        UserTemplateManager.deleteTemplate(templateId);
+        api.forceNotify();
+      }
+      return;
+    }
+
+    const groupBtn = target.closest('[data-tool-group]') as HTMLButtonElement | null;
+    if (groupBtn) {
+      event.stopPropagation();
+      const groupKey = groupBtn.getAttribute('data-tool-group');
+      const menu = root.querySelector(`#dropdown-${groupKey}`);
+      if (menu) {
+        const isOpen = menu.classList.contains('open');
+        closeAllDropdowns();
+        if (!isOpen) menu.classList.add('open');
+      }
+      return;
     }
     const btn = target.closest('[data-tool]') as HTMLButtonElement | null;
     if (btn?.disabled) return;
@@ -333,6 +392,8 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
                 'triangle', 'hexagon', 'star', 'parallelogram',
                 'cylinder', 'cloud', 'callout', 'sticky-note'].includes(state.activeTool)) {
       cursor = 'crosshair';
+    } else if (state.activeTool?.startsWith('template-')) {
+      cursor = 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMyBMMTYgMTAgSDggWiIvPjxyZWN0IHg9IjQiIHk9IjE0IiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxjaXJjbGUgY3g9IjE3IiBjeT0iMTciIHI9IjMiLz48L3N2Zz4=) 12 12, crosshair';
     } else if (state.activeTool === 'comment') {
       cursor = 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNy45IDIwQTkgOSAwIDEgMCA0IDE2LjFMMiAyMloiLz48L3N2Zz4=) 2 18, pointer';
     } else {

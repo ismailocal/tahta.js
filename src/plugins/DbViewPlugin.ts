@@ -55,12 +55,12 @@ export class DbViewPlugin extends BaseRectPlugin {
     ctx.fillRect(x, y + HEADER_HEIGHT - 2, w, 2);
 
     ctx.fillStyle = accent;
-    ctx.font = 'bold 9px "Inter", system-ui, sans-serif';
+    ctx.font = 'bold 9px "Architects Daughter", cursive';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText('VIEW', x + 12, y + 10);
 
     ctx.fillStyle = isLight ? '#1e293b' : '#f0fdf4';
-    ctx.font = 'bold 13px "Inter", system-ui, sans-serif';
+    ctx.font = 'bold 13px "Architects Daughter", cursive';
     ctx.fillText(viewName, x + 12, y + HEADER_HEIGHT / 2 + 6, w - 24);
 
     columns.forEach((col, i) => {
@@ -71,12 +71,12 @@ export class DbViewPlugin extends BaseRectPlugin {
       ctx.beginPath(); ctx.moveTo(x, rowY); ctx.lineTo(x + w, rowY); ctx.stroke();
 
       ctx.fillStyle = isLight ? '#065f46' : '#d1fae5';
-      ctx.font = '12px "Inter", system-ui, sans-serif';
+      ctx.font = '12px "Architects Daughter", cursive';
       ctx.textAlign = 'left';
       ctx.fillText(col.name, x + 12, rowY + ROW_HEIGHT / 2, w * 0.6);
 
       ctx.fillStyle = isLight ? '#64748b' : '#64748b';
-      ctx.font = '11px "Inter", system-ui, sans-serif';
+      ctx.font = '11px "Architects Daughter", cursive';
       ctx.textAlign = 'right';
       ctx.fillText(col.type, x + w - 10, rowY + ROW_HEIGHT / 2);
       ctx.textAlign = 'left';

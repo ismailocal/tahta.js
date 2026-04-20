@@ -69,12 +69,12 @@ export class DbEnumPlugin extends BaseRectPlugin {
     ctx.fillRect(x, y + HEADER_HEIGHT - 2, w, 2);
 
     ctx.fillStyle = accent;
-    ctx.font = 'bold 9px "Inter", system-ui, sans-serif';
+    ctx.font = 'bold 9px "Architects Daughter", cursive';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText('ENUM', x + 10, y + 10);
 
     ctx.fillStyle = isLight ? '#be185d' : '#fdf4ff';
-    ctx.font = 'bold 13px "Inter", system-ui, sans-serif';
+    ctx.font = 'bold 13px "Architects Daughter", cursive';
     ctx.fillText(enumName, x + 10, y + HEADER_HEIGHT / 2 + 6, w - 20);
 
     values.forEach((val, i) => {
@@ -88,7 +88,7 @@ export class DbEnumPlugin extends BaseRectPlugin {
       ctx.beginPath(); ctx.arc(x + 14, rowY + ROW_HEIGHT / 2, 3, 0, Math.PI * 2); ctx.fill();
 
       ctx.fillStyle = isLight ? '#be185d' : '#f9a8d4';
-      ctx.font = '12px "Inter", system-ui, sans-serif';
+      ctx.font = '12px "Architects Daughter", cursive';
       ctx.textAlign = 'left';
       ctx.fillText(val, x + 24, rowY + ROW_HEIGHT / 2, w - 34);
     });
