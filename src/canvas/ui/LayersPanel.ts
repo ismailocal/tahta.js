@@ -20,7 +20,6 @@ const ICONS = {
 
 export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
   let isOpen = false;
-  let search = '';
 
   const panel = document.createElement('div');
   panel.className = 'layers-panel-container';
@@ -37,17 +36,9 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
     const shapes = [...(state.shapes || [])].reverse();
     const selectedIds = new Set(state.selectedIds || []);
 
-    const filteredShapes = shapes.filter(el => {
-      if (!search.trim()) return true;
-      const s = search.toLowerCase();
-      const typeMatch = (el.type as string)?.toLowerCase().includes(s);
-      const textMatch = el.text?.toLowerCase().includes(s);
-      return typeMatch || textMatch;
-    });
-
     panel.className = `layers-panel-container ${isOpen ? 'open' : ''}`;
     toggleBtn.className = `layers-toggle-btn ${isOpen ? 'active' : ''}`;
-    toggleBtn.innerHTML = isOpen ? ICONS.chevronDown : ICONS.layers;
+    toggleBtn.innerHTML = isOpen ? ICONS.chevronDown : `${ICONS.layers}${shapes.length > 0 ? `<span class="layers-toggle-badge">${shapes.length}</span>` : ''}`;
     toggleBtn.title = isOpen ? "Close Layers" : "Open Layers";
 
     panel.innerHTML = `
@@ -57,16 +48,17 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
           <h3 class="layers-header-title">Layers</h3>
           <span class="layers-count-badge">${shapes.length}</span>
         </div>
-        <div style="width: 32px; height: 32px;"></div>
-      </div>
-      <div class="layers-search-wrap">
-        <div class="layers-search-inner">
-          <span class="layers-search-icon">${ICONS.search}</span>
-          <input type="text" class="layers-search-input" placeholder="Filter objects..." value="${search}">
-        </div>
+        <button class="layers-close-btn" title="Close Layers">
+          ${ICONS.chevronDown}
+        </button>
       </div>
       <div class="layers-list custom-scrollbar">
-        ${filteredShapes.map(shape => {
+        ${shapes.length === 0 ? `
+          <div class="layers-empty">
+            <span class="layers-empty-icon">${ICONS.layers}</span>
+            <p>No objects yet</p>
+          </div>
+        ` : shapes.map(shape => {
           const isSelected = selectedIds.has(shape.id);
           const icon = getShapeIcon(shape.type);
           const label = shape.text || ((shape.type as string).charAt(0).toUpperCase() + (shape.type as string).slice(1));
@@ -88,25 +80,8 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
             </div>
           `;
         }).join('')}
-        ${filteredShapes.length === 0 && shapes.length > 0 ? `
-          <div class="layers-empty">
-            <span class="layers-empty-icon">${ICONS.layers}</span>
-            <p>No matching objects</p>
-          </div>
-        ` : ''}
       </div>
     `;
-
-    // Re-bind events
-    const input = panel.querySelector('.layers-search-input') as HTMLInputElement;
-    if (input) {
-      input.addEventListener('input', (e) => {
-        search = (e.target as HTMLInputElement).value;
-        render();
-      });
-      // Keep focus if possible (though manual render kills it, we can fix by updating list only or using a better approach)
-      // For simplicity in Vanilla, we'll try to restore focus.
-    }
 
     panel.querySelectorAll('.layer-item').forEach(el => {
       el.addEventListener('click', (e) => {
@@ -124,6 +99,14 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
         if (id) handleDelete(id);
       });
     });
+
+    const closeBtn = panel.querySelector('.layers-close-btn') as HTMLButtonElement;
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        isOpen = false;
+        render();
+      });
+    }
   };
 
   const handleSelect = (id: string, shape: Shape) => {

@@ -170,25 +170,7 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
 
   if (!selectedShapes.length) {
     if (!isDrawingTool) {
-      const currentBg = state.canvasBackground || (state.theme === 'light' ? '#ffffff' : '#121212');
-      return `
-        <div class="properties-header">
-          <div class="properties-header-left">
-            <span class="properties-header-icon"></span>
-            <h3 class="properties-header-title">Canvas Settings</h3>
-          </div>
-        </div>
-        <div class="pp-toolbar">
-          <div class="pp-section">
-            <div class="pp-row">
-              <div class="pp-label">Background Color</div>
-              <div class="pp-swatches">
-                ${CANVAS_COLORS.map(c => swatch('canvasBackground', c, currentBg === c)).join('')}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
+      return '';
     }
 
     // Aktif araç için cached style'ı al ve mock shape oluştur
@@ -332,7 +314,6 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     return `
       <div class="properties-header">
         <div class="properties-header-left">
-          <span class="properties-header-icon"></span>
           <h3 class="properties-header-title">Properties</h3>
           <span class="properties-count-badge">Tool Settings</span>
         </div>
@@ -511,7 +492,6 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
   return `
     <div class="properties-header">
       <div class="properties-header-left">
-        <span class="properties-header-icon"></span>
         <h3 class="properties-header-title">Properties</h3>
         <span class="properties-count-badge">${countLabel}</span>
       </div>

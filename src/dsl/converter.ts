@@ -92,16 +92,21 @@ function convertConnector(conn: DSLConnector, idMap: Map<string, string>, _shape
     return null;
   }
 
+  // Convert col- format to row- format for DB shapes
+  const convertPortId = (portId: string): string => {
+    return portId.replace(/^col-(\d+)-(.+)$/, 'row-$1-$2');
+  };
+
   const connectorType = conn.type || 'arrow';
   const props = extractPropertiesWithDefaults(conn.properties);
-  
+
   return {
     id: createId(),
     type: connectorType,
     x: 0,
     y: 0,
-    startBinding: conn.fromPort ? { elementId: fromId, portId: conn.fromPort } : undefined,
-    endBinding: conn.toPort ? { elementId: toId, portId: conn.toPort } : undefined,
+    startBinding: conn.fromPort ? { elementId: fromId, portId: convertPortId(conn.fromPort) } : undefined,
+    endBinding: conn.toPort ? { elementId: toId, portId: convertPortId(conn.toPort) } : undefined,
     points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
     strokeStyle: props.strokeStyle,
     strokeWidth: props.strokeWidth,
