@@ -34,6 +34,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         <section class="board-area">
           <div class="properties-panel" data-properties></div>
           <div class="zoom-controls" data-zoom-controls>
+            <button class="layers-toggle-btn" data-layers-toggle title="Open Layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </button>
+            <div class="zoom-separator"></div>
             <button class="zoom-btn" data-zoom-fit title="Focus Content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M3 17v2a2 2 0 0 1 2 2h2"/></svg>
             </button>

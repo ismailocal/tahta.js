@@ -19,32 +19,42 @@ const ICONS = {
 };
 
 export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
+  // Always keep panel closed - only show layer count
   let isOpen = false;
 
+  const toggleBtn = root.querySelector('[data-layers-toggle]') as HTMLButtonElement;
   const panel = document.createElement('div');
   panel.className = 'layers-panel-container';
-  root.appendChild(panel);
 
-  const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'layers-toggle-btn';
-  toggleBtn.innerHTML = ICONS.layers;
-  toggleBtn.title = "Open Layers";
-  root.appendChild(toggleBtn);
+  // Append panel to board-area (not inside zoom-controls)
+  const boardArea = root.querySelector('.board-area') as HTMLElement;
+  if (boardArea) {
+    boardArea.appendChild(panel);
+  } else {
+    root.appendChild(panel);
+  }
+
+  if (!toggleBtn) {
+    console.warn('Layers toggle button not found');
+    return;
+  }
 
   const render = () => {
     const state = store.getState();
     const shapes = [...(state.shapes || [])].reverse();
     const selectedIds = new Set(state.selectedIds || []);
 
+    // Check if all shapes are selected
+    const allSelected = shapes.length > 0 && selectedIds.size === shapes.length;
+
     panel.className = `layers-panel-container ${isOpen ? 'open' : ''}`;
-    toggleBtn.className = `layers-toggle-btn ${isOpen ? 'active' : ''}`;
-    toggleBtn.innerHTML = isOpen ? ICONS.chevronDown : `${ICONS.layers}${shapes.length > 0 ? `<span class="layers-toggle-badge">${shapes.length}</span>` : ''}`;
-    toggleBtn.title = isOpen ? "Close Layers" : "Open Layers";
+    toggleBtn.className = `layers-toggle-btn ${allSelected ? 'active' : ''}`;
+    toggleBtn.innerHTML = `${ICONS.layers}${shapes.length > 0 ? `<span class="layers-toggle-badge">${shapes.length}</span>` : ''}`;
+    toggleBtn.title = allSelected ? "Deselect All" : "Select All";
 
     panel.innerHTML = `
       <div class="layers-header">
         <div class="layers-header-left">
-          <span class="layers-header-icon">${ICONS.layers}</span>
           <h3 class="layers-header-title">Layers</h3>
           <span class="layers-count-badge">${shapes.length}</span>
         </div>
@@ -121,6 +131,22 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
     api.commitState();
   };
 
+  const handleToggleSelectAll = () => {
+    const state = store.getState();
+    const shapes = state.shapes || [];
+    const selectedIds = new Set(state.selectedIds || []);
+    const allSelected = shapes.length > 0 && selectedIds.size === shapes.length;
+
+    if (allSelected) {
+      // Deselect all
+      api.setSelection([]);
+    } else {
+      // Select all
+      const allIds = shapes.map(s => s.id);
+      api.setSelection(allIds);
+    }
+  };
+
   const getShapeIcon = (type: string) => {
     switch (type) {
       case 'text': return ICONS.text;
@@ -136,10 +162,11 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
     }
   };
 
-  toggleBtn.addEventListener('click', () => {
-    isOpen = !isOpen;
-    render();
-  });
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      handleToggleSelectAll();
+    });
+  }
 
   const unsubscribe = store.subscribe(() => {
      // Optimization: Only render if open or if total count changed
@@ -151,6 +178,6 @@ export function initLayersPanel(root: HTMLElement, store: WhiteboardStore, canva
   return () => {
     unsubscribe();
     panel.remove();
-    toggleBtn.remove();
+    // Don't remove toggleBtn as it's created by UIBuilder
   };
 }
