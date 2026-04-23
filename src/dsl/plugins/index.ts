@@ -12,6 +12,8 @@ import { registerConnectorPlugins } from './connectors';
  * Register all built-in DSL shape plugins
  */
 export function registerAllPlugins(): void {
+  // Clear existing plugins to avoid duplicate warnings on hot reload
+  dslRegistry.clear();
   registerBasicPlugins();
   registerDatabasePlugins();
   registerOtherPlugins();

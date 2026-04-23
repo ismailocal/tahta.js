@@ -1,7 +1,7 @@
 import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
-import { toRoundedSvgPath } from './PolygonUtils';
+import { toRoundedSvgPath, genericHitTest } from './PolygonUtils';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
   const n = pts.length;
@@ -108,23 +108,19 @@ export class DiamondPlugin extends BaseRectPlugin {
     const h = shape.height || 0;
     const cx = shape.x + w / 2;
     const cy = shape.y + h / 2;
-    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
-    
-    // Accept any click inside the (slightly inflated) diamond area
-    const dxOuter = Math.abs(point.x - cx) / (w / 2 + t);
-    const dyOuter = Math.abs(point.y - cy) / (h / 2 + t);
-    if (dxOuter + dyOuter > 1) return false;
+    const bounds = this.getBounds(shape);
 
-    const isTransparent = !shape.fill || shape.fill === 'transparent' || shape.fill === 'none';
-    if (isTransparent) {
-        const wi = Math.max(0.1, w / 2 - t);
-        const hi = Math.max(0.1, h / 2 - t);
-        const dxInner = Math.abs(point.x - cx) / wi;
-        const dyInner = Math.abs(point.y - cy) / hi;
-        return dxInner + dyInner >= 1;
-    }
-
-    return true;
+    return genericHitTest(
+      point,
+      bounds,
+      (pt) => {
+        const dx = Math.abs(pt.x - cx) / (w / 2);
+        const dy = Math.abs(pt.y - cy) / (h / 2);
+        return dx + dy <= 1;
+      },
+      shape.strokeWidth || 1,
+      shape.fill
+    );
   }
 
 }

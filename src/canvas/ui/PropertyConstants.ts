@@ -5,11 +5,21 @@ export const STROKE_COLORS = [
   '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
 ];
 
-export const FILL_COLORS = [
+export const FILL_COLORS_LIGHT = [
   'transparent',
-  '#64748b', '#f87171', '#4ade80', '#60a5fa',
-  '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8',
+  '#e2e8f0', '#fecaca', '#bbf7d0', '#bfdbfe',
+  '#fde68a', '#ddd6fe', '#fbcfe8', '#cbd5e1',
 ];
+
+export const FILL_COLORS_DARK = [
+  'transparent',
+  '#334155', '#7f1d1d', '#14532d', '#1e3a5f',
+  '#713f12', '#3b0764', '#831843', '#374151',
+];
+
+export function getFillColors(theme: 'light' | 'dark'): string[] {
+  return theme === 'dark' ? FILL_COLORS_DARK : FILL_COLORS_LIGHT;
+}
 
 export const CANVAS_COLORS = [
   '#ffffff', '#f1f5f9', '#e2e8f0', // Whites/Greys

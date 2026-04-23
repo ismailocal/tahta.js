@@ -106,14 +106,14 @@ export function renderShape(
     ctx.save();
 
     // Universal selection frame — only when selected, skip connectors
-    // Also skip for freehand while drawing
+    // Also skip for freehand while drawing and locked shapes
     const hasResizeHandles = !plugin.getResizeHandlePositions || plugin.getResizeHandlePositions(shape).length > 0;
-    if (options.isSelected && !plugin.isConnector && plugin.getBounds && !(shape.type === 'freehand' && options.isDrawing)) {
+    if (options.isSelected && !shape.locked && !plugin.isConnector && plugin.getBounds && !(shape.type === 'freehand' && options.isDrawing)) {
       renderSelectionFrame(ctx, plugin.getBounds(shape), options.theme, hasResizeHandles);
     }
 
     // Plugin-specific selection overlay (arrow/line endpoint handles, etc.)
-    if (plugin.renderSelection) {
+    if (plugin.renderSelection && !shape.locked) {
       plugin.renderSelection(ctx, shape, allShapes, options.theme);
     }
 

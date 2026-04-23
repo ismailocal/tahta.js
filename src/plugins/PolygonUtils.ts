@@ -72,8 +72,62 @@ export function polygonHitTest(point: Point, polygon: Point[], strokeWidth: numb
   const t = Math.max(8, (strokeWidth || 1) + 7);
   const nearEdge = isPointNearEdge(point.x, point.y, polygon, t);
   const isTransparent = !fill || fill === 'transparent' || fill === 'none';
-  if (!isTransparent) {
-    return nearEdge || isPointInPolygon(point.x, point.y, polygon);
+
+  // First check if point is inside the polygon
+  const inside = isPointInPolygon(point.x, point.y, polygon);
+  if (inside) {
+    return true;
   }
-  return nearEdge;
+
+  // If not inside, check edge proximity for transparent fills
+  if (isTransparent) {
+    return nearEdge;
+  }
+
+  return false;
+}
+
+/**
+ * Centralized hit test helper for all shape types.
+ * Checks if point is inside the shape's bounds first, then handles transparent fills.
+ */
+export function genericHitTest(
+  point: Point,
+  bounds: { x: number; y: number; width: number; height: number },
+  isInsideBounds: (point: Point) => boolean,
+  strokeWidth: number,
+  fill?: string
+): boolean {
+  const t = Math.max(8, (strokeWidth || 1) + 7);
+
+  // Quick outer bounds check
+  if (point.x < bounds.x - t || point.x > bounds.x + bounds.width + t ||
+      point.y < bounds.y - t || point.y > bounds.y + bounds.height + t) {
+    return false;
+  }
+
+  // Check if point is inside the shape using the specific geometry check
+  if (isInsideBounds(point)) {
+    return true;
+  }
+
+  // If not inside, check edge proximity for transparent fills
+  const isTransparent = !fill || fill === 'transparent' || fill === 'none';
+  if (isTransparent) {
+    // For transparent shapes, check if point is near the edge
+    // This is a simplified check - specific plugins may override for precise edge detection
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    const dx = Math.abs(point.x - cx) - bounds.width / 2;
+    const dy = Math.abs(point.y - cy) - bounds.height / 2;
+
+    if (dx <= 0 && dy <= 0) {
+      // Point is inside the bounding box; distance to nearest edge must be <= t
+      return Math.min(Math.abs(dx), Math.abs(dy)) <= t;
+    }
+    // Point is outside the bounding box; distance to nearest corner/edge must be <= t
+    return Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2) <= t;
+  }
+
+  return false;
 }

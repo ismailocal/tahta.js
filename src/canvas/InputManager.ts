@@ -4,6 +4,7 @@ import { screenToWorld } from '../geometry/Geometry';
 import { clamp } from '../core/Utils';
 import { setupKeyboard } from './KeyboardManager';
 import { setupClipboard } from './ClipboardManager';
+import { ContextMenu } from './ui/ContextMenu';
 
 export function createPointerPayload(canvas: HTMLCanvasElement, event: PointerEvent, state: CanvasState): PointerPayload {
   const rect = canvas.getBoundingClientRect();
@@ -34,6 +35,7 @@ export class InputManager {
   private api: ICanvasAPI;
   private canvas: HTMLCanvasElement;
   private disposeHandlers: (() => void)[] = [];
+  private contextMenu: ContextMenu | null = null;
 
   constructor(canvas: HTMLCanvasElement, api: ICanvasAPI, tools: Record<string, ToolDefinition>) {
     this.canvas = canvas;
@@ -45,6 +47,27 @@ export class InputManager {
 
   private getActiveTool() {
     return this.activeOverrideTool !== null ? this.activeOverrideTool : this.api.getState().activeTool;
+  }
+
+  private handleContextMenu(e: MouseEvent) {
+    const state = this.api.getState();
+    const selectedIds = state.selectedIds || [];
+
+    if (selectedIds.length === 0) return;
+
+    // Close existing context menu if any
+    if (this.contextMenu) {
+      this.contextMenu = null;
+    }
+
+    // Create and show new context menu
+    this.contextMenu = new ContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      selectedIds,
+      api: this.api,
+    });
+    this.contextMenu.show();
   }
 
   private handlePointer(kind: 'down' | 'move' | 'up', event: PointerEvent) {
@@ -154,7 +177,10 @@ export class InputManager {
     this.canvas.addEventListener('pointerleave', onLeave);
     this.canvas.addEventListener('dblclick', onDoubleClick);
     this.canvas.addEventListener('wheel', onWheel, { passive: false });
-    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.handleContextMenu(e);
+    });
 
     this.disposeHandlers = [
       () => this.canvas.removeEventListener('pointerdown', onDown),

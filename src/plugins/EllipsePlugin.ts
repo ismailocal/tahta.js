@@ -1,6 +1,7 @@
 import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { buildRoughOptions } from '../geometry/lineUtils';
+import { genericHitTest } from './PolygonUtils';
 
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
@@ -47,33 +48,30 @@ export class EllipsePlugin extends BaseRectPlugin {
     ];
   }
 
-  isPointInside(point: Point, shape: Shape): boolean {
-    const b = this.getBounds(shape);
-    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
-    const t = Math.max(8, (shape.strokeWidth || 1) + 7);
-    const rx = b.width / 2, ry = b.height / 2;
-    const dx = point.x - cx, dy = point.y - cy;
-    
-    // Accept clicks anywhere inside the (slightly inflated) ellipse bounding area
-    const distOuter = (dx * dx) / ((rx + t) * (rx + t)) + (dy * dy) / ((ry + t) * (ry + t));
-    if (distOuter > 1) return false;
-
-    const isTransparent = !shape.fill || shape.fill === 'transparent' || shape.fill === 'none';
-    if (isTransparent) {
-        const rxi = Math.max(0.1, rx - t);
-        const ryi = Math.max(0.1, ry - t);
-        const distInner = (dx * dx) / (rxi * rxi) + (dy * dy) / (ryi * ryi);
-        return distInner >= 1;
-    }
-
-    return true;
-  }
 
   drawHoverOutline(ctx: CanvasRenderingContext2D, shape: Shape) {
     const b = this.getBounds(shape);
     ctx.beginPath();
     ctx.ellipse(b.x + b.width / 2, b.y + b.height / 2, b.width / 2, b.height / 2, 0, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  isPointInside(point: Point, shape: Shape): boolean {
+    const b = this.getBounds(shape);
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    const rx = b.width / 2, ry = b.height / 2;
+
+    return genericHitTest(
+      point,
+      b,
+      (pt) => {
+        const dx = pt.x - cx;
+        const dy = pt.y - cy;
+        return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1;
+      },
+      shape.strokeWidth || 1,
+      shape.fill
+    );
   }
 
 }

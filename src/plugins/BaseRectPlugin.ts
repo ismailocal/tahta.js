@@ -1,6 +1,7 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
 import { UI_CONSTANTS } from '../core/constants';
+import { genericHitTest } from './PolygonUtils';
 
 /**
  * Shared base for all rectangle-bounded shape plugins.
@@ -76,32 +77,14 @@ export abstract class BaseRectPlugin implements IShapePlugin {
   }
 
   isPointInside(point: Point, shape: Shape): boolean {
-    const { x, y, width: w, height: h } = this.getBounds(shape);
-    const m = Math.max(8, (shape.strokeWidth || 1) + 7);
-    
-    // Quick outer bounds check
-    if (point.x < x - m || point.x > x + w + m || point.y < y - m || point.y > y + h + m) {
-      return false;
-    }
-
-    const isTransparent = !shape.fill || shape.fill === 'transparent' || shape.fill === 'none';
-
-    if (isTransparent) {
-      // For transparent rectangle, we only hit the outline.
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-      const dx = Math.abs(point.x - cx) - w / 2;
-      const dy = Math.abs(point.y - cy) - h / 2;
-      
-      if (dx <= 0 && dy <= 0) {
-        // Point is inside the rectangle; distance to nearest edge must be <= m
-        return Math.min(Math.abs(dx), Math.abs(dy)) <= m;
-      }
-      // Point is outside the rectangle; distance to nearest corner/edge must be <= m
-      return Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2) <= m;
-    }
-
-    return true;
+    const bounds = this.getBounds(shape);
+    return genericHitTest(
+      point,
+      bounds,
+      (pt) => pt.x >= bounds.x && pt.x <= bounds.x + bounds.width && pt.y >= bounds.y && pt.y <= bounds.y + bounds.height,
+      shape.strokeWidth || 1,
+      shape.fill
+    );
   }
 
 

@@ -1,11 +1,11 @@
 import { WhiteboardStore } from '../../core/Store';
-import { TOOLBAR_ITEMS, ToolbarItem } from '../../core/constants';
+import { TOOLBAR_ITEMS, type ToolbarItem } from '../../core/constants';
 import { hexToRgba, createId } from '../../core/Utils';
 import { UserTemplateManager } from '../../tools/UserTemplateManager';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
-import { initLayersPanel } from './LayersPanel';
 import { imageCache } from '../../plugins/ImagePlugin';
+import { confirmModal } from './Modal';
 import type { ICanvasAPI } from '../../core/types';
 
 function calculateZoomToCenter(canvas: HTMLCanvasElement, currentZoom: number, newZoom: number, viewport: { x: number; y: number; zoom: number }) {
@@ -36,6 +36,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
           <div class="zoom-controls" data-zoom-controls>
             <button class="layers-toggle-btn" data-layers-toggle title="Open Layers">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              <span class="layers-badge" data-layers-badge></span>
             </button>
             <div class="zoom-separator"></div>
             <button class="zoom-btn" data-zoom-fit title="Focus Content">
@@ -231,6 +232,13 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       .map((id: string) => state.shapes.find((s: any) => s.id === id))
       .filter((s: any) => !!s);
 
+    // If all selected shapes are locked, don't show properties panel
+    if (selectedShapes.length > 0 && selectedShapes.every((s: any) => s.locked)) {
+      properties.classList.add('hidden');
+      propToggleBtn.style.display = 'none';
+      return;
+    }
+
     const isDrawingTool = [
       'rectangle', 'ellipse', 'diamond', 'triangle', 'sticky-note',
       'arrow', 'freehand', 'text', 'db-table', 'db-view', 'db-enum',
@@ -273,7 +281,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   };
 
   initPropertiesPanel(properties, api);
-  const disposeLayers = initLayersPanel(root, store, canvas, api);
 
   root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
@@ -287,9 +294,19 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     if (deleteBtn) {
       event.stopPropagation();
       const templateId = deleteBtn.getAttribute('data-delete-template');
-      if (templateId && confirm('Are you sure you want to delete this template?')) {
-        UserTemplateManager.deleteTemplate(templateId);
-        api.forceNotify();
+      if (templateId) {
+        confirmModal({
+          title: 'Delete Template',
+          message: 'Are you sure you want to delete this template?',
+          confirmLabel: 'Delete',
+          cancelLabel: 'Cancel',
+          danger: true,
+        }).then((confirmed) => {
+          if (confirmed) {
+            UserTemplateManager.deleteTemplate(templateId);
+            api.forceNotify();
+          }
+        });
       }
       return;
     }
@@ -409,12 +426,26 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     }
   };
 
+  const layersBadge = root.querySelector('[data-layers-badge]') as HTMLElement | null;
+
+  const updateLayersBadge = (state: any) => {
+    if (!layersBadge) return;
+    const count = state.shapes?.length ?? 0;
+    if (count > 0) {
+      layersBadge.textContent = String(count);
+      layersBadge.style.display = '';
+    } else {
+      layersBadge.style.display = 'none';
+    }
+  };
+
   const unsubUI = store.subscribe((state) => {
     requestAnimationFrame(() => {
       renderToolbar(state);
       renderProperties(state);
       renderCursor(state);
       renderZoomValue(state);
+      updateLayersBadge(state);
 
       // Sync theme class to tahta-shell
       const shell = root.querySelector('.tahta-shell');
@@ -432,6 +463,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   renderProperties(store.getState());
   renderCursor(store.getState());
   renderZoomValue(store.getState());
+  updateLayersBadge(store.getState());
   
   const initialShell = root.querySelector('.tahta-shell');
   if (initialShell) {
@@ -444,7 +476,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   return () => {
     unsubUI();
-    disposeLayers();
     document.removeEventListener('click', onDocumentClick);
   };
 }

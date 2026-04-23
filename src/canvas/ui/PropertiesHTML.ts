@@ -1,5 +1,5 @@
 import type { Shape, ICanvasAPI } from '../../core/types';
-import { getShapePropertyKeys, STROKE_COLORS, FILL_COLORS, CANVAS_COLORS } from './PropertyConstants';
+import { getShapePropertyKeys, STROKE_COLORS, getFillColors, CANVAS_COLORS } from './PropertyConstants';
 import { getCachedStyle } from '../../core/constants';
 import { ICONS } from '../../core/icons';
 
@@ -260,7 +260,7 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
       );
     }
     if (has('fill')) {
-      appearanceHtml += row('Fill', `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`);
+      appearanceHtml += row('Fill', `<div class="pp-swatches">${getFillColors(state.theme || 'light').map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`);
     }
     if (has('fillStyle')) {
       const s = shape.fillStyle || 'hachure';
@@ -407,7 +407,7 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     );
   }
   if (has('fill')) {
-    appearanceHtml += row('Fill', `<div class="pp-swatches">${FILL_COLORS.map(c => swatch('fill', c, shape.fill === c)).join('')}</div>`);
+    appearanceHtml += row('Fill', `<div class="pp-swatches">${getFillColors(state.theme || 'light').map((c: string) => swatch('fill', c, shape.fill === c)).join('')}</div>`);
   }
   if (has('fillStyle')) {
     const s = shape.fillStyle || 'hachure';
@@ -459,33 +459,6 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     groups.push(section('Text', fsHtml));
   }
 
-  // Group 2: Actions
-  let actionsHtml = '';
-  if (has('action')) {
-    actionsHtml += row('Actions',
-      btnGroup(
-        iconBtn('action', 'duplicate', I.duplicate, false, 'Duplicate', isLocked ? 'pp-ibtn--dim' : ''),
-        iconBtn('action', 'toggle-lock', isLocked ? I.unlock : I.lock, isLocked, isLocked ? 'Unlock' : 'Lock', 'pp-ibtn--lock'),
-        iconBtn('action', 'create-template', I.createTemplate, false, 'Save as Template', isLocked ? 'pp-ibtn--dim' : ''),
-        iconBtn('action', 'delete', I.delete, false, 'Delete', `pp-ibtn--danger${isLocked ? ' pp-ibtn--dim' : ''}`)
-      )
-    );
-  }
-  if (actionsHtml) groups.push(section('Actions', actionsHtml));
-
-  // Group 3: Layers
-  let layersHtml = '';
-  if (has('layer')) {
-    layersHtml += row('Layer',
-      btnGroup(
-        iconBtn('layer', 'back', I.layerBack, false, 'Move to back'),
-        iconBtn('layer', 'backward', I.layerBwd, false, 'Move backward'),
-        iconBtn('layer', 'forward', I.layerFwd, false, 'Move forward'),
-        iconBtn('layer', 'front', I.layerFront, false, 'Move to front'),
-      )
-    );
-  }
-  if (layersHtml) groups.push(section('Layers', layersHtml));
 
   const countLabel = selectedShapes.length === 1 ? '1 object' : `${selectedShapes.length} objects`;
 
