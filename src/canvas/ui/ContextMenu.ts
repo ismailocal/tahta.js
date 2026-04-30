@@ -41,77 +41,7 @@ export class ContextMenu {
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
 
-    const state = this.api.getState();
-    const selectedShapes = this.selectedIds
-      .map((id: string) => state.shapes.find((s: Shape) => s.id === id))
-      .filter((s): s is Shape => !!s);
-
-    if (selectedShapes.length === 0) {
-      return menu;
-    }
-
-    const isLocked = selectedShapes.some(s => s.locked);
-    const shape = selectedShapes[0];
-
-    // Actions section
-    const actionsSection = document.createElement('div');
-    actionsSection.className = 'context-menu-section';
-    actionsSection.innerHTML = '<div class="context-menu-section-title">Actions</div>';
-
-    const actionsList = document.createElement('div');
-    actionsList.className = 'context-menu-items';
-
-    // Duplicate
-    const duplicateBtn = this.createMenuItem('duplicate', 'Duplicate', ICONS.duplicate, !isLocked);
-    actionsList.appendChild(duplicateBtn);
-
-    // Lock/Unlock
-    const lockBtn = this.createMenuItem(
-      isLocked ? 'unlock' : 'lock',
-      isLocked ? 'Unlock' : 'Lock',
-      isLocked ? ICONS.unlock : ICONS.lock,
-      true
-    );
-    actionsList.appendChild(lockBtn);
-
-    // Save as Template
-    const templateBtn = this.createMenuItem('create-template', 'Save as Template', ICONS.createTemplate, !isLocked);
-    actionsList.appendChild(templateBtn);
-
-    // Delete
-    const deleteBtn = this.createMenuItem('delete', 'Delete', ICONS.delete, !isLocked, true);
-    actionsList.appendChild(deleteBtn);
-
-    actionsSection.appendChild(actionsList);
-    menu.appendChild(actionsSection);
-
-    // Layers section
-    const layersSection = document.createElement('div');
-    layersSection.className = 'context-menu-section';
-    layersSection.innerHTML = '<div class="context-menu-section-title">Layers</div>';
-
-    const layersList = document.createElement('div');
-    layersList.className = 'context-menu-items';
-
-    // Move to back
-    const toBackBtn = this.createMenuItem('to-back', 'Move to Back', ICONS.toBack, !isLocked);
-    layersList.appendChild(toBackBtn);
-
-    // Move backward
-    const backwardBtn = this.createMenuItem('backward', 'Move Backward', ICONS.layerBack, !isLocked);
-    layersList.appendChild(backwardBtn);
-
-    // Move forward
-    const forwardBtn = this.createMenuItem('forward', 'Move Forward', ICONS.layerForward, !isLocked);
-    layersList.appendChild(forwardBtn);
-
-    // Move to front
-    const toFrontBtn = this.createMenuItem('to-front', 'Move to Front', ICONS.toFront, !isLocked);
-    layersList.appendChild(toFrontBtn);
-
-    layersSection.appendChild(layersList);
-    menu.appendChild(layersSection);
-
+    // Context menu artık kullanılmıyor, Actions ve Layers Properties panel'de
     return menu;
   }
 
@@ -130,28 +60,9 @@ export class ContextMenu {
   }
 
   private attach() {
-    this.element.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      const item = target.closest('.context-menu-item') as HTMLElement;
-      if (!item || item.classList.contains('disabled')) return;
-
-      const action = item.getAttribute('data-action');
-      if (action) {
-        this.handleAction(action);
-        this.close();
-      }
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!this.element.contains(e.target as Node)) {
-        this.close();
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.close();
-      }
+    // Context menu artık kullanılmıyor, tıklama dışarıda kapatır
+    document.addEventListener('click', () => {
+      this.close();
     });
   }
 
@@ -240,8 +151,7 @@ export class ContextMenu {
   }
 
   show() {
-    // Close any existing context menus before showing the new one
-    document.querySelectorAll('.context-menu').forEach(el => el.remove());
-    document.body.appendChild(this.element);
+    // Context menu artık kullanılmıyor, hiçbir şey göstermiyoruz
+    this.close();
   }
 }

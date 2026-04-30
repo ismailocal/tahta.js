@@ -591,7 +591,7 @@
 .pp-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding: 8px 10px;
   border-radius: 12px;
   transition: all 0.2s;
@@ -603,13 +603,10 @@
   color: #334155;
   letter-spacing: -0.025em;
   margin: 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .dark .pp-section-title {
   color: rgba(255, 255, 255, 0.8);
-  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .pp-row {
@@ -795,10 +792,14 @@
 }
 
 .pp-ibtn {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
   border: none;
   background: transparent;
   color: #94a3b8;
@@ -808,8 +809,20 @@
 }
 
 .pp-ibtn svg {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+}
+
+.pp-ibtn-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.dark .pp-ibtn-label {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .pp-ibtn:hover {
@@ -848,6 +861,25 @@
   pointer-events: none;
 }
 
+.pp-ibtn--lock-active {
+  color: #ef4444;
+}
+
+.pp-ibtn--lock-active:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.pp-btn-group.pp-actions-group .pp-ibtn {
+  width: 28px;
+  height: 28px;
+}
+
+.pp-btn-group.pp-actions-group .pp-ibtn svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Text align 3×3 grid */
 .pp-align-grid {
   display: grid;
@@ -878,12 +910,6 @@
   cursor: pointer;
 }
 
-/* Actions Grid Extensions */
-.pp-actions-grid {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-}
 
 .pp-actions-group {
   display: flex;

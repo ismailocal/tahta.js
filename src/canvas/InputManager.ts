@@ -83,7 +83,7 @@ export class InputManager {
         this.api.bus.emit('pointer:update', { pointer: payload.world, button: payload.button });
         hand.onPointerMove?.(payload, this.api);
       }
-      if (kind === 'up') { hand.onPointerUp?.(payload, this.api); this.activeOverrideTool = null; }
+      if (kind === 'up') { hand.onPointerUp?.(payload, this.api); this.activeOverrideTool = null; this.api.bus.emit('pointer:update', { pointer: payload.world, button: 'up' }); }
       return;
     }
 
@@ -104,7 +104,10 @@ export class InputManager {
       this.api.bus.emit('pointer:update', { pointer: payload.world, button: payload.button });
       if (tool.onPointerMove) tool.onPointerMove(payload, this.api);
     }
-    if (kind === 'up' && tool.onPointerUp) tool.onPointerUp(payload, this.api);
+    if (kind === 'up') {
+      if (tool.onPointerUp) tool.onPointerUp(payload, this.api);
+      this.api.bus.emit('pointer:update', { pointer: payload.world, button: 'up' });
+    }
   }
 
   private attach() {

@@ -41,6 +41,10 @@ const I = {
   delete: ICONS.actions.delete,
   lock: ICONS.actions.lock,
   unlock: ICONS.actions.unlock,
+  toBack: ICONS.layers.back,
+  toFront: ICONS.layers.front,
+  layerBackward: ICONS.layers.backward,
+  layerForward: ICONS.layers.forward,
   alignLeft: ICONS.align.left,
   alignCenter: ICONS.align.center,
   alignRight: ICONS.align.right,
@@ -68,9 +72,10 @@ function swatch(prop: string, color: string, active: boolean): string {
     style="${isTrans ? '' : `background:${color}`}"></button>`;
 }
 
-function iconBtn(prop: string, val: string, svg: string, active: boolean, title: string, extraCls = ''): string {
+function iconBtn(prop: string, val: string, svg: string, active: boolean, title: string, extraCls = '', showLabel = false): string {
+  const labelHtml = showLabel ? `<span class="pp-ibtn-label">${title}</span>` : '';
   return `<button class="pp-ibtn${active ? ' active' : ''}${extraCls ? ' ' + extraCls : ''}"
-    data-prop="${prop}" data-val="${val}" title="${title}" aria-label="${title}">${svg}</button>`;
+    data-prop="${prop}" data-val="${val}" title="${title}" aria-label="${title}">${svg}${labelHtml}</button>`;
 }
 
 function section(label: string, content: string): string {
@@ -459,6 +464,22 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     groups.push(section('Text', fsHtml));
   }
 
+  // Group 2: Layers (to back, backward, forward, to front)
+  const layersHtml = `<div class="pp-section-title">Layers</div>${btnGroup(
+    iconBtn('layer', 'back', I.toBack, false, 'To Back', isLocked ? 'pp-ibtn--dim' : ''),
+    iconBtn('layer', 'backward', I.layerBackward, false, 'Backward', isLocked ? 'pp-ibtn--dim' : ''),
+    iconBtn('layer', 'forward', I.layerForward, false, 'Forward', isLocked ? 'pp-ibtn--dim' : ''),
+    iconBtn('layer', 'front', I.toFront, false, 'To Front', isLocked ? 'pp-ibtn--dim' : '')
+  )}`;
+  groups.push(section('', layersHtml));
+
+  // Group 3: Actions (duplicate, lock, delete) - Using existing pp-ibtn style
+  const actionsHtml = `<div class="pp-section-title">Actions</div><div class="pp-btn-group">
+    ${iconBtn('action', 'duplicate', I.duplicate, false, 'Duplicate', isLocked ? 'pp-ibtn--dim' : '')}
+    ${iconBtn('action', 'toggle-lock', selectedShapes.every(s => s.locked) ? I.lock : I.unlock, false, selectedShapes.every(s => s.locked) ? 'Unlock' : 'Lock', selectedShapes.every(s => s.locked) ? 'pp-ibtn--lock-active' : '')}
+    ${iconBtn('action', 'delete', I.delete, false, 'Delete', isLocked ? 'pp-ibtn--dim' : 'pp-ibtn--danger')}
+  </div>`;
+  groups.push(section('', actionsHtml));
 
   const countLabel = selectedShapes.length === 1 ? '1 object' : `${selectedShapes.length} objects`;
 

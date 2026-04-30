@@ -34,7 +34,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         <section class="board-area">
           <div class="properties-panel" data-properties></div>
           <div class="zoom-controls" data-zoom-controls>
-            <button class="layers-toggle-btn" data-layers-toggle title="Open Layers">
+            <button class="layers-toggle-btn" data-layers-toggle>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
               <span class="layers-badge" data-layers-badge></span>
             </button>
@@ -231,13 +231,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const selectedShapes = state.selectedIds
       .map((id: string) => state.shapes.find((s: any) => s.id === id))
       .filter((s: any) => !!s);
-
-    // If all selected shapes are locked, don't show properties panel
-    if (selectedShapes.length > 0 && selectedShapes.every((s: any) => s.locked)) {
-      properties.classList.add('hidden');
-      propToggleBtn.style.display = 'none';
-      return;
-    }
 
     const isDrawingTool = [
       'rectangle', 'ellipse', 'diamond', 'triangle', 'sticky-note',

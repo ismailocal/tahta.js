@@ -20,6 +20,17 @@ interface RendererState {
 
 const rendererStateMap = new WeakMap<HTMLCanvasElement, RendererState>();
 
+// Cache rough.canvas() instances per canvas element to avoid per-frame allocation
+const roughCanvasCache = new WeakMap<HTMLCanvasElement, ReturnType<typeof rough.canvas>>();
+function getRoughCanvas(canvas: HTMLCanvasElement): ReturnType<typeof rough.canvas> {
+  let rc = roughCanvasCache.get(canvas);
+  if (!rc) {
+    rc = rough.canvas(canvas);
+    roughCanvasCache.set(canvas, rc);
+  }
+  return rc;
+}
+
 function getRendererState(canvas: HTMLCanvasElement): RendererState {
   if (!rendererStateMap.has(canvas)) {
     rendererStateMap.set(canvas, {
@@ -230,6 +241,7 @@ export function clearRendererState(canvas?: HTMLCanvasElement) {
       rs.staticCanvas.height = 0;
     }
     rendererStateMap.delete(canvas);
+    roughCanvasCache.delete(canvas);
   }
 }
 
@@ -254,7 +266,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
   setupCanvas(canvas, rs, rect, dpr);
   shouldInvalidateStatic(state, rs);
 
-  const rc = rough.canvas(canvas);
+  const rc = getRoughCanvas(canvas);
 
   const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId;
   const dynamicIds = isDrawnAction ? getDynamicIds(state) : new Set(state.selectedIds);
