@@ -12,6 +12,7 @@ import { DbViewPlugin } from './DbViewPlugin';
 import { DbEnumPlugin } from './DbEnumPlugin';
 import { TrianglePlugin } from './TrianglePlugin';
 import { StickyNotePlugin } from './StickyNotePlugin';
+import { FramePlugin } from './FramePlugin';
 
 PluginRegistry.registerShape(new RectanglePlugin());
 PluginRegistry.registerShape(new EllipsePlugin());
@@ -26,5 +27,6 @@ PluginRegistry.registerShape(new DbViewPlugin());
 PluginRegistry.registerShape(new DbEnumPlugin());
 PluginRegistry.registerShape(new TrianglePlugin());
 PluginRegistry.registerShape(new StickyNotePlugin());
+PluginRegistry.registerShape(new FramePlugin());
 
 export { PluginRegistry };

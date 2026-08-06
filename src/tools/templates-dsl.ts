@@ -2,6 +2,7 @@
  * Templates in DSL format
  * These DSL strings can be parsed and converted to shapes using the DSL converter
  */
+import { dslToJson, jsonToShapes } from '../dsl/converter';
 
 export const TEMPLATES_DSL: Record<string, string> = {
   'decision-tree': `# Decision Tree Template
@@ -134,9 +135,6 @@ export function parseTemplateDSL(templateKey: string): any[] {
     throw new Error(`Template not found: ${templateKey}`);
   }
 
-  // Import dynamically to avoid circular dependencies
-  const { dslToJson, jsonToShapes } = require('../dsl/converter');
-  
   const doc = dslToJson(dslText);
   return jsonToShapes(doc);
 }

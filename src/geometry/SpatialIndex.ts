@@ -1,10 +1,18 @@
 import type { Shape, Point } from '../core/types';
+import { getShapeBounds } from './Geometry';
 
 interface Bounds {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+function intersects(a: Bounds, b: Bounds): boolean {
+  return a.x <= b.x + b.width
+    && a.x + a.width >= b.x
+    && a.y <= b.y + b.height
+    && a.y + a.height >= b.y;
 }
 
 export class Quadtree {
@@ -109,4 +117,33 @@ export class Quadtree {
 
     return results;
   }
+
+  queryBounds(bounds: Bounds, results: Shape[] = []): Shape[] {
+    if (!intersects(this.bounds, bounds)) return results;
+    for (const item of this.shapes) {
+      if (intersects(item.bounds, bounds)) results.push(item.shape);
+    }
+    this.children.forEach(child => child.queryBounds(bounds, results));
+    return results;
+  }
+}
+
+export function createShapeSpatialIndex(shapes: Shape[]): Quadtree {
+  const extent = shapes.reduce((acc, shape) => {
+    const bounds = getShapeBounds(shape);
+    return {
+      x: Math.min(acc.x, bounds.x),
+      y: Math.min(acc.y, bounds.y),
+      x2: Math.max(acc.x2, bounds.x + bounds.width),
+      y2: Math.max(acc.y2, bounds.y + bounds.height),
+    };
+  }, { x: -1000, y: -1000, x2: 2000, y2: 2000 });
+  const tree = new Quadtree({
+    x: extent.x - 100,
+    y: extent.y - 100,
+    width: extent.x2 - extent.x + 200,
+    height: extent.y2 - extent.y + 200,
+  });
+  shapes.forEach(shape => tree.insert(shape, getShapeBounds(shape)));
+  return tree;
 }

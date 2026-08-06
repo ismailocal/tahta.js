@@ -4,8 +4,8 @@ import { PluginRegistry } from '../plugins/index';
 import { renderGrid } from './GridRenderer';
 import { renderWelcome, renderOverlays } from './OverlayRenderer';
 import { renderShape } from './ShapeRenderer';
-import { isShapeVisible } from '../geometry/Geometry';
 import { RENDERING_CONSTANTS } from './RenderingConstants';
+import { createShapeSpatialIndex, type Quadtree } from '../geometry/SpatialIndex';
 
 interface RendererState {
   staticCanvas: HTMLCanvasElement | null;
@@ -16,6 +16,8 @@ interface RendererState {
   lastShapesRef: Shape[] | null;
   lastTheme: string | null;
   lastGen: number;
+  spatialIndex: Quadtree | null;
+  shapeOrder: Map<string, number>;
 }
 
 const rendererStateMap = new WeakMap<HTMLCanvasElement, RendererState>();
@@ -42,6 +44,8 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
       lastShapesRef: null,
       lastTheme: null,
       lastGen: 0,
+      spatialIndex: null,
+      shapeOrder: new Map(),
     });
   }
   return rendererStateMap.get(canvas)!;
@@ -88,7 +92,8 @@ function renderStaticLayer(
   rect: DOMRect,
   dpr: number,
   dynamicIds: Set<string>,
-  showPorts: boolean
+  showPorts: boolean,
+  visibleShapes: Shape[],
 ): void {
   if (!rs.isStaticValid || !rs.staticCanvas) {
     if (!rs.staticCanvas) rs.staticCanvas = document.createElement('canvas');
@@ -105,8 +110,7 @@ function renderStaticLayer(
     sCtx.save();
     sCtx.translate(state.viewport.x, state.viewport.y);
     sCtx.scale(state.viewport.zoom, state.viewport.zoom);
-    state.shapes.filter(s => !dynamicIds.has(s.id)).forEach((shape) => {
-      if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
+    visibleShapes.filter(s => !dynamicIds.has(s.id)).forEach((shape) => {
         const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
         renderShape(sRc, sCtx, shape, state.shapes, {
           isSelected: false,
@@ -118,7 +122,6 @@ function renderStaticLayer(
           isDrawing: false,
           activePortId
         });
-      }
     });
     sCtx.restore();
     rs.isStaticValid = true;
@@ -126,20 +129,21 @@ function renderStaticLayer(
 }
 
 function renderDynamicLayer(
-  rc: any,
+  rc: ReturnType<typeof rough.canvas>,
   ctx: CanvasRenderingContext2D,
   state: CanvasState,
   rect: DOMRect,
   dpr: number,
   dynamicIds: Set<string>,
-  showPorts: boolean
+  showPorts: boolean,
+  visibleShapes: Shape[],
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.save();
   ctx.translate(state.viewport.x, state.viewport.y);
   ctx.scale(state.viewport.zoom, state.viewport.zoom);
-  state.shapes.filter(s => dynamicIds.has(s.id)).forEach((shape) => {
+  visibleShapes.filter(s => dynamicIds.has(s.id)).forEach((shape) => {
     const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
     renderShape(rc, ctx, shape, state.shapes, {
       isSelected: state.selectedIds.includes(shape.id),
@@ -157,13 +161,14 @@ function renderDynamicLayer(
 }
 
 function renderFullScene(
-  rc: any,
+  rc: ReturnType<typeof rough.canvas>,
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   state: CanvasState,
   rect: DOMRect,
   dpr: number,
-  showPorts: boolean
+  showPorts: boolean,
+  visibleShapes: Shape[],
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -174,8 +179,7 @@ function renderFullScene(
   ctx.save();
   ctx.translate(state.viewport.x, state.viewport.y);
   ctx.scale(state.viewport.zoom, state.viewport.zoom);
-  state.shapes.forEach((shape) => {
-    if (isShapeVisible(shape, state.viewport, rect.width, rect.height)) {
+  visibleShapes.forEach((shape) => {
       const isErasing = state.erasingShapeIds?.includes(shape.id) || false;
       const activePortId = shape.id === state.hoveredPortShapeId ? state.hoveredPortId : null;
       renderShape(rc, ctx, shape, state.shapes, {
@@ -189,7 +193,6 @@ function renderFullScene(
         activePortId
       });
       renderedCount++;
-    }
   });
   return renderedCount;
 }
@@ -223,6 +226,23 @@ function getDynamicIds(state: CanvasState): Set<string> {
     if (!added) break;
   }
   return dynamicIds;
+}
+
+function getVisibleShapes(state: CanvasState, rect: DOMRect, rs: RendererState): Shape[] {
+  if (!rs.spatialIndex || rs.lastShapesRef !== state.shapes) {
+    rs.spatialIndex = createShapeSpatialIndex(state.shapes);
+    rs.shapeOrder = new Map(state.shapes.map((shape, index) => [shape.id, index]));
+  }
+  const zoom = state.viewport.zoom || 1;
+  const overscan = 100 / zoom;
+  const visible = rs.spatialIndex.queryBounds({
+    x: -state.viewport.x / zoom - overscan,
+    y: -state.viewport.y / zoom - overscan,
+    width: rect.width / zoom + overscan * 2,
+    height: rect.height / zoom + overscan * 2,
+  });
+  visible.sort((a, b) => (rs.shapeOrder.get(a.id) ?? 0) - (rs.shapeOrder.get(b.id) ?? 0));
+  return visible;
 }
 
 /** Call on canvas destroy to release the off-screen static canvas pixel buffer. */
@@ -262,6 +282,7 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
   const totalCount = state.shapes.length;
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
+  const visibleShapes = getVisibleShapes(state, rect, rs);
 
   setupCanvas(canvas, rs, rect, dpr);
   shouldInvalidateStatic(state, rs);
@@ -276,20 +297,19 @@ export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { to
 
   let renderedCount: number;
   if (isDrawnAction) {
-    renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts);
+    renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(rs.staticCanvas!, 0, 0, canvas.width, canvas.height);
 
-    renderedCount = renderDynamicLayer(rc, ctx, state, rect, dpr, dynamicIds, showPorts);
+    renderedCount = renderDynamicLayer(rc, ctx, state, rect, dpr, dynamicIds, showPorts, visibleShapes);
   } else {
-    renderedCount = renderFullScene(rc, ctx, canvas, state, rect, dpr, showPorts);
+    renderedCount = renderFullScene(rc, ctx, canvas, state, rect, dpr, showPorts, visibleShapes);
   }
 
   renderOverlays(ctx, state);
   ctx.restore();
   return { total: totalCount, rendered: renderedCount };
 }
-

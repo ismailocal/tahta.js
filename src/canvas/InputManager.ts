@@ -4,12 +4,11 @@ import { screenToWorld } from '../geometry/Geometry';
 import { clamp } from '../core/Utils';
 import { setupKeyboard } from './KeyboardManager';
 import { setupClipboard } from './ClipboardManager';
-import { ContextMenu } from './ui/ContextMenu';
 
 export function createPointerPayload(canvas: HTMLCanvasElement, event: PointerEvent, state: CanvasState): PointerPayload {
   const rect = canvas.getBoundingClientRect();
   const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  let world = screenToWorld(screen, state.viewport);
+  const world = screenToWorld(screen, state.viewport);
   
   if (state.showGrid && state.gridSize) {
     world.x = Math.round(world.x / state.gridSize) * state.gridSize;
@@ -22,6 +21,7 @@ export function createPointerPayload(canvas: HTMLCanvasElement, event: PointerEv
     world,
     button: event.button,
     pointerId: event.pointerId,
+    pressure: event.pressure > 0 ? event.pressure : undefined,
     shiftKey: event.shiftKey,
     altKey: event.altKey,
     ctrlKey: event.ctrlKey,
@@ -35,7 +35,13 @@ export class InputManager {
   private api: ICanvasAPI;
   private canvas: HTMLCanvasElement;
   private disposeHandlers: (() => void)[] = [];
-  private contextMenu: ContextMenu | null = null;
+  private activeTouches = new Map<number, PointerEvent>();
+  private touchGesture: {
+    pointerIds: Set<number>;
+    initialDistance: number;
+    initialWorldCenter: { x: number; y: number };
+    initialViewport: CanvasState['viewport'];
+  } | null = null;
 
   constructor(canvas: HTMLCanvasElement, api: ICanvasAPI, tools: Record<string, ToolDefinition>) {
     this.canvas = canvas;
@@ -47,27 +53,6 @@ export class InputManager {
 
   private getActiveTool() {
     return this.activeOverrideTool !== null ? this.activeOverrideTool : this.api.getState().activeTool;
-  }
-
-  private handleContextMenu(e: MouseEvent) {
-    const state = this.api.getState();
-    const selectedIds = state.selectedIds || [];
-
-    if (selectedIds.length === 0) return;
-
-    // Close existing context menu if any
-    if (this.contextMenu) {
-      this.contextMenu = null;
-    }
-
-    // Create and show new context menu
-    this.contextMenu = new ContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      selectedIds,
-      api: this.api,
-    });
-    this.contextMenu.show();
   }
 
   private handlePointer(kind: 'down' | 'move' | 'up', event: PointerEvent) {
@@ -112,19 +97,69 @@ export class InputManager {
 
   private attach() {
     const onDown = (e: PointerEvent) => {
-      if (e.button === 1) this.activeOverrideTool = 'hand';
       this.canvas.setPointerCapture(e.pointerId);
+      if (e.pointerType === 'touch') {
+        this.activeTouches.set(e.pointerId, e);
+        if (this.activeTouches.size === 2) {
+          const touches = [...this.activeTouches.values()];
+          // Finish a potential one-finger action before switching to a gesture.
+          this.handlePointer('up', touches[0]);
+          const first = this.getScreenPoint(touches[0]);
+          const second = this.getScreenPoint(touches[1]);
+          const center = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+          const viewport = this.api.getState().viewport;
+          this.touchGesture = {
+            pointerIds: new Set(touches.map(({ pointerId }) => pointerId)),
+            initialDistance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+            initialWorldCenter: screenToWorld(center, viewport),
+            initialViewport: { ...viewport },
+          };
+          e.preventDefault();
+          return;
+        }
+      }
+      if (e.button === 1) this.activeOverrideTool = 'hand';
       this.handlePointer('down', e);
     };
-    const onMove = (e: PointerEvent) => this.handlePointer('move', e);
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch' && this.activeTouches.has(e.pointerId)) {
+        this.activeTouches.set(e.pointerId, e);
+      }
+      if (this.touchGesture?.pointerIds.has(e.pointerId)) {
+        this.updateTouchGesture();
+        e.preventDefault();
+        return;
+      }
+      this.handlePointer('move', e);
+    };
     const onUp = (e: PointerEvent) => {
+      if (this.touchGesture?.pointerIds.has(e.pointerId)) {
+        this.activeTouches.delete(e.pointerId);
+        this.touchGesture.pointerIds.delete(e.pointerId);
+        if (this.touchGesture.pointerIds.size === 0) this.touchGesture = null;
+        if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+        return;
+      }
       this.handlePointer('up', e);
+      this.activeTouches.delete(e.pointerId);
+      if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
       this.activeOverrideTool = null;
     };
     const onCancel = (e: PointerEvent) => {
+      if (this.touchGesture?.pointerIds.has(e.pointerId)) {
+        this.activeTouches.delete(e.pointerId);
+        this.touchGesture.pointerIds.delete(e.pointerId);
+        if (this.touchGesture.pointerIds.size === 0) this.touchGesture = null;
+        if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+        return;
+      }
+      this.handlePointer('up', e);
+      this.activeTouches.delete(e.pointerId);
+      if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
       this.activeOverrideTool = null;
     };
     const onLeave = (e: PointerEvent) => {
+      if (e.buttons !== 0) this.handlePointer('up', e);
       this.activeOverrideTool = null;
     };
     const onWheel = (e: WheelEvent) => {
@@ -167,7 +202,7 @@ export class InputManager {
 
     const onDoubleClick = (e: MouseEvent) => {
       const state = this.api.getState();
-      const payload = createPointerPayload(this.canvas, e as any, state);
+      const payload = createPointerPayload(this.canvas, e as unknown as PointerEvent, state);
       const toolName = this.getActiveTool();
       const tool = this.tools[toolName];
       if (tool && tool.onDoubleClick) tool.onDoubleClick(payload, this.api);
@@ -180,10 +215,6 @@ export class InputManager {
     this.canvas.addEventListener('pointerleave', onLeave);
     this.canvas.addEventListener('dblclick', onDoubleClick);
     this.canvas.addEventListener('wheel', onWheel, { passive: false });
-    this.canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      this.handleContextMenu(e);
-    });
 
     this.disposeHandlers = [
       () => this.canvas.removeEventListener('pointerdown', onDown),
@@ -198,8 +229,38 @@ export class InputManager {
     ];
   }
 
+  private getScreenPoint(event: PointerEvent) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  private updateTouchGesture(): void {
+    if (!this.touchGesture || this.touchGesture.pointerIds.size < 2) return;
+    const touches = [...this.touchGesture.pointerIds]
+      .map((pointerId) => this.activeTouches.get(pointerId))
+      .filter((event): event is PointerEvent => Boolean(event));
+    if (touches.length < 2) return;
+
+    const first = this.getScreenPoint(touches[0]);
+    const second = this.getScreenPoint(touches[1]);
+    const center = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+    const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+    const zoom = clamp(
+      this.touchGesture.initialViewport.zoom * distance / this.touchGesture.initialDistance,
+      0.2,
+      4,
+    );
+    this.api.setViewport({
+      zoom,
+      x: center.x - this.touchGesture.initialWorldCenter.x * zoom,
+      y: center.y - this.touchGesture.initialWorldCenter.y * zoom,
+    });
+  }
+
   destroy() {
     this.disposeHandlers.forEach(fn => fn());
     this.disposeHandlers = [];
+    this.activeTouches.clear();
+    this.touchGesture = null;
   }
 }

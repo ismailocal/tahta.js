@@ -2,6 +2,7 @@ import type { ICanvasAPI } from './types';
 import { WhiteboardStore } from './Store';
 
 import { calculateCenteredViewport, animateViewport } from '../canvas/utils/Viewport';
+import { getTopShapeAtPoint } from '../geometry/Geometry';
 
 /**
  * Creates a framed, type-safe API for interacting with the whiteboard store.
@@ -33,11 +34,15 @@ export function createWhiteboardAPI(store: WhiteboardStore, canvas: HTMLCanvasEl
     redo: () => store.redo(),
     batchUpdate: (fn: () => void) => store.batchUpdate(fn),
     getSpatialIndex: () => store.getSpatialIndex(),
+    getShapeAtPoint: (point) => {
+      const state = store.getState();
+      return getTopShapeAtPoint(state.shapes, point, store.getSpatialIndex());
+    },
     forceNotify: () => store.forceNotify(),
-    scrollToContent: () => {
+    scrollToContent: (shapes) => {
       const state = store.getState();
       const targetViewport = calculateCenteredViewport(
-        state.shapes,
+        shapes?.length ? shapes : state.shapes,
         canvas.offsetWidth,
         canvas.offsetHeight
       );

@@ -2,6 +2,7 @@ import type { Shape, Point, ArrowheadStyle, PointerPayload, ICanvasAPI } from '.
 import { getRayEllipseIntersection } from './GeometryUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 import { getThemeAdjustedStroke } from '../core/Utils';
+import type { RoughOptions } from './ArrowheadUtils';
 
 export { getThemeAdjustedStroke };
 export { getArrowheadDrawable, drawArrowhead } from './ArrowheadUtils';
@@ -10,8 +11,8 @@ export { getElbowPath } from './ElbowRouter';
 /**
  * Builds the RoughJS options object for a shape, shared across all shape plugins.
  */
-export function buildRoughOptions(shape: Shape, theme: 'light' | 'dark'): Record<string, unknown> {
-  const options: Record<string, unknown> = {
+export function buildRoughOptions(shape: Shape, theme: 'light' | 'dark'): RoughOptions {
+  const options: RoughOptions = {
     stroke: getThemeAdjustedStroke(shape.stroke, theme),
     fill: shape.fill && shape.fill !== 'transparent' ? shape.fill : undefined,
     strokeWidth: shape.strokeWidth || 1.8,

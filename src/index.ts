@@ -45,6 +45,7 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
     diamond:       new ShapeTool('diamond'       as ShapeType),
     triangle:      new ShapeTool('triangle'      as ShapeType),
     'sticky-note': new ShapeTool('sticky-note'   as ShapeType),
+    frame:         new ShapeTool('frame'         as ShapeType),
     'db-table': new ShapeTool('db-table' as ShapeType),
     'db-view': new ShapeTool('db-view' as ShapeType),
     'db-enum': new ShapeTool('db-enum' as ShapeType),
@@ -120,3 +121,4 @@ export function mountCanvas(root: HTMLElement, canvas: HTMLCanvasElement, initia
 }
 
 export { clearStyleCache };
+export { exportToPng, exportToSvg } from './canvas/Export';

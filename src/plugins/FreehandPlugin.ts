@@ -17,7 +17,7 @@ export class FreehandPlugin implements IShapePlugin {
     const strokeWidth = shape.strokeWidth || 1.8;
 
     // Convert points to perfect-freehand format [x, y, pressure]
-    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, 0.5]);
+    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, p.pressure ?? 0.5]);
     const outlinePoints = getStroke(inputPoints, {
       size: strokeWidth * 4,
       smoothing: 0.5,
@@ -54,7 +54,7 @@ export class FreehandPlugin implements IShapePlugin {
     const strokeColor = getThemeAdjustedStroke(shape.stroke, theme);
     const strokeWidth = shape.strokeWidth || 1.8;
 
-    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, 0.5]);
+    const inputPoints = pts.map(p => [shape.x + p.x, shape.y + p.y, p.pressure ?? 0.5]);
     const outlinePoints = getStroke(inputPoints, {
       size: strokeWidth * 4,
       smoothing: 0.5,
@@ -124,12 +124,21 @@ getBounds(shape: Shape) {
   }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
-    return { x: payload.world.x, y: payload.world.y, stroke: '#64748b', points: [{ x: 0, y: 0 }] };
+    return {
+      x: payload.world.x,
+      y: payload.world.y,
+      stroke: '#64748b',
+      points: [{ x: 0, y: 0, pressure: payload.nativeEvent.pressure || 0.5 }],
+    };
   }
 
   onDrawUpdate(shape: Shape, payload: PointerPayload): Partial<Shape> {
     const pts = shape.points || [];
-    const next = { x: payload.world.x - shape.x, y: payload.world.y - shape.y };
+    const next = {
+      x: payload.world.x - shape.x,
+      y: payload.world.y - shape.y,
+      pressure: payload.nativeEvent.pressure || 0.5,
+    };
 
     if (pts.length > 0) {
       const last = pts[pts.length - 1];

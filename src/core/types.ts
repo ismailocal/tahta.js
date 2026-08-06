@@ -5,6 +5,7 @@ export type ArrowheadStyle = 'none' | 'arrow' | 'triangle' | 'circle' | 'diamond
 export interface Point {
   x: number;
   y: number;
+  pressure?: number;
 }
 
 /** A named connection port on a shape (e.g. a table row for DB diagrams). */
@@ -74,7 +75,7 @@ export interface CanvasState {
   activeTool: string;
   viewport: { x: number; y: number; zoom: number };
   userToFollow?: { socketId: string; username: string } | null;
-  collaborators?: Map<string, any>;
+  collaborators?: Map<string, unknown>;
   hoveredShapeId: string | null;
   hoveredPortShapeId?: string | null;
   hoveredPortId?: string | null;
@@ -101,6 +102,7 @@ export interface PointerPayload {
   world: Point;
   button: number;
   pointerId: number;
+  pressure?: number;
   shiftKey: boolean;
   altKey: boolean;
   ctrlKey: boolean;
@@ -108,7 +110,7 @@ export interface PointerPayload {
 }
 
 export interface ICanvasAPI {
-  bus: any;
+  bus: EventBus;
   getState: () => CanvasState;
   setState: (updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState), forceVersion?: number) => void;
   addShape: (shape: Shape) => void;
@@ -123,9 +125,10 @@ export interface ICanvasAPI {
   undo: () => void;
   redo: () => void;
   batchUpdate: (fn: () => void) => void;
-  getSpatialIndex: () => any;
+  getSpatialIndex: () => Quadtree;
+  getShapeAtPoint: (point: Point) => Shape | null;
   forceNotify: () => void;
-  scrollToContent: () => void;
+  scrollToContent: (shapes?: Shape[]) => void;
   /** Subscribe to state changes. Returns an unsubscribe function. */
   subscribe: (fn: (state: CanvasState) => void) => () => void;
 }
@@ -137,3 +140,5 @@ export interface ToolDefinition {
   onKeyDown?: (event: KeyboardEvent, api: ICanvasAPI) => void;
   onDoubleClick?: (payload: PointerPayload, api: ICanvasAPI) => void;
 }
+import type { EventBus } from '../canvas/EventBus';
+import type { Quadtree } from '../geometry/SpatialIndex';

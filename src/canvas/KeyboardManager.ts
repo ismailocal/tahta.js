@@ -8,6 +8,13 @@ export function setupKeyboard(
   setActiveOverrideTool: (tool: string | null) => void
 ): (() => void)[] {
   const onKeyDown = (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isEditable = target instanceof HTMLInputElement
+      || target instanceof HTMLTextAreaElement
+      || target instanceof HTMLSelectElement
+      || target?.isContentEditable;
+    if (isEditable) return;
+
     const state = api.getState();
     const active = state.activeTool;
 
@@ -111,15 +118,38 @@ export function setupKeyboard(
       return;
     }
 
+    if (e.key === 'Tab' && document.activeElement instanceof HTMLCanvasElement && state.shapes.length > 0) {
+      e.preventDefault();
+      const selectedIndex = state.selectedIds.length === 1
+        ? state.shapes.findIndex(shape => shape.id === state.selectedIds[0])
+        : -1;
+      const direction = e.shiftKey ? -1 : 1;
+      const nextIndex = (selectedIndex + direction + state.shapes.length) % state.shapes.length;
+      api.setSelection([state.shapes[nextIndex].id]);
+      return;
+    }
+
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && state.selectedIds.length > 0) {
+      e.preventDefault();
+      const distance = e.shiftKey ? 10 : 1;
+      const dx = e.key === 'ArrowLeft' ? -distance : e.key === 'ArrowRight' ? distance : 0;
+      const dy = e.key === 'ArrowUp' ? -distance : e.key === 'ArrowDown' ? distance : 0;
+      api.batchUpdate(() => {
+        state.selectedIds.forEach(id => {
+          const shape = state.shapes.find(item => item.id === id);
+          if (shape && !shape.locked) api.updateShape(id, { x: shape.x + dx, y: shape.y + dy });
+        });
+      });
+      api.commitState();
+      return;
+    }
+
     if ((e.key === 'Delete' || e.key === 'Backspace') && active === 'select') {
       const tool = tools.select;
       if (tool?.onKeyDown) tool.onKeyDown(e, api);
     }
 
-    const activeElement = document.activeElement;
-    const isInputFocused = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
-    
-    if (!isInputFocused && !e.ctrlKey && !e.metaKey) {
+    if (!e.ctrlKey && !e.metaKey) {
       if (e.key === 'v') api.setTool('select');
       if (e.key === 'h') api.setTool('hand');
       if (e.key === 'r') api.setTool('rectangle');

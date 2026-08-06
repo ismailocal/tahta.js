@@ -1,4 +1,4 @@
-import { Template } from './templates';
+import type { Template } from './templates';
 
 const USER_TEMPLATES_KEY = 'tahta_user_templates';
 

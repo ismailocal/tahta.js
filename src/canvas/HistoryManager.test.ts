@@ -30,4 +30,23 @@ describe('HistoryManager', () => {
     expect(shapes?.length).toBe(2);
     expect(shapes?.[1].id).toBe('2');
   });
+
+  it('restores additions, deletions, nested data and ordering through deltas', () => {
+    const first = mockShape('1');
+    const second = { ...mockShape('2'), data: { nested: { value: 1 } } };
+    const mgr = new HistoryManager([first, second]);
+    const changed = { ...second, data: { nested: { value: 2 } } };
+
+    mgr.commit([changed, mockShape('3')]);
+    expect(mgr.undo()).toEqual([first, second]);
+    expect(mgr.redo()).toEqual([changed, mockShape('3')]);
+  });
+
+  it('drops redo deltas after a new commit', () => {
+    const mgr = new HistoryManager([mockShape('1')]);
+    mgr.commit([mockShape('1'), mockShape('2')]);
+    mgr.undo();
+    mgr.commit([mockShape('1'), mockShape('3')]);
+    expect(mgr.canRedo).toBe(false);
+  });
 });

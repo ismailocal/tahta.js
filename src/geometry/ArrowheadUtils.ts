@@ -11,7 +11,7 @@ interface RoughCanvas {
   draw(drawable: unknown): void;
 }
 
-interface RoughOptions extends Record<string, unknown> {
+export interface RoughOptions extends Record<string, unknown> {
   stroke: string;
   fill?: string;
   fillStyle?: string;

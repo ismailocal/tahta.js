@@ -1,8 +1,7 @@
 import { EventBus } from '../canvas/EventBus';
 import type { CanvasState, Shape } from './types';
 import { HistoryManager } from '../canvas/HistoryManager';
-import { Quadtree } from '../geometry/SpatialIndex';
-import { getShapeBounds } from '../geometry/Geometry';
+import { Quadtree, createShapeSpatialIndex } from '../geometry/SpatialIndex';
 import { ShapeManager } from '../geometry/ShapeManager';
 import { getArrowClippedEndpoints } from '../geometry/lineUtils';
 import { PluginRegistry } from '../plugins/PluginRegistry';
@@ -10,7 +9,7 @@ import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants';
 
 // Static mapping for variant cache keys
 const VARIANT_CACHE_KEYS: Record<string, (shape: Shape) => string | null> = {
-  arrow: (s) => {
+  arrow: () => {
     return null;
   },
 };
@@ -44,6 +43,7 @@ export class WhiteboardStore {
   private state: CanvasState;
   private historyManager: HistoryManager;
   private spatialIndex: Quadtree | null = null;
+  private indexedShapes: Shape[] | null = null;
   private batchDepth = 0;
 
   constructor(initialState: Partial<CanvasState> = {}, bus = new EventBus()) {
@@ -110,7 +110,10 @@ export class WhiteboardStore {
       this.state.version++;
     }
 
-    this.spatialIndex = null;
+    if (this.indexedShapes !== this.state.shapes) {
+      this.spatialIndex = null;
+      this.indexedShapes = null;
+    }
     this.subscribers.forEach((listener) => listener(this.state));
     this.bus.emit('document:changed', { state: this.state });
   }
@@ -127,16 +130,9 @@ export class WhiteboardStore {
   /** Returns built-in spatial index (Quadtree) for fast bounding-box queries. */
   getSpatialIndex(): Quadtree {
     if (this.spatialIndex) return this.spatialIndex;
-    const b = this.state.shapes.reduce((acc, s) => {
-      const sb = getShapeBounds(s);
-      return { 
-        x: Math.min(acc.x, sb.x), y: Math.min(acc.y, sb.y), 
-        x2: Math.max(acc.x2, sb.x + sb.width), y2: Math.max(acc.y2, sb.y + sb.height) 
-      };
-    }, { x: -1000, y: -1000, x2: 2000, y2: 2000 });
-    const tree = new Quadtree({ x: b.x - 100, y: b.y - 100, width: (b.x2 - b.x) + 200, height: (b.y2 - b.y) + 200 });
-    this.state.shapes.forEach(s => tree.insert(s, getShapeBounds(s)));
+    const tree = createShapeSpatialIndex(this.state.shapes);
     this.spatialIndex = tree;
+    this.indexedShapes = this.state.shapes;
     return tree;
   }
 
@@ -145,8 +141,8 @@ export class WhiteboardStore {
     const nextState = typeof updater === 'function' ? updater(this.state) : { ...this.state, ...updater };
     
     // Quick shallow equality check to avoid unnecessary notifies (Rule 8.1)
-    const hasChanged = Object.keys(nextState).some(
-      (key) => (nextState as any)[key] !== (this.state as any)[key]
+    const hasChanged = (Object.keys(nextState) as Array<keyof CanvasState>).some(
+      (key) => nextState[key] !== this.state[key]
     );
 
     if (hasChanged) {
@@ -189,9 +185,11 @@ export class WhiteboardStore {
       
       if (hasStyleChange) {
         const styleToCache: Partial<Shape> = {};
+        const styleRecord = styleToCache as Record<string, unknown>;
+        const updatedRecord = updated as unknown as Record<string, unknown>;
         styleProperties.forEach(prop => {
           if (prop in updated) {
-            (styleToCache as any)[prop] = (updated as any)[prop];
+            styleRecord[prop] = updatedRecord[prop];
           }
         });
         
