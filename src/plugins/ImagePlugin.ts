@@ -1,0 +1,119 @@
+import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
+import { BaseRectPlugin } from './BaseRectPlugin';
+
+export const imageCache = new Map<string, HTMLImageElement>();
+
+/** Release all cached HTMLImageElement objects (call on canvas destroy). */
+export function clearImageCache() {
+  imageCache.clear();
+}
+
+export class ImagePlugin extends BaseRectPlugin {
+  type = 'image';
+  defaultStyle: Partial<Shape> = {};
+  defaultProperties = ['opacity', 'layer', 'action'];
+
+render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
+    const { x, y, width, height } = this.getBounds(shape);
+    const { imageSrc } = shape;
+
+    if (imageSrc) {
+      let img = imageCache.get(imageSrc);
+      if (!img) {
+        img = new Image();
+        img.onload = () => { window.dispatchEvent(new CustomEvent('tuval-force-render')); };
+        img.onerror = () => { console.error('Image failed to load', imageSrc.substring(0, 50)); };
+        img.src = imageSrc;
+        imageCache.set(imageSrc, img);
+      }
+
+      if (img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, x, y, width, height);
+      } else {
+        // Draw placeholder while loading or if broken
+        ctx.save();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.restore();
+      }
+    } else {
+      // No source? Draw something so it's not totally invisible
+      ctx.save();
+      ctx.strokeStyle = '#fca5a5';
+      ctx.setLineDash([2, 5]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.restore();
+    }
+  }
+
+getBounds(shape: Shape) {
+    const w = shape.width || 100;
+    const h = shape.height || 100;
+    return {
+      x: w < 0 ? shape.x + w : shape.x,
+      y: h < 0 ? shape.y + h : shape.y,
+      width: Math.abs(w),
+      height: Math.abs(h),
+    };
+  }
+
+  /** Images always fill their bounds — hit anywhere inside. */
+  isPointInside(point: Point, shape: Shape): boolean {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const m = 6;
+    return point.x >= x - m && point.x <= x + w + m && point.y >= y - m && point.y <= y + h + m;
+  }
+
+  getConnectionPoints(shape: Shape): ConnectionPoint[] {
+    const { x, y, width: w, height: h } = this.getBounds(shape);
+    const cx = x + w / 2, cy = y + h / 2;
+    return [
+      { id: 'top',    x: cx,     y,        side: 'top'    },
+      { id: 'right',  x: x + w,  y: cy,    side: 'right'  },
+      { id: 'bottom', x: cx,     y: y + h, side: 'bottom' },
+      { id: 'left',   x,         y: cy,    side: 'left'   },
+    ];
+  }
+
+
+  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
+    return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, imageSrc: '' };
+  }
+
+  onDrawUpdate(_shape: Shape, payload: PointerPayload, dragStart: Pick<Point, 'x' | 'y'>): Partial<Shape> {
+    return { width: payload.world.x - dragStart.x, height: payload.world.y - dragStart.y };
+  }
+
+  /** Ratio-preserving resize. */
+  onDragHandle(shape: Shape, handle: string, payload: PointerPayload, dragStart: Point): Partial<Shape> {
+    const dx = payload.world.x - dragStart.x;
+    const dy = payload.world.y - dragStart.y;
+    const origW = shape.width || 100;
+    const origH = shape.height || 100;
+    const ratio = origW / origH;
+    let { x, y } = shape;
+    let w = origW, h = origH;
+
+    if (handle.includes('n')) { y += dy; h -= dy; }
+    if (handle.includes('s')) { h += dy; }
+    if (handle.includes('w')) { x += dx; w -= dx; }
+    if (handle.includes('e')) { w += dx; }
+
+    if (handle === 'e' || handle === 'w') {
+      const newH = w / ratio; y = shape.y + (origH - newH) / 2; h = newH;
+    } else if (handle === 'n' || handle === 's') {
+      const newW = h * ratio; x = shape.x + (origW - newW) / 2; w = newW;
+    } else {
+      if (Math.abs(w * origH) > Math.abs(h * origW)) {
+        const newH = w / ratio; if (handle.includes('n')) y += (h - newH); h = newH;
+      } else {
+        const newW = h * ratio; if (handle.includes('w')) x += (w - newW); w = newW;
+      }
+    }
+
+    if (w < 0) { x += w; w = Math.abs(w); }
+    if (h < 0) { y += h; h = Math.abs(h); }
+    return { x, y, width: w, height: h };
+  }
+}

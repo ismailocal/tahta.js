@@ -1,83 +1,158 @@
-import type { CanvasAst, DslDirection, DslEdge, DslNode } from './ast.js';
-import { DslDiagnosticError } from './ast.js';
-import { tokenizeDsl, type Token, type TokenKind } from './tokenizer.js';
+/**
+ * DSL parser - converts text DSL to intermediate format
+ */
 
-class Parser {
-  readonly tokens: Token[];
-  index = 0;
-  constructor(source: string) { this.tokens = tokenizeDsl(source); }
-  current(): Token { return this.tokens[this.index]!; }
-  take(kind?: TokenKind): Token {
-    const token = this.current();
-    if (kind && token.kind !== kind) throw new DslDiagnosticError(`Expected ${kind}, received ${token.kind}`, token.line, token.column);
-    this.index++; return token;
-  }
-  word(value?: string): Token {
-    const token = this.take('word');
-    if (value && token.value !== value) throw new DslDiagnosticError(`Expected '${value}'`, token.line, token.column);
-    return token;
-  }
-  text(): string {
-    const token = this.current();
-    if (token.kind !== 'word' && token.kind !== 'string') throw new DslDiagnosticError('Expected text', token.line, token.column);
-    return this.take().value;
-  }
-  number(): number {
-    const token = this.word(); const value = Number(token.value);
-    if (!Number.isFinite(value)) throw new DslDiagnosticError(`'${token.value}' is not a finite number`, token.line, token.column);
-    return value;
-  }
-  endLine(): void {
-    if (this.current().kind !== 'newline' && this.current().kind !== 'eof') {
-      const token = this.current(); throw new DslDiagnosticError(`Unexpected token '${token.value}'`, token.line, token.column);
+import type { DSLDocument, DSLShape, DSLConnector, ParseContext, ParseResult, ParseError, ParseWarning } from './types';
+import { dslRegistry } from './registry';
+
+/**
+ * Main parser function - converts DSL text to DSLDocument
+ */
+export function parseDSL(dslText: string): ParseResult {
+  const lines = dslText.split('\n');
+  const ctx: ParseContext = {
+    shapes: new Map(),
+    connectors: [],
+    errors: [],
+    warnings: []
+  };
+
+  let lineNumber = 0;
+
+  for (const line of lines) {
+    lineNumber++;
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
     }
-    while (this.current().kind === 'newline') this.take();
+
+    // Try to parse as connector (id1 -> id2)
+    if (trimmed.includes('->')) {
+      parseConnector(trimmed, lineNumber, ctx);
+      continue;
+    }
+
+    // Try to parse as shape using plugins
+    let parsed = false;
+    for (const plugin of dslRegistry.getAllPlugins()) {
+      const shape = plugin.parser(trimmed, ctx);
+      if (shape) {
+        // Check for duplicate IDs
+        if (ctx.shapes.has(shape.id)) {
+          ctx.errors.push({
+            line: lineNumber,
+            message: `Duplicate shape ID: "${shape.id}"`,
+            severity: 'error'
+          });
+        } else {
+          ctx.shapes.set(shape.id, shape);
+        }
+        parsed = true;
+        break;
+      }
+    }
+
+    if (!parsed) {
+      ctx.errors.push({
+        line: lineNumber,
+        message: `Unable to parse line: "${trimmed}"`,
+        severity: 'error'
+      });
+    }
   }
+
+  // Validate connector references
+  validateConnectorReferences(ctx);
+
+  // Build result
+  const success = ctx.errors.length === 0;
+  const document: DSLDocument | undefined = success ? {
+    version: '1.0',
+    shapes: Array.from(ctx.shapes.values()),
+    connectors: ctx.connectors
+  } : undefined;
+
+  return {
+    success,
+    document,
+    errors: ctx.errors,
+    warnings: ctx.warnings
+  };
 }
 
-export function parseDsl(source: string): CanvasAst {
-  const parser = new Parser(source);
-  const ast: CanvasAst = { direction: 'LR', statements: [] };
-  const ids = new Map<string, Token>();
-  while (parser.current().kind !== 'eof') {
-    if (parser.current().kind === 'newline') { parser.take(); continue; }
-    const keyword = parser.word();
-    if (keyword.value === 'title') { ast.title = parser.text(); parser.endLine(); continue; }
-    if (keyword.value === 'direction') {
-      const direction = parser.word();
-      if (!['LR', 'RL', 'TB', 'BT'].includes(direction.value)) throw new DslDiagnosticError('Direction must be LR, RL, TB, or BT', direction.line, direction.column);
-      ast.direction = direction.value as DslDirection; parser.endLine(); continue;
-    }
-    if (keyword.value === 'node' || keyword.value === 'frame') {
-      const id = parser.word();
-      if (ids.has(id.value)) throw new DslDiagnosticError(`Duplicate id '${id.value}'`, id.line, id.column);
-      ids.set(id.value, id);
-      const shape = keyword.value === 'frame' ? 'frame' : parser.word().value;
-      const node: DslNode = { kind: 'node', id: id.value, shape, label: parser.text(), location: { line: keyword.line, column: keyword.column } };
-      while (parser.current().kind !== 'newline' && parser.current().kind !== 'eof') {
-        const property = parser.word();
-        if (property.value === 'at') { node.x = parser.number(); parser.take('comma'); node.y = parser.number(); }
-        else if (property.value === 'size') { node.width = parser.number(); parser.take('comma'); node.height = parser.number(); }
-        else if (property.value === 'fill') node.fill = parser.text();
-        else if (property.value === 'in') node.parentId = parser.word().value;
-        else throw new DslDiagnosticError(`Unknown node property '${property.value}'`, property.line, property.column);
-      }
-      ast.statements.push(node); parser.endLine(); continue;
-    }
-    if (keyword.value === 'edge') {
-      const id = parser.word();
-      if (ids.has(id.value)) throw new DslDiagnosticError(`Duplicate id '${id.value}'`, id.line, id.column);
-      ids.set(id.value, id);
-      const from = parser.word(); parser.take('arrow'); const to = parser.word();
-      const edge: DslEdge = { kind: 'edge', id: id.value, from: from.value, to: to.value, label: parser.current().kind === 'string' ? parser.take().value : '', location: { line: keyword.line, column: keyword.column } };
-      ast.statements.push(edge); parser.endLine(); continue;
-    }
-    throw new DslDiagnosticError(`Unknown statement '${keyword.value}'`, keyword.line, keyword.column);
+/**
+ * Parse connector line (id1 -> id2)
+ */
+function parseConnector(line: string, lineNumber: number, ctx: ParseContext): void {
+  const parts = line.split('->');
+  if (parts.length !== 2) {
+    ctx.errors.push({
+      line: lineNumber,
+      message: `Invalid connector syntax: "${line}"`,
+      severity: 'error'
+    });
+    return;
   }
-  const nodeIds = new Set(ast.statements.filter((value): value is DslNode => value.kind === 'node').map(({ id }) => id));
-  ast.statements.forEach((statement) => {
-    if (statement.kind === 'node' && statement.parentId && !nodeIds.has(statement.parentId)) throw new DslDiagnosticError(`Unknown parent '${statement.parentId}'`, statement.location.line, statement.location.column);
-    if (statement.kind === 'edge' && (!nodeIds.has(statement.from) || !nodeIds.has(statement.to))) throw new DslDiagnosticError(`Edge '${statement.id}' references an unknown node`, statement.location.line, statement.location.column);
-  });
-  return ast;
+
+  const from = parts[0].trim();
+  const toParts = parts[1].trim().split(/\s+/);
+  const to = toParts[0];
+
+  // Extract properties
+  const properties: Record<string, any> = {};
+  let type: 'arrow' | 'line' | undefined;
+  let fromPort: string | undefined;
+  let toPort: string | undefined;
+
+  for (let i = 1; i < toParts.length; i++) {
+    const part = toParts[i];
+    if (part.startsWith('type:')) {
+      type = part.split(':')[1] as 'arrow' | 'line';
+    } else if (part.startsWith('from:') || part.startsWith('port:')) {
+      const portValue = part.split(':')[1];
+      // First port is fromPort
+      if (!fromPort) fromPort = portValue;
+      else toPort = portValue;
+    } else if (part.startsWith('to:')) {
+      toPort = part.split(':')[1];
+    } else if (part.includes(':')) {
+      const [key, value] = part.split(':');
+      properties[key] = value;
+    }
+  }
+
+  const connector: DSLConnector = {
+    from,
+    to,
+    type,
+    fromPort,
+    toPort,
+    properties
+  };
+
+  ctx.connectors.push(connector);
+}
+
+/**
+ * Validate that connector references exist
+ */
+function validateConnectorReferences(ctx: ParseContext): void {
+  for (const conn of ctx.connectors) {
+    if (!ctx.shapes.has(conn.from)) {
+      ctx.errors.push({
+        line: 0,
+        message: `Connector references unknown shape ID: "${conn.from}"`,
+        severity: 'error'
+      });
+    }
+    if (!ctx.shapes.has(conn.to)) {
+      ctx.errors.push({
+        line: 0,
+        message: `Connector references unknown shape ID: "${conn.to}"`,
+        severity: 'error'
+      });
+    }
+  }
 }
