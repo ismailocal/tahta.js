@@ -78,7 +78,44 @@ export interface CanvasWorkspaceProps
   fetchLinkMetadata?: (url: string, refresh: boolean) => Promise<LinkMetadata>;
   uploadAsset?: (file: File) => Promise<AssetRecord>;
   onPresentationFrameChange?: (frameId: string | null) => void;
+  statusContent?: ReactNode;
   onError?: (error: Error) => void;
+}
+
+type CanvasIconName =
+  | "select" | "hand" | "rectangle" | "ellipse" | "diamond" | "triangle"
+  | "sticky-note" | "frame" | "text" | "line" | "arrow" | "freehand"
+  | "layers" | "layout" | "present" | "import" | "link" | "export"
+  | "command" | "fit" | "minus" | "plus";
+
+function CanvasIcon({ name }: { name: CanvasIconName }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  let content: ReactNode;
+  switch (name) {
+    case "select": content = <path d="m5 3 13 9-6 1.5-3.5 5.5z" />; break;
+    case "hand": content = <path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10 5.5a1.5 1.5 0 0 1 3 0V10 7a1.5 1.5 0 0 1 3 0v4-2a1.5 1.5 0 0 1 3 0v4c0 5-3 8-7 8-3.5 0-5.5-2-7-5l-2-3a1.6 1.6 0 0 1 2.6-1.8L7 13" />; break;
+    case "rectangle": content = <rect x="4" y="5" width="16" height="14" rx="2" />; break;
+    case "ellipse": content = <ellipse cx="12" cy="12" rx="8" ry="7" />; break;
+    case "diamond": content = <path d="m12 3 9 9-9 9-9-9z" />; break;
+    case "triangle": content = <path d="m12 4 9 16H3z" />; break;
+    case "sticky-note": content = <><path d="M5 3h14v12l-5 6H5z" /><path d="M14 21v-6h5" /></>; break;
+    case "frame": content = <><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /><rect x="8" y="8" width="8" height="8" rx="1" /></>; break;
+    case "text": content = <><path d="M5 5h14M12 5v14M8 19h8" /></>; break;
+    case "line": content = <path d="M4 20 20 4" />; break;
+    case "arrow": content = <><path d="M4 20 20 4" /><path d="M12 4h8v8" /></>; break;
+    case "freehand": content = <path d="M4 17c3-8 5-10 7-8s-4 8-1 9 5-8 7-6-1 7 3 7" />; break;
+    case "layers": content = <><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 12 9 5 9-5M3 16l9 5 9-5" /></>; break;
+    case "layout": content = <><rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="15" width="6" height="5" rx="1" /><path d="M9 6.5h4a4 4 0 0 1 4 4V15M14 12l3 3 3-3" /></>; break;
+    case "present": content = <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="m10 8 5 2.5-5 2.5zM12 17v4M8 21h8" /></>; break;
+    case "import": content = <><path d="M12 3v12M7 10l5 5 5-5" /><path d="M4 19h16" /></>; break;
+    case "link": content = <><path d="m9 15-2 2a3.5 3.5 0 0 1-5-5l3-3a3.5 3.5 0 0 1 5 0" /><path d="m15 9 2-2a3.5 3.5 0 1 1 5 5l-3 3a3.5 3.5 0 0 1-5 0M8 12h8" /></>; break;
+    case "export": content = <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 20h16" /></>; break;
+    case "command": content = <path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z" />; break;
+    case "fit": content = <><circle cx="12" cy="12" r="3" /><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" /></>; break;
+    case "minus": content = <path d="M5 12h14" />; break;
+    case "plus": content = <path d="M12 5v14M5 12h14" />; break;
+  }
+  return <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...common}>{content}</svg>;
 }
 
 function FocusDialog({
@@ -438,6 +475,7 @@ export function CanvasWorkspace({
   fetchLinkMetadata,
   uploadAsset,
   onPresentationFrameChange,
+  statusContent,
   onError,
 }: CanvasWorkspaceProps) {
   const [state, setState] = useState<CanvasViewState>(() =>
@@ -500,6 +538,16 @@ export function CanvasWorkspace({
     scale: 2,
   });
   const commandRegistry = useMemo(() => new CommandRegistry(), []);
+  const toolbarTools = useMemo(() => [
+    { id: "tool.select", tool: "select", label: "Select", shortcut: "V" },
+    { id: "tool.hand", tool: "hand", label: "Hand", shortcut: "H" },
+    ...engine.registry.list().filter((definition) => definition.tool).map((definition) => ({
+      id: `tool.${definition.type}`,
+      tool: definition.type,
+      label: definition.tool!.label,
+      shortcut: definition.tool!.shortcut ?? "",
+    })),
+  ], [engine]);
   const searchIndex = useMemo(() => new CanvasSearchIndex(), []);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -531,6 +579,20 @@ export function CanvasWorkspace({
     },
     [onReady],
   );
+  const setZoom = useCallback((requestedZoom: number) => {
+    const current = engine.getViewState().viewport;
+    const rect = view?.canvas.getBoundingClientRect();
+    const zoom = Math.min(8, Math.max(0.1, requestedZoom));
+    if (!rect) {
+      engine.setViewState({ viewport: { ...current, zoom } });
+      return;
+    }
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const worldX = (centerX - current.x) / current.zoom;
+    const worldY = (centerY - current.y) / current.zoom;
+    engine.setViewState({ viewport: { x: centerX - worldX * zoom, y: centerY - worldY * zoom, zoom } });
+  }, [engine, view]);
   const openLayoutSettings = useCallback(() => {
     const frameId =
       state.snapshot.records.find(({ type }) => type === "frame")?.id ?? "";
@@ -1285,54 +1347,85 @@ export function CanvasWorkspace({
             });
         }}
       >
-        {commandRegistry
-          .list({ engine })
-          .filter(({ id }) => id.startsWith("tool."))
-          .map((command) => (
+        {toolbarTools.map((command) => (
             <button
               key={command.id}
               type="button"
-              aria-pressed={state.activeTool === command.id.slice(5)}
-              title={command.shortcut}
+              className="tahta-icon-button"
+              aria-label={command.label}
+              aria-pressed={state.activeTool === command.tool}
+              title={`${command.label}${command.shortcut ? ` (${command.shortcut})` : ""}`}
+              disabled={!view || (state.readonly && command.tool !== "select" && command.tool !== "hand")}
               onClick={() =>
                 void commandRegistry.execute(command.id, { engine })
               }
             >
-              {command.label}
+              <CanvasIcon name={command.tool as CanvasIconName} />
             </button>
           ))}
         <span className="tahta-toolbar-separator" />
-        <button type="button" onClick={() => setLayersOpen((value) => !value)}>
-          Layers
+        <button className="tahta-icon-button" type="button" onClick={() => setLayersOpen((value) => !value)} aria-label="Layers" aria-pressed={layersOpen} title="Layers">
+          <CanvasIcon name="layers" />
         </button>
         <button
+          className="tahta-icon-button"
           type="button"
           onClick={openLayoutSettings}
           disabled={layoutBusy || state.readonly}
+          aria-label="Auto layout"
+          title="Auto layout"
         >
-          {layoutBusy ? "Layout…" : "Layout"}
+          <CanvasIcon name="layout" />
         </button>
         <button
+          className="tahta-icon-button"
           type="button"
           onClick={() => setPresentationOpen((value) => !value)}
+          aria-label="Presentation"
+          aria-pressed={presentationOpen}
+          title="Presentation"
         >
-          Present
+          <CanvasIcon name="present" />
         </button>
-        <button type="button" onClick={() => setImportOpen(true)}>
-          Import
+        <button className="tahta-icon-button" type="button" onClick={() => setImportOpen(true)} disabled={state.readonly} aria-label="Import" title="Import DSL or Mermaid">
+          <CanvasIcon name="import" />
         </button>
-        <button type="button" onClick={() => void createLink()}>
-          Link
+        <button className="tahta-icon-button" type="button" onClick={() => void createLink()} disabled={state.readonly} aria-label="Link card" title="Create link card">
+          <CanvasIcon name="link" />
         </button>
-        <button type="button" onClick={() => setExportOpen(true)}>
-          Export
+        <button className="tahta-icon-button" type="button" onClick={() => setExportOpen(true)} aria-label="Export" title="Export">
+          <CanvasIcon name="export" />
         </button>
         <button
+          className="tahta-icon-button"
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-label="Open command palette"
+          title="Command palette (Mod+K)"
         >
-          ⌘K
+          <CanvasIcon name="command" />
+        </button>
+      </div>
+
+      <div className="tahta-bottom-controls" role="group" aria-label="Canvas view controls">
+        {statusContent}
+        <button type="button" className="tahta-bottom-button tahta-layers-button" onClick={() => setLayersOpen((value) => !value)} aria-label="Layers" aria-pressed={layersOpen} title="Layers">
+          <CanvasIcon name="layers" />
+          {state.snapshot.records.length > 0 && <span className="tahta-layers-badge" aria-hidden="true">{state.snapshot.records.length > 99 ? "99+" : state.snapshot.records.length}</span>}
+        </button>
+        <span className="tahta-bottom-separator" aria-hidden="true" />
+        <button type="button" className="tahta-bottom-button" onClick={() => view?.fitToContent()} disabled={!view || state.snapshot.records.length === 0} aria-label="Focus content" title="Focus content">
+          <CanvasIcon name="fit" />
+        </button>
+        <span className="tahta-bottom-separator" aria-hidden="true" />
+        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom - 0.1)} disabled={state.viewport.zoom <= 0.1} aria-label="Zoom out" title="Zoom out">
+          <CanvasIcon name="minus" />
+        </button>
+        <button type="button" className="tahta-zoom-value" onClick={() => setZoom(1)} aria-label={`Reset zoom, currently ${Math.round(state.viewport.zoom * 100)}%`} title="Reset zoom">
+          {Math.round(state.viewport.zoom * 100)}%
+        </button>
+        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom + 0.1)} disabled={state.viewport.zoom >= 8} aria-label="Zoom in" title="Zoom in">
+          <CanvasIcon name="plus" />
         </button>
       </div>
 

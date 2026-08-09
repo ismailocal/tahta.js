@@ -32,6 +32,7 @@ export interface CanvasView {
   readonly canvas: HTMLCanvasElement;
   readonly engine: CanvasEngine;
   setTool(tool: string): void;
+  fitToContent(): void;
   focusRecord(id: string): void;
   hitTest(point: { x: number; y: number }): ShapeRecord | null;
   getPerformanceMetrics(): CanvasPerformanceMetrics;
@@ -119,6 +120,36 @@ export class DomCanvasView implements CanvasView {
   setTool(tool: string): void {
     if (tool !== 'select' && tool !== 'hand' && !SHAPE_TOOLS.has(tool)) throw new Error(`Unknown canvas tool '${tool}'`);
     this.engine.setViewState({ activeTool: tool }); this.canvas.focus();
+  }
+
+  fitToContent(): void {
+    const records = this.#records.filter((record) => !this.#isEffectivelyHidden(record));
+    if (!records.length) {
+      this.engine.setViewState({ viewport: { x: 0, y: 0, zoom: 1 } });
+      return;
+    }
+    const bounds = records.map((record) => this.engine.registry.get(record.type).geometry.getBounds(record));
+    const left = Math.min(...bounds.map(({ x }) => x));
+    const top = Math.min(...bounds.map(({ y }) => y));
+    const right = Math.max(...bounds.map(({ x, width }) => x + width));
+    const bottom = Math.max(...bounds.map(({ y, height }) => y + height));
+    const rect = this.canvas.getBoundingClientRect();
+    const padding = Math.min(120, Math.max(48, Math.min(rect.width, rect.height) * 0.08));
+    const sidebarOffset = Number.parseFloat(getComputedStyle(this.#root).getPropertyValue('--ui-left-offset')) || 0;
+    const safeLeft = Math.min(rect.width - 1, sidebarOffset + padding);
+    const safeTop = Math.min(rect.height - 1, padding + 48);
+    const safeRight = Math.max(safeLeft + 1, rect.width - padding);
+    const safeBottom = Math.max(safeTop + 1, rect.height - Math.max(80, padding));
+    const availableWidth = safeRight - safeLeft;
+    const availableHeight = safeBottom - safeTop;
+    const zoom = Math.min(2, Math.max(0.1, Math.min(availableWidth / Math.max(1, right - left), availableHeight / Math.max(1, bottom - top))));
+    this.engine.setViewState({
+      viewport: {
+        x: (safeLeft + safeRight) / 2 - ((left + right) / 2) * zoom,
+        y: (safeTop + safeBottom) / 2 - ((top + bottom) / 2) * zoom,
+        zoom,
+      },
+    });
   }
 
   focusRecord(id: string): void {

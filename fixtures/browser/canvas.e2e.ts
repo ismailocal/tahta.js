@@ -22,7 +22,10 @@ test("package consumer is keyboard accessible and has no axe violations", async 
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("button", { name: "Hand" })).toBeFocused();
 
-  await page.getByRole("button", { name: "Layers" }).click();
+  await page
+    .getByRole("group", { name: "Canvas view controls" })
+    .getByRole("button", { name: "Layers" })
+    .click();
   const minimap = page.getByRole("application", { name: /Board minimap/ });
   await minimap.focus();
   await page.keyboard.press("ArrowRight");

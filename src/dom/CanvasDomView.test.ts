@@ -64,6 +64,22 @@ describe('DomCanvasView', () => {
     view.destroy(); engine.destroy();
   });
 
+  it('fits visible content into the viewport and resets an empty board', () => {
+    const root = document.createElement('div'); const registry = createBuiltinShapeRegistry();
+    const engine = createCanvasEngine({ documentId: 'fit-content-test', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
+    const definition = registry.get('rectangle');
+    engine.dispatch({ type: 'shape.create', record: registry.validate({ id: 'shape', type: 'rectangle', typeVersion: definition.version, parentId: 'root', index: 'a0', x: 1_000, y: 500, rotation: 0, opacity: 1, locked: false, hidden: false, props: definition.defaults() }) });
+    const view = mountCanvas({ root, engine });
+
+    view.fitToContent();
+    expect(engine.getViewState().viewport).toEqual({ x: -1_780, y: -792, zoom: 2 });
+
+    engine.dispatch({ type: 'shape.delete', ids: ['shape'], mode: 'only' });
+    view.fitToContent();
+    expect(engine.getViewState().viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+    view.destroy(); engine.destroy();
+  });
+
   it('keeps keyboard and pointer mutation paths read-only', () => {
     const root = document.createElement('div'); const registry = createBuiltinShapeRegistry();
     const engine = createCanvasEngine({ documentId: 'readonly-dom-test', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
