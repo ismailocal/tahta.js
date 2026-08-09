@@ -21,7 +21,9 @@ export default defineConfig({
       cssFileName: 'styles',
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      // Yjs has identity-sensitive constructors. Bundling a private copy makes
+      // host-created Y.Doc instances incompatible with the engine at runtime.
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'yjs'],
       output: {
         entryFileNames: '[name].js',
       },

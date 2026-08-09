@@ -1,7 +1,7 @@
 {
   "name": "tahta.js",
   "private": false,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "exports": {
     ".": {
@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "npm run clean && vite build && tsc -p tsconfig.build.json",
+    "build": "npm run clean && vite build && tsc -p tsconfig.build.json && npm run test:package-runtime",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "preview": "vite preview",
@@ -42,6 +42,7 @@
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:coverage": "vitest run --coverage --coverage.include=src/core/CanvasEngine.ts --coverage.include=src/core/model.ts --coverage.include=src/core/registry.ts --coverage.include=src/core/transforms.ts --coverage.include=src/core/richText.ts --coverage.thresholds.lines=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80",
     "test:types": "npm run build && tsc -p fixtures/tsconfig.json",
+    "test:package-runtime": "node fixtures/runtime-consumer.mjs",
     "lint": "eslint src",
     "knip": "knip",
     "check": "npm run lint && npm run typecheck && npm run test -- --run && npm run knip && npm run build",
@@ -59,12 +60,14 @@
     "gh-pages": "^6.3.0",
     "knip": "6.32.0",
     "react": "^19.2.4",
+    "yjs": "13.6.32",
     "typescript": "^5.0.0",
     "vite": "^6.0.0",
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "yjs": "^13.6.32"
   },
   "dependencies": {
     "@excalidraw/mermaid-to-excalidraw": "2.2.2",
@@ -82,7 +85,6 @@
     "y-indexeddb": "9.0.12",
     "y-prosemirror": "1.3.7",
     "y-protocols": "1.0.7",
-    "yjs": "13.6.32",
     "zod": "4.4.3"
   },
   "overrides": {

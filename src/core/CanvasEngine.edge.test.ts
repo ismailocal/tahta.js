@@ -17,6 +17,7 @@ describe('CanvasEngine command and validation boundaries', () => {
     expect(() => createCanvasEngine({ documentId: 'x', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT), initialUpdate: update })).toThrow('either');
     expect(() => createCanvasEngine({ documentId: 'x', registry, document: new Y.Doc(), initialUpdate: update })).toThrow('cannot be combined');
     expect(() => createCanvasEngine({ documentId: 'x', registry, initialUpdate: update })).toThrow('missing');
+    expect(() => createCanvasEngine({ documentId: 'x', registry, initialUpdate: new Uint8Array([1, 2, 3]) })).toThrow('could not be decoded');
     expect(() => createCanvasEngine({ documentId: ' ', registry })).toThrow('required');
   });
 

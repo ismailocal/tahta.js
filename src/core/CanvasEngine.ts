@@ -137,7 +137,15 @@ export class YjsCanvasEngine implements CanvasEngine {
     if (config.document && config.initialUpdate) throw new CanvasValidationError('initialUpdate cannot be combined with document');
     this.#doc = config.document ?? new Y.Doc();
     this.awareness = new Awareness(this.#doc);
-    if (config.initialUpdate) Y.applyUpdate(this.#doc, config.initialUpdate, SYSTEM_ORIGIN);
+    if (config.initialUpdate) {
+      try {
+        Y.applyUpdate(this.#doc, config.initialUpdate, SYSTEM_ORIGIN);
+      } catch {
+        this.awareness.destroy();
+        this.#doc.destroy();
+        throw new CanvasValidationError('initialUpdate could not be decoded', 'INVALID_CANVAS_DATA');
+      }
+    }
     this.#records = this.#doc.getMap<Y.Map<unknown>>('records');
     this.#bindings = this.#doc.getMap<Y.Map<unknown>>('bindings');
     this.#assets = this.#doc.getMap<AssetRecord>('assets');
