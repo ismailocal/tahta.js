@@ -4,6 +4,7 @@ import { createCanvasEngine } from '../core/CanvasEngine';
 import { EMPTY_CANVAS_SNAPSHOT } from '../core/model';
 import { createBuiltinShapeRegistry } from '../shapes';
 import { mountCanvas } from './CanvasDomView';
+import type { ShapeRecord } from '../core/model';
 
 class ResizeObserverStub {
   observe = vi.fn();
@@ -25,6 +26,15 @@ beforeEach(() => {
   Object.defineProperty(HTMLCanvasElement.prototype, 'setPointerCapture', { configurable: true, value: vi.fn() });
   Object.defineProperty(HTMLCanvasElement.prototype, 'hasPointerCapture', { configurable: true, value: vi.fn(() => false) });
 });
+
+function pointer(target: EventTarget, type: string, x: number, y: number, options: { pointerId?: number; button?: number; buttons?: number; shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean } = {}): void {
+  const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: options.button ?? 0, buttons: options.buttons ?? (type === 'pointerup' ? 0 : 1), shiftKey: options.shiftKey, ctrlKey: options.ctrlKey, metaKey: options.metaKey });
+  Object.defineProperties(event, { pointerId: { value: options.pointerId ?? 1 }, pointerType: { value: 'mouse' } }); target.dispatchEvent(event);
+}
+
+function boxRecord(engine: ReturnType<typeof createCanvasEngine>, id: string, x: number, y: number): ShapeRecord {
+  const definition = engine.registry.get('rectangle'); return engine.registry.validate({ id, type: 'rectangle', typeVersion: definition.version, parentId: 'root', index: id === 'source' ? 'a0' : 'a1', x, y, rotation: 0, opacity: 1, locked: false, hidden: false, props: definition.defaults() });
+}
 
 describe('DomCanvasView', () => {
   it('mounts a single instance-scoped canvas and destroys every owned node', () => {
@@ -64,6 +74,15 @@ describe('DomCanvasView', () => {
     view.destroy(); engine.destroy();
   });
 
+  it('places a selected template at the clicked world point and returns to select', () => {
+    const root = document.createElement('div'); const onPlaceTemplate = vi.fn();
+    const engine = createCanvasEngine({ documentId: 'template-tool', registry: createBuiltinShapeRegistry(), initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
+    const view = mountCanvas({ root, engine, onPlaceTemplate }); view.setTool('template:flowchart');
+    pointer(view.canvas, 'pointerdown', 320, 240); pointer(view.canvas, 'pointerup', 320, 240);
+    expect(onPlaceTemplate).toHaveBeenCalledWith('flowchart', { x: 320, y: 240 }); expect(engine.getViewState().activeTool).toBe('select');
+    view.destroy(); engine.destroy();
+  });
+
   it('fits visible content into the viewport and resets an empty board', () => {
     const root = document.createElement('div'); const registry = createBuiltinShapeRegistry();
     const engine = createCanvasEngine({ documentId: 'fit-content-test', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
@@ -87,5 +106,33 @@ describe('DomCanvasView', () => {
     const view = mountCanvas({ root, engine }); engine.setViewState({ selectedIds: ['shape'] }); view.canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
     view.setTool('rectangle'); view.canvas.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 300, clientY: 300, bubbles: true }));
     expect(engine.getSnapshot().records.map(({ id }) => id)).toEqual(['shape']); view.destroy(); engine.destroy();
+  });
+
+  it('restores port-to-port arrow drawing and keeps the entire gesture in one undo step', () => {
+    const root = document.createElement('div'); const registry = createBuiltinShapeRegistry(); const engine = createCanvasEngine({ documentId: 'arrow-gesture', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
+    engine.dispatch({ type: 'batch', commands: [{ type: 'shape.create', record: boxRecord(engine, 'source', 0, 0) }, { type: 'shape.create', record: boxRecord(engine, 'target', 400, 0) }] });
+    const view = mountCanvas({ root, engine });
+    view.setTool('arrow');
+    pointer(view.canvas, 'pointerdown', 180, 50); pointer(view.canvas, 'pointermove', 400, 50); pointer(view.canvas, 'pointerup', 400, 50);
+    const arrow = engine.getSnapshot().records.find(({ type }) => type === 'arrow'); expect(arrow).toBeDefined();
+    expect(engine.getSnapshot().bindings.find(({ connectorId }) => connectorId === arrow!.id)).toMatchObject({ start: { shapeId: 'source', portId: 'right' }, end: { shapeId: 'target', portId: 'left' } });
+    engine.undo(); expect(engine.getSnapshot().records.map(({ id }) => id).sort()).toEqual(['source', 'target']); view.destroy(); engine.destroy();
+  });
+
+  it('restores selection-box, resize handles, shift toggle, and legacy tool shortcuts', () => {
+    const root = document.createElement('div'); const registry = createBuiltinShapeRegistry(); const engine = createCanvasEngine({ documentId: 'selection-gesture', registry, initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) });
+    engine.dispatch({ type: 'batch', commands: [{ type: 'shape.create', record: boxRecord(engine, 'source', 20, 20) }, { type: 'shape.create', record: boxRecord(engine, 'target', 400, 20) }] }); const view = mountCanvas({ root, engine });
+    pointer(view.canvas, 'pointerdown', 0, 0); pointer(view.canvas, 'pointermove', 650, 180); pointer(view.canvas, 'pointerup', 650, 180); expect(engine.getViewState().selectedIds.sort()).toEqual(['source', 'target']);
+    pointer(view.canvas, 'pointerdown', 50, 50, { shiftKey: true }); pointer(view.canvas, 'pointerup', 50, 50, { shiftKey: true }); expect(engine.getViewState().selectedIds).toEqual(['target']);
+    pointer(view.canvas, 'pointerdown', 450, 50); pointer(view.canvas, 'pointerup', 450, 50); pointer(view.canvas, 'pointerdown', 580, 120); pointer(view.canvas, 'pointermove', 640, 170); pointer(view.canvas, 'pointerup', 640, 170);
+    expect(engine.getSnapshot().records.find(({ id }) => id === 'target')!.props).toMatchObject({ width: 240, height: 150 });
+    view.canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true })); expect(engine.getViewState().activeTool).toBe('ellipse');
+    view.canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true })); expect(engine.getViewState().activeTool).toBe('eraser'); view.destroy(); engine.destroy();
+  });
+
+  it('deletes click-only box gestures and returns completed drawing tools to select', () => {
+    const root = document.createElement('div'); const engine = createCanvasEngine({ documentId: 'draw-contract', registry: createBuiltinShapeRegistry(), initialSnapshot: structuredClone(EMPTY_CANVAS_SNAPSHOT) }); const view = mountCanvas({ root, engine });
+    view.setTool('rectangle'); pointer(view.canvas, 'pointerdown', 100, 100); pointer(view.canvas, 'pointerup', 100, 100); expect(engine.getSnapshot().records).toHaveLength(0);
+    view.setTool('ellipse'); pointer(view.canvas, 'pointerdown', 100, 100); pointer(view.canvas, 'pointermove', 240, 180); pointer(view.canvas, 'pointerup', 240, 180); expect(engine.getSnapshot().records).toHaveLength(1); expect(engine.getViewState().activeTool).toBe('select'); view.destroy(); engine.destroy();
   });
 });

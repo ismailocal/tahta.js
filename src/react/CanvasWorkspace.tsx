@@ -13,6 +13,7 @@ import {
   applyStickyClusters,
   buildNavigatorTree,
   CanvasSearchIndex,
+  BUILTIN_CANVAS_TEMPLATES,
   CommandRegistry,
   compareFractionalIndex,
   createClipboardPayload,
@@ -21,6 +22,7 @@ import {
   groupSelection,
   keyboardShortcut,
   parseClipboardPayload,
+  placeBuiltinCanvasTemplate,
   parseCsv,
   pasteClipboardPayload,
   deleteTableColumn,
@@ -83,10 +85,11 @@ export interface CanvasWorkspaceProps
 }
 
 type CanvasIconName =
-  | "select" | "hand" | "rectangle" | "ellipse" | "diamond" | "triangle"
+  | "select" | "hand" | "eraser" | "rectangle" | "ellipse" | "diamond" | "triangle"
   | "sticky-note" | "frame" | "text" | "line" | "arrow" | "freehand"
+  | "image" | "library" | "undo" | "redo"
   | "layers" | "layout" | "present" | "import" | "link" | "export"
-  | "command" | "fit" | "minus" | "plus";
+  | "command" | "fit" | "minus" | "plus" | "palette" | "chevron-down";
 
 function CanvasIcon({ name }: { name: CanvasIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -94,6 +97,7 @@ function CanvasIcon({ name }: { name: CanvasIconName }) {
   switch (name) {
     case "select": content = <path d="m5 3 13 9-6 1.5-3.5 5.5z" />; break;
     case "hand": content = <path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10 5.5a1.5 1.5 0 0 1 3 0V10 7a1.5 1.5 0 0 1 3 0v4-2a1.5 1.5 0 0 1 3 0v4c0 5-3 8-7 8-3.5 0-5.5-2-7-5l-2-3a1.6 1.6 0 0 1 2.6-1.8L7 13" />; break;
+    case "eraser": content = <><path d="m7 20-3-3a2 2 0 0 1 0-3L14 4a2 2 0 0 1 3 0l3 3a2 2 0 0 1 0 3L10 20z" /><path d="m12 9 6 6M7 20h13" /></>; break;
     case "rectangle": content = <rect x="4" y="5" width="16" height="14" rx="2" />; break;
     case "ellipse": content = <ellipse cx="12" cy="12" rx="8" ry="7" />; break;
     case "diamond": content = <path d="m12 3 9 9-9 9-9-9z" />; break;
@@ -104,6 +108,10 @@ function CanvasIcon({ name }: { name: CanvasIconName }) {
     case "line": content = <path d="M4 20 20 4" />; break;
     case "arrow": content = <><path d="M4 20 20 4" /><path d="M12 4h8v8" /></>; break;
     case "freehand": content = <path d="M4 17c3-8 5-10 7-8s-4 8-1 9 5-8 7-6-1 7 3 7" />; break;
+    case "image": content = <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></>; break;
+    case "library": content = <><path d="m12 3 4 7H8z" /><rect x="4" y="14" width="6" height="6" rx="1" /><circle cx="17" cy="17" r="3" /></>; break;
+    case "undo": content = <><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-15-6.7L3 13" /></>; break;
+    case "redo": content = <><path d="M21 7v6h-6" /><path d="M3 17a9 9 0 0 1 15-6.7l3 2.7" /></>; break;
     case "layers": content = <><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 12 9 5 9-5M3 16l9 5 9-5" /></>; break;
     case "layout": content = <><rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="15" width="6" height="5" rx="1" /><path d="M9 6.5h4a4 4 0 0 1 4 4V15M14 12l3 3 3-3" /></>; break;
     case "present": content = <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="m10 8 5 2.5-5 2.5zM12 17v4M8 21h8" /></>; break;
@@ -114,6 +122,8 @@ function CanvasIcon({ name }: { name: CanvasIconName }) {
     case "fit": content = <><circle cx="12" cy="12" r="3" /><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" /></>; break;
     case "minus": content = <path d="M5 12h14" />; break;
     case "plus": content = <path d="M12 5v14M5 12h14" />; break;
+    case "palette": content = <><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none" /><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125 0-.941.732-1.688 1.688-1.688h1.941c3.191 0 5.593-2.515 5.593-5.593C22 5.593 15.5 2 12 2z" /></>; break;
+    case "chevron-down": content = <path d="m6 9 6 6 6-6" />; break;
   }
   return <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...common}>{content}</svg>;
 }
@@ -251,6 +261,30 @@ interface EditableTableProps extends Record<string, unknown> {
   columns: { id: string; title: string; width: number }[];
   rows: { id: string; cells: Record<string, string> }[];
   header: boolean;
+}
+
+interface EditableDatabaseProps extends Record<string, unknown> {
+  name: string;
+  width: number;
+  height: number;
+  columns: { id: string; name: string; dataType: string; primaryKey: boolean; nullable: boolean }[];
+}
+
+function DatabaseEditor({ engine, record, readonly }: { engine: CanvasEngine; record: ShapeRecord; readonly: boolean }) {
+  const props = record.props as EditableDatabaseProps;
+  const update = (next: EditableDatabaseProps) => engine.dispatch({ type: "shape.update", id: record.id, patch: { props: next } });
+  return <div className="tahta-database-editor">
+    <label><span>Name</span><input disabled={readonly} value={props.name} onChange={(event) => update({ ...props, name: event.target.value })} /></label>
+    <strong>Columns</strong>
+    {props.columns.map((column, index) => <div className="tahta-database-column" key={column.id}>
+      <input aria-label={`Column ${index + 1} name`} disabled={readonly} value={column.name} onChange={(event) => update({ ...props, columns: props.columns.map((value) => value.id === column.id ? { ...value, name: event.target.value } : value) })} />
+      <input aria-label={`Column ${index + 1} type`} disabled={readonly} value={column.dataType} onChange={(event) => update({ ...props, columns: props.columns.map((value) => value.id === column.id ? { ...value, dataType: event.target.value } : value) })} />
+      <button type="button" disabled={readonly} aria-pressed={column.primaryKey} onClick={() => update({ ...props, columns: props.columns.map((value) => value.id === column.id ? { ...value, primaryKey: !value.primaryKey } : value) })}>PK</button>
+      <button type="button" disabled={readonly} aria-pressed={!column.nullable} onClick={() => update({ ...props, columns: props.columns.map((value) => value.id === column.id ? { ...value, nullable: !value.nullable } : value) })}>NN</button>
+      <button type="button" disabled={readonly} aria-label={`Delete column ${index + 1}`} onClick={() => update({ ...props, columns: props.columns.filter((value) => value.id !== column.id) })}>×</button>
+    </div>)}
+    <button type="button" disabled={readonly || props.columns.length >= 500} onClick={() => update({ ...props, columns: [...props.columns, { id: crypto.randomUUID(), name: "column", dataType: "VARCHAR", primaryKey: false, nullable: true }] })}>+ Add column</button>
+  </div>;
 }
 
 function TableEditor({
@@ -482,8 +516,11 @@ export function CanvasWorkspace({
     engine.getViewState(),
   );
   const [view, setView] = useState<CanvasView | null>(null);
+  const [toolStyleRevision, setToolStyleRevision] = useState(0);
   const [layersOpen, setLayersOpen] = useState(false);
   const [presentationOpen, setPresentationOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [activeFrameIndex, setActiveFrameIndex] = useState<number | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
@@ -520,6 +557,7 @@ export function CanvasWorkspace({
     rows: string[][];
   } | null>(null);
   const [tableEditorId, setTableEditorId] = useState<string | null>(null);
+  const [databaseEditorId, setDatabaseEditorId] = useState<string | null>(null);
   const [clusterPreview, setClusterPreview] = useState<StickyCluster[] | null>(
     null,
   );
@@ -539,18 +577,22 @@ export function CanvasWorkspace({
   });
   const commandRegistry = useMemo(() => new CommandRegistry(), []);
   const toolbarTools = useMemo(() => [
-    { id: "tool.select", tool: "select", label: "Select", shortcut: "V" },
     { id: "tool.hand", tool: "hand", label: "Hand", shortcut: "H" },
-    ...engine.registry.list().filter((definition) => definition.tool).map((definition) => ({
-      id: `tool.${definition.type}`,
-      tool: definition.type,
-      label: definition.tool!.label,
-      shortcut: definition.tool!.shortcut ?? "",
-    })),
-  ], [engine]);
+    { id: "tool.select", tool: "select", label: "Select", shortcut: "V" },
+    { id: "tool.rectangle", tool: "rectangle", label: "Rectangle", shortcut: "R" },
+    { id: "tool.ellipse", tool: "ellipse", label: "Ellipse", shortcut: "E" },
+    { id: "tool.diamond", tool: "diamond", label: "Diamond", shortcut: "D" },
+    { id: "tool.sticky-note", tool: "sticky-note", label: "Sticky note", shortcut: "S" },
+    { id: "tool.frame", tool: "frame", label: "Frame", shortcut: "F" },
+    { id: "tool.arrow", tool: "arrow", label: "Arrow", shortcut: "A" },
+    { id: "tool.freehand", tool: "freehand", label: "Pen", shortcut: "P" },
+    { id: "tool.text", tool: "text", label: "Text", shortcut: "T" },
+    { id: "tool.eraser", tool: "eraser", label: "Eraser", shortcut: "X" },
+  ], []);
   const searchIndex = useMemo(() => new CanvasSearchIndex(), []);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const followedFrameRef = useRef<string | null>(null);
   const layoutAbortRef = useRef<AbortController | null>(null);
 
@@ -571,6 +613,13 @@ export function CanvasWorkspace({
     const timer = setTimeout(() => setMessage(""), 5_000);
     return () => clearTimeout(timer);
   }, [message]);
+  useEffect(() => {
+    if (!libraryOpen) return;
+    const close = (event: PointerEvent) => { if (!(event.target instanceof Element) || !event.target.closest(".tahta-library-wrap")) setLibraryOpen(false); };
+    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") setLibraryOpen(false); };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", keydown);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", keydown); };
+  }, [libraryOpen]);
 
   const ready = useCallback(
     (mounted: CanvasView) => {
@@ -582,7 +631,7 @@ export function CanvasWorkspace({
   const setZoom = useCallback((requestedZoom: number) => {
     const current = engine.getViewState().viewport;
     const rect = view?.canvas.getBoundingClientRect();
-    const zoom = Math.min(8, Math.max(0.1, requestedZoom));
+    const zoom = Math.min(4, Math.max(0.2, requestedZoom));
     if (!rect) {
       engine.setViewState({ viewport: { ...current, zoom } });
       return;
@@ -702,6 +751,7 @@ export function CanvasWorkspace({
     const tools = [
       ["select", "Select", "V"],
       ["hand", "Hand", "H"],
+      ["eraser", "Eraser", "X"],
       ...engine.registry
         .list()
         .filter((definition) => definition.tool)
@@ -797,6 +847,7 @@ export function CanvasWorkspace({
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       const editing = target?.matches(
         'input,textarea,[contenteditable="true"]',
@@ -807,6 +858,9 @@ export function CanvasWorkspace({
         return;
       }
       if (editing || !view?.canvas.matches(":focus")) return;
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "i" && uploadAsset) {
+        event.preventDefault(); imageInputRef.current?.click(); return;
+      }
       const command = commandRegistry.getByShortcut(keyboardShortcut(event));
       if (command) {
         event.preventDefault();
@@ -815,7 +869,7 @@ export function CanvasWorkspace({
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [commandRegistry, engine, view]);
+  }, [commandRegistry, engine, uploadAsset, view]);
   useEffect(() => {
     const buttons = [
       ...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>(
@@ -831,7 +885,18 @@ export function CanvasWorkspace({
     state.selectedIds.length === 1
       ? state.snapshot.records.find(({ id }) => id === state.selectedIds[0])
       : undefined;
-  const selectedBounds = useMemo(() => {
+  const activeToolDefinition = engine.registry.has(state.activeTool) ? engine.registry.get(state.activeTool) : null;
+  const activeToolStyle = !selected && view && activeToolDefinition?.tool && activeToolDefinition.properties?.length
+    ? view.getToolStyle(state.activeTool)
+    : null;
+  const hasSelectedProperties = Boolean(selected && (
+    engine.registry.get(selected.type).properties?.length ||
+    selected.type === "table" ||
+    selected.type === "link-card"
+  ));
+  const hasProperties = hasSelectedProperties || Boolean(activeToolStyle && activeToolDefinition);
+  void toolStyleRevision;
+  const selectedBounds = (() => {
     if (!selected || !view) return null;
     const map = new Map(
       state.snapshot.records.map((record) => [record.id, record]),
@@ -845,7 +910,7 @@ export function CanvasWorkspace({
       width: bounds.width * state.viewport.zoom,
       height: bounds.height * state.viewport.zoom,
     };
-  }, [engine.registry, selected, state.snapshot.records, state.viewport, view]);
+  })();
   const layoutGhosts = useMemo(() => {
     if (!layoutPreview) return [];
     const records = new Map(
@@ -1211,8 +1276,7 @@ export function CanvasWorkspace({
     [engine, uploadAsset, view],
   );
 
-  const handleDrop = useCallback(
-    async (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       if (state.readonly) return;
       try {
@@ -1256,13 +1320,11 @@ export function CanvasWorkspace({
       } catch (error) {
         fail(error);
       }
-    },
-    [createImage, engine, fail, selected, state.readonly],
-  );
+    };
 
   return (
     <div
-      className={`tahta-workspace ${activeFrameIndex !== null ? "tahta-presenting" : ""} ${className ?? ""}`}
+      className={`tahta-workspace ${activeFrameIndex !== null ? "tahta-presenting" : ""} ${state.readonly ? "tahta-readonly" : ""} ${className ?? ""}`}
       onDragOver={(event) => {
         if (!state.readonly) event.preventDefault();
       }}
@@ -1301,7 +1363,20 @@ export function CanvasWorkspace({
         onReady={ready}
         onPointerUpdate={onPointerUpdate}
         toolbar={false}
-        onEditRecord={setEditingId}
+        onEditRecord={(recordId) => {
+          const type = engine.getSnapshot().records.find(({ id }) => id === recordId)?.type;
+          if (type === "table") setTableEditorId(recordId);
+          else if (type?.startsWith("db-")) setDatabaseEditorId(recordId);
+          else setEditingId(recordId);
+        }}
+        onPlaceTemplate={(templateKey, world) => {
+          try {
+            if (!BUILTIN_CANVAS_TEMPLATES.some(([key]) => key === templateKey)) throw new Error(`Unknown built-in template '${templateKey}'`);
+            placeBuiltinCanvasTemplate(engine, templateKey as (typeof BUILTIN_CANVAS_TEMPLATES)[number][0], world);
+          } catch (error) {
+            fail(error);
+          }
+        }}
         onError={fail}
         className="tahta-workspace-canvas"
       />
@@ -1347,7 +1422,7 @@ export function CanvasWorkspace({
             });
         }}
       >
-        {toolbarTools.map((command) => (
+        {toolbarTools.slice(0, 2).map((command) => (
             <button
               key={command.id}
               type="button"
@@ -1364,47 +1439,35 @@ export function CanvasWorkspace({
             </button>
           ))}
         <span className="tahta-toolbar-separator" />
-        <button className="tahta-icon-button" type="button" onClick={() => setLayersOpen((value) => !value)} aria-label="Layers" aria-pressed={layersOpen} title="Layers">
-          <CanvasIcon name="layers" />
-        </button>
-        <button
-          className="tahta-icon-button"
-          type="button"
-          onClick={openLayoutSettings}
-          disabled={layoutBusy || state.readonly}
-          aria-label="Auto layout"
-          title="Auto layout"
-        >
-          <CanvasIcon name="layout" />
-        </button>
-        <button
-          className="tahta-icon-button"
-          type="button"
-          onClick={() => setPresentationOpen((value) => !value)}
-          aria-label="Presentation"
-          aria-pressed={presentationOpen}
-          title="Presentation"
-        >
-          <CanvasIcon name="present" />
-        </button>
-        <button className="tahta-icon-button" type="button" onClick={() => setImportOpen(true)} disabled={state.readonly} aria-label="Import" title="Import DSL or Mermaid">
-          <CanvasIcon name="import" />
-        </button>
-        <button className="tahta-icon-button" type="button" onClick={() => void createLink()} disabled={state.readonly} aria-label="Link card" title="Create link card">
-          <CanvasIcon name="link" />
-        </button>
-        <button className="tahta-icon-button" type="button" onClick={() => setExportOpen(true)} aria-label="Export" title="Export">
-          <CanvasIcon name="export" />
-        </button>
-        <button
-          className="tahta-icon-button"
-          type="button"
-          onClick={() => setPaletteOpen(true)}
-          aria-label="Open command palette"
-          title="Command palette (Mod+K)"
-        >
-          <CanvasIcon name="command" />
-        </button>
+        {toolbarTools.slice(2, 7).map((command) => <button key={command.id} type="button" className="tahta-icon-button" aria-label={command.label} aria-pressed={state.activeTool === command.tool} title={`${command.label} (${command.shortcut})`} disabled={!view || state.readonly} onClick={() => void commandRegistry.execute(command.id, { engine })}><CanvasIcon name={command.tool as CanvasIconName} /></button>)}
+        <span className="tahta-toolbar-separator" />
+        {toolbarTools.slice(7, 8).map((command) => <button key={command.id} type="button" className="tahta-icon-button" aria-label={command.label} aria-pressed={state.activeTool === command.tool} title={`${command.label} (${command.shortcut})`} disabled={!view || state.readonly} onClick={() => void commandRegistry.execute(command.id, { engine })}><CanvasIcon name={command.tool as CanvasIconName} /></button>)}
+        <span className="tahta-toolbar-separator" />
+        {toolbarTools.slice(8, 10).map((command) => <button key={command.id} type="button" className="tahta-icon-button" aria-label={command.label} aria-pressed={state.activeTool === command.tool} title={`${command.label} (${command.shortcut})`} disabled={!view || state.readonly} onClick={() => void commandRegistry.execute(command.id, { engine })}><CanvasIcon name={command.tool as CanvasIconName} /></button>)}
+        <button className="tahta-icon-button" type="button" disabled={state.readonly || !uploadAsset} onClick={() => imageInputRef.current?.click()} aria-label="Image" title="Image (I)"><CanvasIcon name="image" /></button>
+        <input ref={imageInputRef} hidden type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void createImage(file).catch(fail); event.currentTarget.value = ""; }} />
+        <span className="tahta-toolbar-separator" />
+        <span className="tahta-library-wrap">
+          <button className="tahta-icon-button" type="button" aria-label="Library" aria-expanded={libraryOpen} title="Library" onClick={() => setLibraryOpen((value) => !value)}><CanvasIcon name="library" /></button>
+          {libraryOpen && <span className="tahta-library-menu" role="menu">
+            <strong>Database tools</strong>
+            {[["db-table", "Table"], ["db-view", "View"], ["db-enum", "Enum"], ["line", "Line"], ["triangle", "Triangle"]].map(([tool, label]) => <button key={tool} type="button" role="menuitem" disabled={state.readonly} onClick={() => { view?.setTool(tool!); setLibraryOpen(false); }}>{label}</button>)}
+            <strong>Templates</strong>
+            {BUILTIN_CANVAS_TEMPLATES.map(([key, label]) => <button key={key} type="button" role="menuitem" disabled={state.readonly} onClick={() => { view?.setTool(`template:${key}`); setLibraryOpen(false); }}>{label}</button>)}
+            <strong>Workspace</strong>
+            <button type="button" role="menuitem" onClick={() => { setLayersOpen((value) => !value); setLibraryOpen(false); }}>Layers</button>
+            <button type="button" role="menuitem" disabled={state.readonly} onClick={() => { openLayoutSettings(); setLibraryOpen(false); }}>Auto layout</button>
+            <button type="button" role="menuitem" onClick={() => { setPresentationOpen((value) => !value); setLibraryOpen(false); }}>Presentation</button>
+            <button type="button" role="menuitem" disabled={state.readonly} onClick={() => { setImportOpen(true); setLibraryOpen(false); }}>Import</button>
+            <button type="button" role="menuitem" disabled={state.readonly || !fetchLinkMetadata} onClick={() => { void createLink(); setLibraryOpen(false); }}>Link card</button>
+            <button type="button" role="menuitem" onClick={() => { setExportOpen(true); setLibraryOpen(false); }}>Export</button>
+          </span>}
+        </span>
+        <span className="tahta-toolbar-separator" />
+        {toolbarTools.slice(10).map((command) => <button key={command.id} type="button" className="tahta-icon-button" aria-label={command.label} aria-pressed={state.activeTool === command.tool} title={`${command.label} (${command.shortcut})`} disabled={!view || state.readonly} onClick={() => void commandRegistry.execute(command.id, { engine })}><CanvasIcon name={command.tool as CanvasIconName} /></button>)}
+        <span className="tahta-toolbar-separator" />
+        <button className="tahta-icon-button" type="button" disabled={state.readonly || !engine.canUndo()} aria-label="Undo" title="Undo (Mod+Z)" onClick={() => engine.undo()}><CanvasIcon name="undo" /></button>
+        <button className="tahta-icon-button" type="button" disabled={state.readonly || !engine.canRedo()} aria-label="Redo" title="Redo (Mod+Y)" onClick={() => engine.redo()}><CanvasIcon name="redo" /></button>
       </div>
 
       <div className="tahta-bottom-controls" role="group" aria-label="Canvas view controls">
@@ -1418,13 +1481,13 @@ export function CanvasWorkspace({
           <CanvasIcon name="fit" />
         </button>
         <span className="tahta-bottom-separator" aria-hidden="true" />
-        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom - 0.1)} disabled={state.viewport.zoom <= 0.1} aria-label="Zoom out" title="Zoom out">
+        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom - 0.1)} disabled={state.viewport.zoom <= 0.2} aria-label="Zoom out" title="Zoom out">
           <CanvasIcon name="minus" />
         </button>
         <button type="button" className="tahta-zoom-value" onClick={() => setZoom(1)} aria-label={`Reset zoom, currently ${Math.round(state.viewport.zoom * 100)}%`} title="Reset zoom">
           {Math.round(state.viewport.zoom * 100)}%
         </button>
-        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom + 0.1)} disabled={state.viewport.zoom >= 8} aria-label="Zoom in" title="Zoom in">
+        <button type="button" className="tahta-bottom-button" onClick={() => setZoom(state.viewport.zoom + 0.1)} disabled={state.viewport.zoom >= 4} aria-label="Zoom in" title="Zoom in">
           <CanvasIcon name="plus" />
         </button>
       </div>
@@ -1841,15 +1904,26 @@ export function CanvasWorkspace({
         </aside>
       )}
 
+      {hasProperties && !state.readonly && (
+        <button
+          type="button"
+          className={`tahta-properties-toggle ${propertiesOpen ? "active" : ""} ${selected ? "has-selection" : ""}`}
+          aria-label={propertiesOpen ? "Close settings" : "Open settings"}
+          aria-expanded={propertiesOpen}
+          title={propertiesOpen ? "Close Settings" : "Open Settings"}
+          onClick={() => setPropertiesOpen((open) => !open)}
+        >
+          <CanvasIcon name={propertiesOpen ? "chevron-down" : "palette"} />
+        </button>
+      )}
+
       {selected &&
       (engine.registry.get(selected.type).properties?.length ||
         selected.type === "table") ? (
-        <aside className="tahta-properties" aria-label="Shape properties">
+        <aside className={`tahta-properties ${propertiesOpen ? "" : "closed"}`} aria-label="Shape properties">
           <strong>{selected.type}</strong>
           {engine.registry.get(selected.type).properties?.map((property) => {
-            const value = (selected.props as Record<string, unknown>)[
-              property.key
-            ];
+            const value = property.scope === "record" ? (selected as unknown as Record<string, unknown>)[property.key] : (selected.props as Record<string, unknown>)[property.key];
             return (
               <label key={property.key}>
                 <span>{property.label}</span>
@@ -1857,18 +1931,11 @@ export function CanvasWorkspace({
                   <select
                     disabled={state.readonly}
                     value={String(value)}
-                    onChange={(event) =>
-                      engine.dispatch({
-                        type: "shape.update",
-                        id: selected.id,
-                        patch: {
-                          props: {
-                            ...(selected.props as Record<string, unknown>),
-                            [property.key]: event.target.value,
-                          },
-                        },
-                      })
-                    }
+                    onChange={(event) => {
+                      const patch = property.scope === "record" ? { [property.key]: event.target.value } : { props: { ...(selected.props as Record<string, unknown>), [property.key]: event.target.value } };
+                      engine.dispatch({ type: "shape.update", id: selected.id, patch });
+                      if (property.scope !== "record" && engine.registry.get(selected.type).tool) view?.setToolStyle(selected.type, { [property.key]: event.target.value });
+                    }}
                   >
                     {property.options?.map((option) => (
                       <option key={option}>{option}</option>
@@ -1883,21 +1950,12 @@ export function CanvasWorkspace({
                         ? value
                         : ""
                     }
-                    onChange={(event) =>
-                      engine.dispatch({
-                        type: "shape.update",
-                        id: selected.id,
-                        patch: {
-                          props: {
-                            ...(selected.props as Record<string, unknown>),
-                            [property.key]:
-                              property.control === "number"
-                                ? Number(event.target.value)
-                                : event.target.value,
-                          },
-                        },
-                      })
-                    }
+                    onChange={(event) => {
+                      const nextValue = property.control === "number" ? Number(event.target.value) : event.target.value;
+                      const patch = property.scope === "record" ? { [property.key]: nextValue } : { props: { ...(selected.props as Record<string, unknown>), [property.key]: nextValue } };
+                      engine.dispatch({ type: "shape.update", id: selected.id, patch });
+                      if (property.scope !== "record" && engine.registry.get(selected.type).tool) view?.setToolStyle(selected.type, { [property.key]: nextValue });
+                    }}
                   />
                 )}
               </label>
@@ -1995,8 +2053,34 @@ export function CanvasWorkspace({
           )}
         </aside>
       ) : null}
+      {activeToolStyle && activeToolDefinition ? (
+        <aside className={`tahta-properties ${propertiesOpen ? "" : "closed"}`} aria-label="Tool properties">
+          <strong>{activeToolDefinition.tool!.label}</strong>
+          {activeToolDefinition.properties?.filter((property) => property.scope !== "record").map((property) => {
+            const value = activeToolStyle[property.key];
+            const update = (nextValue: string) => {
+              view!.setToolStyle(state.activeTool, {
+                [property.key]: property.control === "number" ? Number(nextValue) : nextValue,
+              });
+              setToolStyleRevision((revision) => revision + 1);
+            };
+            return (
+              <label key={property.key}>
+                <span>{property.label}</span>
+                {property.control === "select" ? (
+                  <select disabled={state.readonly} value={String(value)} onChange={(event) => update(event.target.value)}>
+                    {property.options?.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                ) : (
+                  <input disabled={state.readonly} type={property.control} value={typeof value === "number" || typeof value === "string" ? value : ""} onChange={(event) => update(event.target.value)} />
+                )}
+              </label>
+            );
+          })}
+        </aside>
+      ) : null}
       {selected?.type === "link-card" && (
-        <aside className="tahta-properties" aria-label="Link card properties">
+        <aside className={`tahta-properties ${propertiesOpen ? "" : "closed"}`} aria-label="Link card properties">
           <strong>Link card</strong>
           <a
             href={(selected.props as { url: string }).url}
@@ -2148,6 +2232,11 @@ export function CanvasWorkspace({
             />
           </FocusDialog>
         )}
+      {databaseEditorId && state.snapshot.records.find(({ id }) => id === databaseEditorId) && (
+        <FocusDialog label="Edit database shape" onClose={() => setDatabaseEditorId(null)}>
+          <DatabaseEditor engine={engine} record={state.snapshot.records.find(({ id }) => id === databaseEditorId)!} readonly={state.readonly} />
+        </FocusDialog>
+      )}
       {paletteOpen && (
         <FocusDialog
           label="Command palette"

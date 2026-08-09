@@ -512,8 +512,15 @@ export class YjsCanvasEngine implements CanvasEngine {
         const binding = bindingRecordSchema.parse(command.binding);
         const connector = this.#requireRecord(binding.connectorId);
         if (connector.type !== 'line' && connector.type !== 'arrow') throw new CanvasValidationError(`Binding '${binding.id}' connector is not a line or arrow`, 'INVALID_BINDING');
-        if (binding.start) this.#requireRecord(binding.start.shapeId);
-        if (binding.end) this.#requireRecord(binding.end.shapeId);
+        const validateEndpoint = (endpoint: BindingRecord['start'], name: 'start' | 'end') => {
+          if (!endpoint) return;
+          if (endpoint.shapeId === connector.id) throw new CanvasValidationError(`Binding '${binding.id}' cannot bind ${name} to its connector`, 'INVALID_BINDING');
+          const target = this.#requireRecord(endpoint.shapeId);
+          if (!endpoint.portId) return;
+          const ports = this.registry.get(target.type).geometry.getConnectionPorts?.(target) ?? [];
+          if (!ports.some(({ id }) => id === endpoint.portId)) throw new CanvasValidationError(`Port '${endpoint.portId}' does not exist on shape '${target.id}'`, 'UNKNOWN_CONNECTION_PORT');
+        };
+        validateEndpoint(binding.start, 'start'); validateEndpoint(binding.end, 'end');
         this.#storeBinding(binding);
         changed.add(binding.id);
         return;

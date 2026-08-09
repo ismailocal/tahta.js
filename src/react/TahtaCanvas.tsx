@@ -11,15 +11,16 @@ export interface TahtaCanvasProps {
   onPointerUpdate?: (payload: { pointer: { x: number; y: number }; button: 'left' | 'none' | 'up' }) => void;
   toolbar?: boolean;
   onEditRecord?: (recordId: string) => void;
+  onPlaceTemplate?: (templateKey: string, world: { x: number; y: number }) => void;
   onError?: (error: Error) => void;
 }
 
-export function TahtaCanvas({ engine, className, locale, resolveAssetUrl, onReady, onPointerUpdate, toolbar, onEditRecord, onError }: TahtaCanvasProps) {
+export function TahtaCanvas({ engine, className, locale, resolveAssetUrl, onReady, onPointerUpdate, toolbar, onEditRecord, onPlaceTemplate, onError }: TahtaCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const callbacksRef = useRef({ resolveAssetUrl, onReady, onPointerUpdate, onEditRecord, onError });
+  const callbacksRef = useRef({ resolveAssetUrl, onReady, onPointerUpdate, onEditRecord, onPlaceTemplate, onError });
   useLayoutEffect(() => {
-    callbacksRef.current = { resolveAssetUrl, onReady, onPointerUpdate, onEditRecord, onError };
-  }, [onEditRecord, onError, onPointerUpdate, onReady, resolveAssetUrl]);
+    callbacksRef.current = { resolveAssetUrl, onReady, onPointerUpdate, onEditRecord, onPlaceTemplate, onError };
+  }, [onEditRecord, onError, onPlaceTemplate, onPointerUpdate, onReady, resolveAssetUrl]);
 
   useEffect(() => {
     if (!rootRef.current) throw new Error('Tahta canvas root is unavailable');
@@ -31,6 +32,7 @@ export function TahtaCanvas({ engine, className, locale, resolveAssetUrl, onRead
       onPointerUpdate: (payload) => callbacksRef.current.onPointerUpdate?.(payload),
       toolbar,
       onEditRecord: (recordId) => callbacksRef.current.onEditRecord?.(recordId),
+      onPlaceTemplate: (templateKey, world) => callbacksRef.current.onPlaceTemplate?.(templateKey, world),
       onError: (error) => callbacksRef.current.onError?.(error),
     });
     callbacksRef.current.onReady?.(view);

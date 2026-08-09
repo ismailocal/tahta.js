@@ -9,9 +9,17 @@ export interface ShapeBounds {
   height: number;
 }
 
+export interface ConnectionPort {
+  id: string;
+  x: number;
+  y: number;
+  direction: 'up' | 'right' | 'down' | 'left';
+}
+
 export interface ShapeGeometry<Props> {
   getBounds(record: ShapeRecord<Props>): ShapeBounds;
   containsPoint(record: ShapeRecord<Props>, point: { x: number; y: number }): boolean;
+  getConnectionPorts?(record: ShapeRecord<Props>): readonly ConnectionPort[];
 }
 
 export interface ShapeRenderContext<Props> {
@@ -29,7 +37,7 @@ export interface ShapeExportContext<Props> {
 }
 
 export interface ToolDefinition { label: string; shortcut?: string }
-export interface PropertyDefinition { key: string; label: string; control: 'number' | 'color' | 'select' | 'text'; options?: readonly string[] }
+export interface PropertyDefinition { key: string; label: string; control: 'number' | 'color' | 'select' | 'text'; options?: readonly string[]; scope?: 'props' | 'record' }
 
 export interface ShapeDefinition<Props = unknown> {
   readonly type: string;

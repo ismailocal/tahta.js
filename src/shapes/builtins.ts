@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ShapeRecord } from '../core/model.js';
 import { ShapeRegistry, type ShapeDefinition, type ShapeGeometry } from '../core/registry.js';
+import { connectorRoute, connectorRouteBounds, connectorRouteMidpoint, connectorRouteSvgPath, pointToConnectorDistance, pointToSegmentDistance } from '../core/connectorGeometry.js';
 import { richTextDocumentSchema, richTextFromString, type RichTextDocument } from '../core/richText.js';
 
 const color = z.string().min(1).max(64);
@@ -20,6 +21,9 @@ const baseBoxSchema = z.object({
   text: richTextDocumentSchema,
   textColor: color,
   fontSize: z.number().finite().min(8).max(256),
+  textVerticalAlign: z.enum(['top', 'middle', 'bottom']),
+  textPaddingX: z.number().finite().min(0).max(256),
+  textPaddingY: z.number().finite().min(0).max(256),
 });
 
 type BoxProps = z.infer<typeof baseBoxSchema>;
@@ -68,6 +72,14 @@ const databaseSchema = baseBoxSchema.extend({
 });
 
 type DatabaseProps = z.infer<typeof databaseSchema>;
+
+function databaseGeometry(): ShapeGeometry<DatabaseProps> {
+  const base = boxGeometry<DatabaseProps>(); return { ...base, getConnectionPorts: (record) => record.props.columns.flatMap((column, index) => {
+    void column; const localY = 40 + index * 24 + 12; if (localY > record.props.height) return [];
+    const points = [{ id: `row-${index}-left`, x: 0, direction: 'left' as const }, { id: `row-${index}-right`, x: record.props.width, direction: 'right' as const }];
+    return points.map((port) => { const rotated = { x: port.x * Math.cos(record.rotation) - localY * Math.sin(record.rotation), y: port.x * Math.sin(record.rotation) + localY * Math.cos(record.rotation) }; return { ...port, y: record.y + rotated.y, x: record.x + rotated.x }; });
+  }) };
+}
 
 const tableSchema = z.object({
   width: dimension,
@@ -130,12 +142,58 @@ function inversePoint<Props>(record: ShapeRecord<Props>, value: { x: number; y: 
   return { x: dx * cosine - dy * sine, y: dx * sine + dy * cosine };
 }
 
+function rotatedBoxBounds<Props extends { width: number; height: number }>(record: ShapeRecord<Props>) {
+  const corners = [
+    { x: 0, y: 0 }, { x: record.props.width, y: 0 },
+    { x: record.props.width, y: record.props.height }, { x: 0, y: record.props.height },
+  ].map((point) => {
+    const rotated = { x: point.x * Math.cos(record.rotation) - point.y * Math.sin(record.rotation), y: point.x * Math.sin(record.rotation) + point.y * Math.cos(record.rotation) };
+    return { x: record.x + rotated.x, y: record.y + rotated.y };
+  });
+  const xs = corners.map(({ x }) => x); const ys = corners.map(({ y }) => y);
+  return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+}
+
+function cardinalPorts<Props extends { width: number; height: number }>(record: ShapeRecord<Props>) {
+  return [
+    { id: 'top', x: record.props.width / 2, y: 0, direction: 'up' as const },
+    { id: 'right', x: record.props.width, y: record.props.height / 2, direction: 'right' as const },
+    { id: 'bottom', x: record.props.width / 2, y: record.props.height, direction: 'down' as const },
+    { id: 'left', x: 0, y: record.props.height / 2, direction: 'left' as const },
+  ].map((port) => {
+    const rotated = { x: port.x * Math.cos(record.rotation) - port.y * Math.sin(record.rotation), y: port.x * Math.sin(record.rotation) + port.y * Math.cos(record.rotation) };
+    return { ...port, x: record.x + rotated.x, y: record.y + rotated.y };
+  });
+}
+
 function boxGeometry<Props extends { width: number; height: number }>(): ShapeGeometry<Props> {
   return {
-    getBounds: (record) => ({ x: record.x, y: record.y, width: record.props.width, height: record.props.height }),
+    getBounds: rotatedBoxBounds,
     containsPoint: (record, value) => {
       const local = inversePoint(record, value);
       return local.x >= 0 && local.y >= 0 && local.x <= record.props.width && local.y <= record.props.height;
+    },
+    getConnectionPorts: cardinalPorts,
+  };
+}
+
+function ellipseGeometry<Props extends { width: number; height: number }>(): ShapeGeometry<Props> {
+  return { getBounds: rotatedBoxBounds, containsPoint: (record, value) => { const local = inversePoint(record, value); const x = (local.x - record.props.width / 2) / (record.props.width / 2); const y = (local.y - record.props.height / 2) / (record.props.height / 2); return x * x + y * y <= 1; }, getConnectionPorts: cardinalPorts };
+}
+
+function diamondGeometry<Props extends { width: number; height: number }>(): ShapeGeometry<Props> {
+  return { getBounds: rotatedBoxBounds, containsPoint: (record, value) => { const local = inversePoint(record, value); return Math.abs(local.x - record.props.width / 2) / (record.props.width / 2) + Math.abs(local.y - record.props.height / 2) / (record.props.height / 2) <= 1; }, getConnectionPorts: cardinalPorts };
+}
+
+function triangleGeometry<Props extends { width: number; height: number }>(): ShapeGeometry<Props> {
+  return {
+    getBounds: rotatedBoxBounds,
+    containsPoint: (record, value) => { const point = inversePoint(record, value); const first = { x: record.props.width / 2, y: 0 }; const second = { x: record.props.width, y: record.props.height }; const third = { x: 0, y: record.props.height }; const denominator = (second.y - third.y) * (first.x - third.x) + (third.x - second.x) * (first.y - third.y); const a = ((second.y - third.y) * (point.x - third.x) + (third.x - second.x) * (point.y - third.y)) / denominator; const b = ((third.y - first.y) * (point.x - third.x) + (first.x - third.x) * (point.y - third.y)) / denominator; const c = 1 - a - b; return a >= 0 && b >= 0 && c >= 0; },
+    getConnectionPorts: (record) => {
+      const points = [
+        { id: 'top', x: record.props.width / 2, y: 0, direction: 'up' as const }, { id: 'right', x: record.props.width * 0.75, y: record.props.height / 2, direction: 'right' as const },
+        { id: 'bottom', x: record.props.width / 2, y: record.props.height, direction: 'down' as const }, { id: 'left', x: record.props.width * 0.25, y: record.props.height / 2, direction: 'left' as const },
+      ]; return points.map((port) => { const rotated = { x: port.x * Math.cos(record.rotation) - port.y * Math.sin(record.rotation), y: port.x * Math.sin(record.rotation) + port.y * Math.cos(record.rotation) }; return { ...port, x: record.x + rotated.x, y: record.y + rotated.y }; });
     },
   };
 }
@@ -147,11 +205,14 @@ function svgTransform(record: ShapeRecord): string {
 function renderText(
   context: CanvasRenderingContext2D,
   text: RichTextDocument,
-  options: { x: number; y: number; width: number; color: string; fontSize: number; align?: CanvasTextAlign },
+  options: { x: number; y: number; width: number; height?: number; color: string; fontSize: number; align?: CanvasTextAlign; verticalAlign?: 'top' | 'middle' | 'bottom' },
 ): void {
   context.fillStyle = options.color;
   context.textAlign = 'left';
   context.textBaseline = 'top';
+  const lineCount = Math.max(1, text.content.reduce((count, block) => count + Math.max(1, block.content.reduce((lines, run) => lines + run.text.split('\n').length - 1, 1)), 0));
+  const lineHeight = options.fontSize * 1.3; const totalHeight = lineCount * lineHeight; const availableHeight = options.height ?? totalHeight;
+  const startY = options.verticalAlign === 'bottom' ? options.y + availableHeight - totalHeight : options.verticalAlign === 'middle' ? options.y + (availableHeight - totalHeight) / 2 : options.y;
   let visualLine = 0;
   let orderedItemNumber = 0;
   text.content.forEach((block) => {
@@ -163,15 +224,16 @@ function renderText(
     lines.forEach((runs) => {
       const widths = runs.map((run) => { const bold = run.marks.some(({ type }) => type === 'bold'); const italic = run.marks.some(({ type }) => type === 'italic'); const code = run.marks.some(({ type }) => type === 'code'); context.font = `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${options.fontSize}px ${code ? 'ui-monospace, monospace' : 'Inter, system-ui, sans-serif'}`; return context.measureText(run.text).width; });
       const totalWidth = widths.reduce((sum, width) => sum + width, 0); const align = block.align ?? options.align ?? 'left'; let x = align === 'center' ? options.x + (options.width - totalWidth) / 2 : align === 'right' ? options.x + options.width - totalWidth : options.x;
-      runs.forEach((run, runIndex) => { const bold = run.marks.some(({ type }) => type === 'bold'); const italic = run.marks.some(({ type }) => type === 'italic'); const code = run.marks.some(({ type }) => type === 'code'); context.font = `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${options.fontSize}px ${code ? 'ui-monospace, monospace' : 'Inter, system-ui, sans-serif'}`; const y = options.y + visualLine * options.fontSize * 1.3; context.fillText(run.text, x, y, Math.max(0, options.x + options.width - x)); if (run.marks.some(({ type }) => type === 'strike')) { context.beginPath(); context.moveTo(x, y + options.fontSize * .55); context.lineTo(x + widths[runIndex]!, y + options.fontSize * .55); context.stroke(); } x += widths[runIndex]!; });
+      runs.forEach((run, runIndex) => { const bold = run.marks.some(({ type }) => type === 'bold'); const italic = run.marks.some(({ type }) => type === 'italic'); const code = run.marks.some(({ type }) => type === 'code'); context.font = `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${options.fontSize}px ${code ? 'ui-monospace, monospace' : 'Inter, system-ui, sans-serif'}`; const y = startY + visualLine * lineHeight; context.fillText(run.text, x, y, Math.max(0, options.x + options.width - x)); if (run.marks.some(({ type }) => type === 'strike')) { context.beginPath(); context.moveTo(x, y + options.fontSize * .55); context.lineTo(x + widths[runIndex]!, y + options.fontSize * .55); context.stroke(); } x += widths[runIndex]!; });
       visualLine++;
     });
   });
 }
 
-function richTextSvg(text: RichTextDocument, options: { x: number; y: number; width: number; color: string; fontSize: number }): string {
+function richTextSvg(text: RichTextDocument, options: { x: number; y: number; width: number; height?: number; color: string; fontSize: number; verticalAlign?: 'top' | 'middle' | 'bottom' }): string {
   let visualLine = 0;
   let orderedItemNumber = 0;
+  const lineCount = Math.max(1, text.content.reduce((count, block) => count + Math.max(1, block.content.reduce((lines, run) => lines + run.text.split('\n').length - 1, 1)), 0)); const lineHeight = options.fontSize * 1.3; const totalHeight = lineCount * lineHeight; const availableHeight = options.height ?? totalHeight; const startY = options.verticalAlign === 'bottom' ? options.y + availableHeight - totalHeight : options.verticalAlign === 'middle' ? options.y + (availableHeight - totalHeight) / 2 : options.y;
   return text.content.flatMap((block) => {
     const anchor = block.align === 'center' ? 'middle' : block.align === 'right' ? 'end' : 'start'; const x = block.align === 'center' ? options.x + options.width / 2 : block.align === 'right' ? options.x + options.width : options.x;
     orderedItemNumber = block.type === 'ordered-item' ? orderedItemNumber + 1 : 0;
@@ -181,13 +243,13 @@ function richTextSvg(text: RichTextDocument, options: { x: number; y: number; wi
     if (prefix) lines[0]!.unshift({ text: prefix, marks: [] });
     return lines.map((line) => {
       const runs = line.map((run) => { const attributes = [`fill="${escapeXml(options.color)}"`]; if (run.marks.some(({ type }) => type === 'bold')) attributes.push('font-weight="700"'); if (run.marks.some(({ type }) => type === 'italic')) attributes.push('font-style="italic"'); if (run.marks.some(({ type }) => type === 'strike')) attributes.push('text-decoration="line-through"'); if (run.marks.some(({ type }) => type === 'code')) attributes.push('font-family="ui-monospace, monospace"'); const value = `<tspan ${attributes.join(' ')}>${escapeXml(run.text)}</tspan>`; const link = run.marks.find(({ type }) => type === 'link'); return link?.type === 'link' ? `<a href="${escapeXml(link.href)}" rel="noopener noreferrer">${value}</a>` : value; }).join('');
-      return `<text x="${x}" y="${options.y + visualLine++ * options.fontSize * 1.3}" text-anchor="${anchor}" dominant-baseline="hanging" font-size="${options.fontSize}">${runs}</text>`;
+      return `<text x="${x}" y="${startY + visualLine++ * lineHeight}" text-anchor="${anchor}" dominant-baseline="hanging" font-size="${options.fontSize}">${runs}</text>`;
     });
   }).join('');
 }
 
 function boxSvg(record: ShapeRecord<BoxProps>, element: string): string {
-  const text = richTextSvg(record.props.text, { x: 12, y: 12, width: Math.max(0, record.props.width - 24), color: record.props.textColor, fontSize: record.props.fontSize });
+  const text = richTextSvg(record.props.text, { x: record.props.textPaddingX, y: record.props.textPaddingY, width: Math.max(0, record.props.width - record.props.textPaddingX * 2), height: Math.max(0, record.props.height - record.props.textPaddingY * 2), color: record.props.textColor, fontSize: record.props.fontSize, verticalAlign: record.props.textVerticalAlign });
   return `<g transform="${svgTransform(record)}" opacity="${record.opacity}">${element}${text}</g>`;
 }
 
@@ -198,13 +260,14 @@ function createBoxDefinition<Props extends BoxProps>(
   path: (context: CanvasRenderingContext2D, props: Props) => void,
   svgElement: (props: Props) => string,
   extraProperties: ShapeDefinition<Props>['properties'] = [],
+  geometry: ShapeGeometry<Props> = boxGeometry(),
 ): ShapeDefinition<Props> {
   return {
     type,
     version: 1,
     schema,
     defaults,
-    geometry: boxGeometry(),
+    geometry,
     render: ({ context, record }) => withRecordTransform(context, record, () => {
       context.beginPath();
       path(context, record.props);
@@ -215,8 +278,8 @@ function createBoxDefinition<Props extends BoxProps>(
       context.fill();
       context.stroke();
       renderText(context, record.props.text, {
-        x: 12, y: 12, width: Math.max(0, record.props.width - 24),
-        color: record.props.textColor, fontSize: record.props.fontSize, align: 'center',
+        x: record.props.textPaddingX, y: record.props.textPaddingY, width: Math.max(0, record.props.width - record.props.textPaddingX * 2), height: Math.max(0, record.props.height - record.props.textPaddingY * 2),
+        color: record.props.textColor, fontSize: record.props.fontSize, align: 'center', verticalAlign: record.props.textVerticalAlign,
       });
     }),
     exportSvg: ({ record }) => boxSvg(record, svgElement(record.props)),
@@ -225,6 +288,7 @@ function createBoxDefinition<Props extends BoxProps>(
       { key: 'fill', label: 'Fill', control: 'color' }, { key: 'stroke', label: 'Stroke', control: 'color' },
       { key: 'strokeWidth', label: 'Stroke width', control: 'number' },
       { key: 'strokeStyle', label: 'Stroke style', control: 'select', options: ['solid', 'dashed', 'dotted'] },
+      { key: 'opacity', label: 'Opacity', control: 'number', scope: 'record' },
       ...extraProperties,
     ],
   };
@@ -233,14 +297,17 @@ function createBoxDefinition<Props extends BoxProps>(
 const baseBoxDefaults = (): BoxProps => ({
   width: 180,
   height: 100,
-  stroke: '#0f172a',
-  fill: '#ffffff',
-  strokeWidth: 2,
+  stroke: '#64748b',
+  fill: 'transparent',
+  strokeWidth: 1.8,
   strokeStyle: 'solid',
   cornerRadius: 12,
-  text: richTextFromString(''),
-  textColor: '#0f172a',
-  fontSize: 18,
+  text: richTextFromString('', 'center'),
+  textColor: '#475569',
+  fontSize: 20,
+  textVerticalAlign: 'middle',
+  textPaddingX: 8,
+  textPaddingY: 8,
 });
 
 const rectangle = createBoxDefinition(
@@ -256,7 +323,7 @@ const ellipse = createBoxDefinition(
   baseBoxSchema,
   baseBoxDefaults,
   (context, props) => context.ellipse(props.width / 2, props.height / 2, props.width / 2, props.height / 2, 0, 0, Math.PI * 2),
-  (props) => `<ellipse cx="${props.width / 2}" cy="${props.height / 2}" rx="${props.width / 2}" ry="${props.height / 2}" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`,
+  (props) => `<ellipse cx="${props.width / 2}" cy="${props.height / 2}" rx="${props.width / 2}" ry="${props.height / 2}" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`, [], ellipseGeometry(),
 );
 
 const diamond = createBoxDefinition(
@@ -267,7 +334,7 @@ const diamond = createBoxDefinition(
     context.moveTo(props.width / 2, 0); context.lineTo(props.width, props.height / 2);
     context.lineTo(props.width / 2, props.height); context.lineTo(0, props.height / 2); context.closePath();
   },
-  (props) => `<path d="M ${props.width / 2} 0 L ${props.width} ${props.height / 2} L ${props.width / 2} ${props.height} L 0 ${props.height / 2} Z" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`,
+  (props) => `<path d="M ${props.width / 2} 0 L ${props.width} ${props.height / 2} L ${props.width / 2} ${props.height} L 0 ${props.height / 2} Z" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`, [], diamondGeometry(),
 );
 
 const triangle = createBoxDefinition(
@@ -275,14 +342,14 @@ const triangle = createBoxDefinition(
   baseBoxSchema,
   baseBoxDefaults,
   (context, props) => { context.moveTo(props.width / 2, 0); context.lineTo(props.width, props.height); context.lineTo(0, props.height); context.closePath(); },
-  (props) => `<path d="M ${props.width / 2} 0 L ${props.width} ${props.height} L 0 ${props.height} Z" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`,
+  (props) => `<path d="M ${props.width / 2} 0 L ${props.width} ${props.height} L 0 ${props.height} Z" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`, [], triangleGeometry(),
 );
 
 const stickySchema = baseBoxSchema.extend({ tags: z.string().max(2_048) });
 const sticky = createBoxDefinition(
   'sticky-note',
   stickySchema,
-  () => ({ ...baseBoxDefaults(), width: 200, height: 200, fill: '#fef3a2', stroke: '#eab308', tags: '' }),
+  () => ({ ...baseBoxDefaults(), width: 200, height: 200, fill: '#fde047', stroke: '#ca8a04', strokeWidth: 1, cornerRadius: 4, textPaddingX: 16, textPaddingY: 16, tags: '' }),
   (context, props) => context.roundRect(0, 0, props.width, props.height, 8),
   (props) => `<rect width="${props.width}" height="${props.height}" rx="8" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" />`,
   [{ key: 'tags', label: 'Tags (comma separated)', control: 'text' }],
@@ -291,7 +358,7 @@ const sticky = createBoxDefinition(
 const frame = createBoxDefinition(
   'frame',
   baseBoxSchema,
-  () => ({ ...baseBoxDefaults(), width: 720, height: 405, fill: 'rgba(255,255,255,0.01)', stroke: '#64748b', strokeStyle: 'dashed', text: richTextFromString('Frame') }),
+  () => ({ ...baseBoxDefaults(), width: 720, height: 405, fill: 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeStyle: 'dashed', text: richTextFromString('Yeni bölüm', 'left'), textVerticalAlign: 'top' }),
   (context, props) => context.roundRect(0, 0, props.width, props.height, 8),
   (props) => `<rect width="${props.width}" height="${props.height}" rx="8" fill="${escapeXml(props.fill)}" stroke="${escapeXml(props.stroke)}" stroke-width="${props.strokeWidth}" stroke-dasharray="10 7" />`,
 );
@@ -307,7 +374,7 @@ const textDefinition: ShapeDefinition<BoxProps> = {
   ...createBoxDefinition(
     'text',
     baseBoxSchema,
-    () => ({ ...baseBoxDefaults(), width: 240, height: 60, stroke: 'transparent', fill: 'transparent' }),
+    () => ({ ...baseBoxDefaults(), width: 240, height: 60, stroke: 'transparent', fill: 'transparent', fontSize: 24, text: richTextFromString('', 'left'), textVerticalAlign: 'top', textPaddingX: 0, textPaddingY: 0 }),
     (context, props) => context.rect(0, 0, props.width, props.height),
     () => '',
   ),
@@ -318,16 +385,11 @@ const textDefinition: ShapeDefinition<BoxProps> = {
 };
 
 function connectorPath(context: CanvasRenderingContext2D, props: ConnectorProps): void {
-  const [first, ...rest] = props.points;
-  if (!first) return;
+  const route = connectorRoute(props.points, props.edgeStyle);
+  const first = route.points[0]; if (!first) return;
   context.moveTo(first.x, first.y);
-  if (props.edgeStyle === 'curved' && rest.length >= 2) {
-    const end = rest.at(-1)!;
-    const control = rest[Math.floor(rest.length / 2)]!;
-    context.quadraticCurveTo(control.x, control.y, end.x, end.y);
-  } else {
-    rest.forEach((value) => context.lineTo(value.x, value.y));
-  }
+  if (route.kind === 'quadratic' && route.control) context.quadraticCurveTo(route.control.x, route.control.y, route.points[1]!.x, route.points[1]!.y);
+  else route.points.slice(1).forEach((value) => context.lineTo(value.x, value.y));
 }
 
 function drawArrowhead(context: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }, style: ConnectorProps['endArrowhead']): void {
@@ -357,49 +419,55 @@ function connectorDefinition(type: 'line' | 'arrow'): ShapeDefinition<ConnectorP
     version: 1,
     schema: connectorSchema,
     defaults: () => ({
-      points: [{ x: 0, y: 0 }, { x: 160, y: 0 }], stroke: '#0f172a', strokeWidth: 2,
+      points: [{ x: 0, y: 0 }, { x: 160, y: 0 }], stroke: '#64748b', strokeWidth: 1.8,
       strokeStyle: 'solid', edgeStyle: 'straight', startArrowhead: 'none',
       endArrowhead: type === 'arrow' ? 'arrow' : 'none', label: richTextFromString(''),
     }),
     geometry: {
       getBounds: (record) => {
-        const xs = record.props.points.map(({ x }) => x); const ys = record.props.points.map(({ y }) => y);
-        return { x: record.x + Math.min(...xs), y: record.y + Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+        const bounds = connectorRouteBounds(connectorRoute(record.props.points, record.props.edgeStyle));
+        const padding = Math.max(20, record.props.strokeWidth * 2);
+        return { x: record.x + bounds.x - padding, y: record.y + bounds.y - padding, width: Math.max(1, bounds.width) + padding * 2, height: Math.max(1, bounds.height) + padding * 2 };
       },
       containsPoint: (record, value) => {
         const local = inversePoint(record, value);
-        return record.props.points.slice(1).some((current, index) => {
-          const previous = record.props.points[index]!;
-          const dx = current.x - previous.x; const dy = current.y - previous.y;
-          const lengthSquared = dx * dx + dy * dy || 1;
-          const t = Math.max(0, Math.min(1, ((local.x - previous.x) * dx + (local.y - previous.y) * dy) / lengthSquared));
-          return Math.hypot(local.x - (previous.x + t * dx), local.y - (previous.y + t * dy)) <= Math.max(8, record.props.strokeWidth * 2);
-        });
+        return pointToConnectorDistance(local, connectorRoute(record.props.points, record.props.edgeStyle)) <= Math.max(8, record.props.strokeWidth * 2);
       },
     },
     render: ({ context, record }) => withRecordTransform(context, record, () => {
       context.beginPath(); connectorPath(context, record.props);
       context.strokeStyle = record.props.stroke; context.fillStyle = record.props.stroke;
       context.lineWidth = record.props.strokeWidth; context.setLineDash(dash(record.props.strokeStyle)); context.stroke();
-      const points = record.props.points;
-      if (points.length >= 2) {
-        drawArrowhead(context, points[1]!, points[0]!, record.props.startArrowhead);
-        drawArrowhead(context, points.at(-2)!, points.at(-1)!, record.props.endArrowhead);
+      const points = record.props.points; const route = connectorRoute(points, record.props.edgeStyle);
+      if (route.points.length >= 2) {
+        const startDirection = route.kind === 'quadratic' && route.control ? route.control : route.points[1]!;
+        const endDirection = route.kind === 'quadratic' && route.control ? route.control : route.points.at(-2)!;
+        drawArrowhead(context, startDirection, route.points[0]!, record.props.startArrowhead);
+        drawArrowhead(context, endDirection, route.points.at(-1)!, record.props.endArrowhead);
       }
-      const middle = points[Math.floor((points.length - 1) / 2)]!; const next = points[Math.min(points.length - 1, Math.floor((points.length - 1) / 2) + 1)]!;
-      renderText(context, record.props.label, { x: (middle.x + next.x) / 2 - 100, y: (middle.y + next.y) / 2 - 18, width: 200, color: record.props.stroke, fontSize: 14, align: 'center' });
+      const middle = connectorRouteMidpoint(route);
+      renderText(context, record.props.label, { x: middle.x - 100, y: middle.y - 18, width: 200, color: record.props.stroke, fontSize: 14, align: 'center' });
     }),
     exportSvg: ({ record }) => {
-      const points = record.props.points; const path = record.props.edgeStyle === 'curved' && points.length >= 3 ? `M ${points[0]!.x} ${points[0]!.y} Q ${points[Math.floor(points.length / 2)]!.x} ${points[Math.floor(points.length / 2)]!.y} ${points.at(-1)!.x} ${points.at(-1)!.y}` : points.map((value, index) => `${index ? 'L' : 'M'} ${value.x} ${value.y}`).join(' ');
-      const dashArray = dash(record.props.strokeStyle).join(' '); const middle = points[Math.floor((points.length - 1) / 2)]!; const next = points[Math.min(points.length - 1, Math.floor((points.length - 1) / 2) + 1)]!;
-      return `<g transform="${svgTransform(record)}" opacity="${record.opacity}"><path d="${path}" fill="none" stroke="${escapeXml(record.props.stroke)}" stroke-width="${record.props.strokeWidth}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''}/>${svgArrowhead(points[1]!, points[0]!, record.props.startArrowhead, record.props.stroke)}${svgArrowhead(points.at(-2)!, points.at(-1)!, record.props.endArrowhead, record.props.stroke)}${richTextSvg(record.props.label, { x: (middle.x + next.x) / 2 - 100, y: (middle.y + next.y) / 2 - 18, width: 200, color: record.props.stroke, fontSize: 14 })}</g>`;
+      const points = record.props.points; const route = connectorRoute(points, record.props.edgeStyle); const path = connectorRouteSvgPath(route);
+      const dashArray = dash(record.props.strokeStyle).join(' '); const middle = connectorRouteMidpoint(route);
+      const startDirection = route.kind === 'quadratic' && route.control ? route.control : route.points[1]!; const endDirection = route.kind === 'quadratic' && route.control ? route.control : route.points.at(-2)!;
+      return `<g transform="${svgTransform(record)}" opacity="${record.opacity}"><path d="${path}" fill="none" stroke="${escapeXml(record.props.stroke)}" stroke-width="${record.props.strokeWidth}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''}/>${svgArrowhead(startDirection, route.points[0]!, record.props.startArrowhead, record.props.stroke)}${svgArrowhead(endDirection, route.points.at(-1)!, record.props.endArrowhead, record.props.stroke)}${richTextSvg(record.props.label, { x: middle.x - 100, y: middle.y - 18, width: 200, color: record.props.stroke, fontSize: 14 })}</g>`;
     },
+    properties: [
+      { key: 'stroke', label: 'Stroke', control: 'color' }, { key: 'strokeWidth', label: 'Stroke width', control: 'number' },
+      { key: 'strokeStyle', label: 'Stroke style', control: 'select', options: ['solid', 'dashed', 'dotted'] },
+      { key: 'edgeStyle', label: 'Edge style', control: 'select', options: ['straight', 'elbow', 'curved'] },
+      { key: 'startArrowhead', label: 'Start', control: 'select', options: ['none', 'arrow', 'triangle', 'circle', 'diamond', 'bar'] },
+      { key: 'endArrowhead', label: 'End', control: 'select', options: ['none', 'arrow', 'triangle', 'circle', 'diamond', 'bar'] },
+      { key: 'opacity', label: 'Opacity', control: 'number', scope: 'record' },
+    ],
   };
 }
 
 const freehand: ShapeDefinition<FreehandProps> = {
   type: 'freehand', version: 1, schema: freehandSchema,
-  defaults: () => ({ points: [{ x: 0, y: 0 }], stroke: '#0f172a', strokeWidth: 3 }),
+  defaults: () => ({ points: [{ x: 0, y: 0 }], stroke: '#64748b', strokeWidth: 1.8 }),
   geometry: {
     getBounds: (record) => {
       const xs = record.props.points.map(({ x }) => x); const ys = record.props.points.map(({ y }) => y);
@@ -407,7 +475,9 @@ const freehand: ShapeDefinition<FreehandProps> = {
     },
     containsPoint: (record, value) => {
       const local = inversePoint(record, value);
-      return record.props.points.some((p) => Math.hypot(p.x - local.x, p.y - local.y) <= record.props.strokeWidth * 2 + 6);
+      const threshold = record.props.strokeWidth * 2 + 6;
+      if (record.props.points.length === 1) return Math.hypot(record.props.points[0]!.x - local.x, record.props.points[0]!.y - local.y) <= threshold;
+      return record.props.points.slice(1).some((point, index) => pointToSegmentDistance(local, record.props.points[index]!, point) <= threshold);
     },
   },
   render: ({ context, record }) => withRecordTransform(context, record, () => {
@@ -416,6 +486,7 @@ const freehand: ShapeDefinition<FreehandProps> = {
     context.strokeStyle = record.props.stroke; context.lineWidth = record.props.strokeWidth; context.lineCap = 'round'; context.lineJoin = 'round'; context.stroke();
   }),
   exportSvg: ({ record }) => `<polyline transform="${svgTransform(record)}" points="${record.props.points.map(({ x, y }) => `${x},${y}`).join(' ')}" fill="none" stroke="${escapeXml(record.props.stroke)}" stroke-width="${record.props.strokeWidth}" opacity="${record.opacity}" />`,
+  properties: [{ key: 'stroke', label: 'Stroke', control: 'color' }, { key: 'strokeWidth', label: 'Stroke width', control: 'number' }, { key: 'opacity', label: 'Opacity', control: 'number', scope: 'record' }],
 };
 
 const image: ShapeDefinition<ImageProps> = {
@@ -433,7 +504,7 @@ function databaseDefinition(type: 'db-table' | 'db-view' | 'db-enum'): ShapeDefi
   return {
     type, version: 1, schema: databaseSchema,
     defaults: () => ({ ...baseBoxDefaults(), width: 300, height: 220, name: type === 'db-view' ? 'View' : type === 'db-enum' ? 'Enum' : 'Table', columns: [] }),
-    geometry: boxGeometry(),
+    geometry: databaseGeometry(),
     render: ({ context, record }) => withRecordTransform(context, record, () => {
       const props = record.props; context.fillStyle = props.fill; context.strokeStyle = props.stroke; context.lineWidth = props.strokeWidth;
       context.beginPath(); context.roundRect(0, 0, props.width, props.height, 10); context.fill(); context.stroke();
@@ -515,8 +586,9 @@ export function createBuiltinShapeRegistry(): ShapeRegistry {
     table, linkCard,
   ];
   const tools: Record<string, { label: string; shortcut: string }> = {
-    rectangle: { label: 'Rectangle', shortcut: 'R' }, ellipse: { label: 'Ellipse', shortcut: 'O' }, diamond: { label: 'Diamond', shortcut: 'D' }, triangle: { label: 'Triangle', shortcut: 'G' },
+    rectangle: { label: 'Rectangle', shortcut: 'R' }, ellipse: { label: 'Ellipse', shortcut: 'E' }, diamond: { label: 'Diamond', shortcut: 'D' }, triangle: { label: 'Triangle', shortcut: 'G' },
     'sticky-note': { label: 'Sticky note', shortcut: 'S' }, frame: { label: 'Frame', shortcut: 'F' }, text: { label: 'Text', shortcut: 'T' }, line: { label: 'Line', shortcut: 'L' }, arrow: { label: 'Arrow', shortcut: 'A' }, freehand: { label: 'Draw', shortcut: 'P' },
+    'db-table': { label: 'Database table', shortcut: '' }, 'db-view': { label: 'Database view', shortcut: '' }, 'db-enum': { label: 'Database enum', shortcut: '' },
   };
   definitions.forEach((definition) => registry.register(tools[definition.type] ? { ...definition, tool: tools[definition.type] } : definition));
   return registry;

@@ -10,10 +10,11 @@ import { applyCsvToTable, parseCsv, serializeCsv, tableToCsv } from './tableCsv'
 import { previewStickyClusters } from './clustering';
 import { exportCanvas, importCanvasJson } from './export';
 import { createClipboardPayload, parseClipboardPayload, pasteClipboardPayload, serializeClipboardPayload } from './clipboard';
-import { resolveBindingGeometry } from './bindings';
+import { getConnectionPorts, resolveBindingGeometry } from './bindings';
 import { deleteTableColumn, deleteTableRow, insertTableColumn, insertTableRow, moveTableColumn, moveTableRow, resizeTableColumn } from './tableCsv';
 import { createBuiltinShapeRegistry, richTextFromString } from '../shapes';
 import { applyImportPlan } from '../dsl/importPlan';
+import { BUILTIN_CANVAS_TEMPLATES, placeBuiltinCanvasTemplate } from './templates';
 
 function createRecord(engine: ReturnType<typeof createCanvasEngine>, id: string, type = 'rectangle', x = 0, y = 0): ShapeRecord {
   const definition = engine.registry.get(type);
@@ -26,6 +27,16 @@ async function blobText(blob: Blob): Promise<string> {
 }
 
 describe('V2 canvas features', () => {
+  it('places every legacy built-in template through validated V2 records and one undo step', () => {
+    for (const [key] of BUILTIN_CANVAS_TEMPLATES) {
+      const engine = setup(); const created = placeBuiltinCanvasTemplate(engine, key, { x: 500, y: 300 });
+      expect(created.length).toBeGreaterThan(0); expect(engine.getSnapshot().records).toHaveLength(created.length);
+      expect(engine.getViewState().selectedIds).toEqual(created);
+      if (key === 'db-schema') expect(engine.getSnapshot().bindings).toHaveLength(2);
+      engine.undo(); expect(engine.getSnapshot().records).toHaveLength(0); expect(engine.getSnapshot().bindings).toHaveLength(0); engine.destroy();
+    }
+  });
+
   it('creates a node, connector, and binding as one undo transaction', () => {
     const engine = setup(); engine.dispatch({ type: 'shape.create', record: createRecord(engine, 'source') });
     const result = quickCreate(engine, { sourceId: 'source', direction: 'right' });
@@ -46,6 +57,15 @@ describe('V2 canvas features', () => {
     const engine = setup(); const start = createRecord(engine, 'start', 'rectangle', 20, 40); const end = createRecord(engine, 'end', 'ellipse', 420, 240); const connector = createRecord(engine, 'connector', 'arrow');
     const resolved = resolveBindingGeometry([start, end, connector], [{ id: 'binding', connectorId: 'connector', start: { shapeId: 'start' }, end: { shapeId: 'end' } }], engine.registry); const arrow = resolved.find(({ id }) => id === 'connector')!; const points = (arrow.props as { points: { x: number; y: number }[] }).points;
     expect(arrow).toMatchObject({ x: 110, y: 90 }); expect(points[0]).toMatchObject({ x: 0, y: 0 }); expect(points.at(-1)).toMatchObject({ x: 400, y: 200 }); engine.destroy();
+  });
+
+  it('resolves named cardinal ports and rejects unknown ports instead of falling back to centers', () => {
+    const engine = setup(); const start = createRecord(engine, 'start', 'rectangle', 20, 40); const end = createRecord(engine, 'end', 'ellipse', 420, 240); const connector = createRecord(engine, 'connector', 'arrow');
+    const ports = getConnectionPorts(start, engine.registry); expect(ports.map(({ id }) => id)).toEqual(['top', 'right', 'bottom', 'left']);
+    const binding = { id: 'binding', connectorId: 'connector', start: { shapeId: 'start', portId: 'right' }, end: { shapeId: 'end', portId: 'left' } } as const;
+    engine.dispatch({ type: 'batch', commands: [{ type: 'shape.create', record: start }, { type: 'shape.create', record: end }, { type: 'shape.create', record: connector }, { type: 'binding.set', binding }] });
+    const arrow = resolveBindingGeometry([start, end, connector], [binding], engine.registry).find(({ id }) => id === 'connector')!; expect(arrow).toMatchObject({ x: 200, y: 90 }); expect((arrow.props as { points: { x: number; y: number }[] }).points.at(-1)).toMatchObject({ x: 220, y: 200 });
+    expect(() => engine.dispatch({ type: 'binding.set', binding: { ...binding, start: { shapeId: 'start', portId: 'missing' } } })).toThrow("Port 'missing'"); engine.destroy();
   });
 
   it('groups and ungroups while preserving child records', () => {
@@ -147,7 +167,7 @@ describe('V2 canvas features', () => {
     record.props = { ...(record.props as object), width: 160, height: 90, text: richTextFromString('Golden') };
     engine.dispatch({ type: 'shape.create', record });
     const svg = await blobText(await exportCanvas(engine, { format: 'svg', transparent: true }));
-    expect(createHash('sha256').update(svg).digest('hex')).toBe('2211fe220422501592530a5ef362dd8b567c245824e09146125c1a54e0356db8');
+    expect(createHash('sha256').update(svg).digest('hex')).toBe('3acff0dea67f37296e2c2aad78370120f523dce9986b91a0666a27358bedd86d');
     engine.destroy();
   });
 

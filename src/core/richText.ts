@@ -20,7 +20,7 @@ export const richTextDocumentSchema = z.object({
 
 export type RichTextDocument = z.infer<typeof richTextDocumentSchema>;
 export function plainText(document: RichTextDocument): string { return document.content.map((block) => block.content.map((run) => run.text).join('')).join('\n'); }
-export function richTextFromString(text = ''): RichTextDocument { return { type: 'doc', content: [{ type: 'paragraph', align: 'left', content: [{ text, marks: [] }] }] }; }
+export function richTextFromString(text = '', align: 'left' | 'center' | 'right' = 'left'): RichTextDocument { return { type: 'doc', content: [{ type: 'paragraph', align, content: [{ text, marks: [] }] }] }; }
 
 function markAttributes(marks: RichTextDocument['content'][number]['content'][number]['marks']): Record<string, unknown> {
   return Object.fromEntries(marks.map((mark) => mark.type === 'link' ? ['link', { href: mark.href }] : [mark.type, {}]));

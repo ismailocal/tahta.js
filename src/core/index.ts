@@ -15,4 +15,5 @@ export * from './richText.js';
 export * from './grouping.js';
 export * from './clipboard.js';
 export * from './bindings.js';
+export * from './templates.js';
 export { createBuiltinShapeRegistry, plainText, richTextDocumentSchema, richTextFromString } from '../shapes/index.js';

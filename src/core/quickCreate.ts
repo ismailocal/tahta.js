@@ -1,6 +1,7 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import type { CanvasEngine } from './CanvasEngine.js';
 import { CanvasValidationError, compareFractionalIndex, type BindingRecord, type ShapeRecord } from './model.js';
+import { getBindingPoint } from './bindings.js';
 
 export type QuickCreateDirection = 'left' | 'right' | 'up' | 'down';
 
@@ -32,14 +33,14 @@ export function quickCreate(engine: CanvasEngine, options: QuickCreateOptions): 
   let index = generateKeyBetween(siblings.at(-1)?.index ?? null, null);
   const shapeId = crypto.randomUUID();
   const shape: ShapeRecord = engine.registry.validate({ id: shapeId, type: definition.type, typeVersion: definition.version, parentId: source.parentId, index, x, y, rotation: 0, opacity: 1, locked: false, hidden: false, props });
-  const targetBounds = definition.geometry.getBounds(shape);
-  const sourceCenter = { x: sourceBounds.x + sourceBounds.width / 2, y: sourceBounds.y + sourceBounds.height / 2 };
-  const targetCenter = { x: targetBounds.x + targetBounds.width / 2, y: targetBounds.y + targetBounds.height / 2 };
+  const portIds = options.direction === 'right' ? ['right', 'left'] : options.direction === 'left' ? ['left', 'right'] : options.direction === 'down' ? ['bottom', 'top'] : ['top', 'bottom'];
+  const sourceCenter = getBindingPoint(source, portIds[0], engine.registry);
+  const targetCenter = getBindingPoint(shape, portIds[1], engine.registry);
   const arrow = engine.registry.get('arrow'); index = generateKeyBetween(index, null);
   const connectorId = crypto.randomUUID();
   const connector: ShapeRecord = engine.registry.validate({ id: connectorId, type: 'arrow', typeVersion: arrow.version, parentId: source.parentId, index, x: sourceCenter.x, y: sourceCenter.y, rotation: 0, opacity: 1, locked: false, hidden: false, props: { ...(arrow.defaults() as Record<string, unknown>), edgeStyle: 'elbow', points: [{ x: 0, y: 0 }, { x: targetCenter.x - sourceCenter.x, y: targetCenter.y - sourceCenter.y }] } });
   const bindingId = crypto.randomUUID();
-  const binding: BindingRecord = { id: bindingId, connectorId, start: { shapeId: source.id }, end: { shapeId } };
+  const binding: BindingRecord = { id: bindingId, connectorId, start: { shapeId: source.id, portId: portIds[0] }, end: { shapeId, portId: portIds[1] } };
   engine.dispatch({ type: 'batch', commands: [{ type: 'shape.create', record: shape }, { type: 'shape.create', record: connector }, { type: 'binding.set', binding }] });
   engine.setViewState({ selectedIds: [shapeId], activeTool: 'select' });
   return { shapeId, connectorId, bindingId };

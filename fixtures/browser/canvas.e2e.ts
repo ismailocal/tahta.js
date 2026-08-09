@@ -16,11 +16,10 @@ test("package consumer is keyboard accessible and has no axe violations", async 
   ).toBeVisible();
   await expect(page.getByRole("toolbar", { name: "Canvas tools" })).toBeVisible();
 
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Select" })).toBeFocused();
-  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Hand" }).focus();
   await expect(page.getByRole("button", { name: "Hand" })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("button", { name: "Select" })).toBeFocused();
 
   await page
     .getByRole("group", { name: "Canvas view controls" })
@@ -41,12 +40,14 @@ test("package consumer is keyboard accessible and has no axe violations", async 
 test("ELK and DSL previews run through the built package", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Layout" }).click();
+  await page.getByRole("button", { name: "Library" }).click();
+  await page.getByRole("menuitem", { name: "Auto layout" }).click();
   await page.getByRole("button", { name: "Build preview" }).click();
   await expect(page.getByLabel("Auto layout preview")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("button", { name: "Import" }).click();
+  await page.getByRole("button", { name: "Library" }).click();
+  await page.getByRole("menuitem", { name: "Import" }).click();
   await page.getByRole("button", { name: "Build preview" }).click();
   await expect(page.getByText("Validated import plan")).toBeVisible();
   await expect(page.getByText("4 atomic commands")).toBeVisible();
@@ -84,7 +85,8 @@ test("standalone SVG, PNG, JPEG, and multi-frame PDF exports are valid", async (
 
 test("presentation filmstrip thumbnails, fractional reorder, navigation, and deep links work", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Present" }).click();
+  await page.getByRole("button", { name: "Library" }).click();
+  await page.getByRole("menuitem", { name: "Presentation" }).click();
   await expect(page.getByRole("img", { name: "Frame 1 preview" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Frame 2 preview" })).toBeVisible();
 
@@ -101,6 +103,34 @@ test("presentation filmstrip thumbnails, fractional reorder, navigation, and dee
   await expect(page.getByText("1 / 2")).toBeVisible();
   await page.getByRole("button", { name: "Exit" }).click();
   await expect(page).not.toHaveURL(/frame=/u);
+});
+
+test("legacy port arrows, template placement, and settings toggle work through the current engine", async ({ page }) => {
+  await page.goto("/");
+  const canvas = page.getByRole("application", { name: "Interactive whiteboard" });
+
+  await page.getByRole("button", { name: "Arrow" }).click();
+  await canvas.hover({ position: { x: 300, y: 170 } });
+  await page.mouse.down(); await page.mouse.move(430, 170); await page.mouse.up();
+  const connected = await page.evaluate(() => {
+    const snapshot = (window as unknown as { __TAHTA_FIXTURE__: { engine: { getSnapshot(): { records: { type: string }[]; bindings: { start: { shapeId: string; portId?: string } | null; end: { shapeId: string; portId?: string } | null }[] } } } }).__TAHTA_FIXTURE__.engine.getSnapshot();
+    return { arrows: snapshot.records.filter(({ type }) => type === "arrow").length, binding: snapshot.bindings.at(-1) };
+  });
+  expect(connected).toMatchObject({ arrows: 1, binding: { start: { shapeId: "start", portId: "right" }, end: { shapeId: "decision", portId: "left" } } });
+
+  await page.getByRole("button", { name: "Library" }).click();
+  await page.getByRole("menuitem", { name: "Flowchart" }).click();
+  await canvas.click({ position: { x: 650, y: 300 } });
+  const template = await page.evaluate(() => {
+    const snapshot = (window as unknown as { __TAHTA_FIXTURE__: { engine: { getSnapshot(): { records: { id: string }[]; bindings: unknown[] } } } }).__TAHTA_FIXTURE__.engine.getSnapshot();
+    return { records: snapshot.records.filter(({ id }) => id.startsWith("template-flowchart-")).length, bindings: snapshot.bindings.length };
+  });
+  expect(template.records).toBe(11); expect(template.bindings).toBe(6);
+
+  await canvas.click({ position: { x: 180, y: 160 } });
+  const toggle = page.getByRole("button", { name: "Close settings" }); await expect(toggle).toBeVisible(); await toggle.click();
+  await expect(page.getByRole("button", { name: "Open settings" })).toBeVisible();
+  await expect(page.getByLabel("Shape properties")).not.toBeVisible();
 });
 
 test("10k pan/zoom and 50k visible-subset rendering meet the reference budgets", async ({ page }) => {
