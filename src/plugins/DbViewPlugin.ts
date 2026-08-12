@@ -1,7 +1,8 @@
-import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload } from '../core/types';
 import { BaseDbPlugin } from './BaseDbPlugin';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
-export interface DbViewColumn { name: string; type: string; }
+interface DbViewColumn { name: string; type: string; }
 export interface DbViewData { viewName: string; columns: DbViewColumn[]; }
 
 function getViewData(shape: Shape): DbViewData {
@@ -29,7 +30,8 @@ export class DbViewPlugin extends BaseDbPlugin {
     return columns.map(col => col.name);
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     const { viewName, columns } = getViewData(shape);
     const { x, y } = shape;
     const w = shape.width ?? this.DEFAULT_WIDTH;
@@ -88,14 +90,13 @@ export class DbViewPlugin extends BaseDbPlugin {
   }
 
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    const theme = api.getState().theme || 'dark';
+  onDrawInit(payload: PointerPayload): Partial<Shape> {
     const defaultColor = '#64748b';
     const defaultColumns = [{ name: 'id', type: 'INT' }, { name: 'name', type: 'VARCHAR' }];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
       stroke: defaultColor,
-      data: { viewName: 'View', columns: defaultColumns } as any,
+      data: { viewName: 'View', columns: defaultColumns },
     };
   }
 }

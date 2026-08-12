@@ -1,7 +1,8 @@
-import type { Shape, Point, ConnectionPoint, PointerPayload, ICanvasAPI } from '../core/types';
+import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { toRoundedSvgPath, genericHitTest } from './PolygonUtils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 function buildDiamondPath(ctx: CanvasRenderingContext2D, pts: Point[], r: number) {
   const n = pts.length;
@@ -35,7 +36,7 @@ export class DiamondPlugin extends BaseRectPlugin {
     return Math.min(customRadius, w / 2, h / 2);
   }
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const cx = shape.x + w / 2;

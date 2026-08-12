@@ -1,4 +1,5 @@
-import { PluginRegistry } from './PluginRegistry';
+import type { ShapeRegistry } from '../core/registry';
+import type { IShapePlugin } from './IShapePlugin';
 import { RectanglePlugin } from './RectanglePlugin';
 import { EllipsePlugin } from './EllipsePlugin';
 import { LinePlugin } from './LinePlugin';
@@ -14,19 +15,28 @@ import { TrianglePlugin } from './TrianglePlugin';
 import { StickyNotePlugin } from './StickyNotePlugin';
 import { FramePlugin } from './FramePlugin';
 
-PluginRegistry.registerShape(new RectanglePlugin());
-PluginRegistry.registerShape(new EllipsePlugin());
-PluginRegistry.registerShape(new LinePlugin());
-PluginRegistry.registerShape(new ArrowPlugin());
-PluginRegistry.registerShape(new FreehandPlugin());
-PluginRegistry.registerShape(new TextPlugin());
-PluginRegistry.registerShape(new ImagePlugin());
-PluginRegistry.registerShape(new DiamondPlugin());
-PluginRegistry.registerShape(new DbTablePlugin());
-PluginRegistry.registerShape(new DbViewPlugin());
-PluginRegistry.registerShape(new DbEnumPlugin());
-PluginRegistry.registerShape(new TrianglePlugin());
-PluginRegistry.registerShape(new StickyNotePlugin());
-PluginRegistry.registerShape(new FramePlugin());
+export function attachBuiltinShapeRuntimes(registry: ShapeRegistry): void {
+  const plugins: IShapePlugin[] = [
+    new RectanglePlugin(),
+    new EllipsePlugin(),
+    new LinePlugin(registry),
+    new ArrowPlugin(registry),
+    new FreehandPlugin(),
+    new TextPlugin(),
+    new ImagePlugin(),
+    new DiamondPlugin(),
+    new DbTablePlugin(),
+    new DbViewPlugin(),
+    new DbEnumPlugin(),
+    new TrianglePlugin(),
+    new StickyNotePlugin(),
+    new FramePlugin(),
+  ];
+  for (const plugin of plugins) {
+    registry.attachRuntime(plugin.type, plugin);
+  }
+}
 
-export { PluginRegistry };
+export function getShapePlugin(registry: ShapeRegistry, type: string): IShapePlugin {
+  return registry.getRuntime<IShapePlugin>(type);
+}

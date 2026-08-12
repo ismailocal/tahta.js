@@ -1,17 +1,20 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance, getTopShapeAtPoint, pointToQuadraticBezierDistance } from '../geometry/Geometry';
+import { pointToSegmentDistance, pointToQuadraticBezierDistance } from '../geometry/Geometry';
 import { getArrowClippedEndpoints, getElbowPath, getPathMidpoint, drawArrowhead, getArrowheadDrawable, renderEndpointHandles, drawRoundedPath, buildRoughOptions, getRoundedPathData } from '../geometry/lineUtils';
-import { PluginRegistry } from './PluginRegistry';
+import type { ShapeRegistry } from '../core/registry';
 import { UI_CONSTANTS } from '../core/constants';
 import { ConnectorMixin } from './ConnectorMixin';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable } from 'roughjs/bin/core';
+import type { RoughGenerator } from 'roughjs/bin/generator';
 
 // Re-export for backward compatibility
 export const findNearestPort = ConnectorMixin.findNearestPort;
 
 /** Use elbow routing only when explicitly selected. */
-function useSmartRouting(shape: Shape): boolean {
+function shouldUseElbowRouting(shape: Shape): boolean {
   return shape.edgeStyle === 'elbow';
 }
 
@@ -26,17 +29,6 @@ function getCurvedControlPoint(p1: Point, p2: Point): Point {
 }
 
 
-export function getBindingPoint(shape: Shape, portId?: string): { x: number; y: number } {
-  if (portId && PluginRegistry.hasPlugin(shape.type)) {
-    const plugin = PluginRegistry.getPlugin(shape.type);
-    if (plugin.getConnectionPoints) {
-      const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
-      if (port) return { x: port.x, y: port.y };
-    }
-  }
-  return { x: shape.x + (shape.width || 0) / 2, y: shape.y + (shape.height || 0) / 2 };
-}
-
 export class ArrowPlugin implements IShapePlugin {
   type = 'arrow';
   isConnector = true;
@@ -44,14 +36,16 @@ export class ArrowPlugin implements IShapePlugin {
   defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'opacity', 'edgeStyle', 'endArrowhead', 'roughness', 'layer', 'action'];
 
+  constructor(private readonly registry: ShapeRegistry) {}
+
   getTextAnchor(shape: Shape, allShapes: Shape[]): Point | null {
     const pts = shape.points || [];
     if (pts.length < 2) return null;
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-    if (useSmartRouting(shape)) {
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       return getPathMidpoint(path);
     }
     if (shape.edgeStyle === 'curved') {
@@ -66,19 +60,20 @@ export class ArrowPlugin implements IShapePlugin {
   onDrawInit = ConnectorMixin.onDrawInit;
   onDrawUpdate = ConnectorMixin.onDrawUpdate;
   onDragBindHandle = ConnectorMixin.onDragBindHandle;
-  onBoundShapeChange = ConnectorMixin.onBoundShapeChange;
+  onBoundShapeChange = (shape: Shape, allShapes: Shape[], changedShapeIds: string[]) =>
+    ConnectorMixin.onBoundShapeChange(shape, allShapes, changedShapeIds, this.registry);
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
     
     const options = buildRoughOptions(shape, theme);
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
 
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       ctx.save();
       ctx.strokeStyle = options.stroke as string;
       ctx.lineWidth = (options.strokeWidth as number) || 1;
@@ -142,20 +137,20 @@ export class ArrowPlugin implements IShapePlugin {
     }
   }
 
-  getDrawable(generator: any, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+  getDrawable(generator: RoughGenerator, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): Drawable[] {
     const pts = shape.points || [];
     if (pts.length < 2) return [];
     
     const options = buildRoughOptions(shape, theme);
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
-    const drawables: any[] = [];
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
+    const drawables: Drawable[] = [];
 
     // Note: Elbow and Curved paths use direct Canvas API for the line part which isn't a Rough.js Drawable,
     // but the arrowheads ARE Rough.js Drawables and can be cached.
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       drawables.push(generator.path(getRoundedPathData(path, 10), options));
       
       const lastP1 = path[path.length - 2];
@@ -199,7 +194,7 @@ export class ArrowPlugin implements IShapePlugin {
   renderSelection(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark') {
     const pts = shape.points || [];
     if (pts.length < 2) return;
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
     if (shape.locked) drawLockIcon(ctx, p1.x, p1.y);
     renderEndpointHandles(ctx, p1, p2, shape.stroke, theme);
   }
@@ -236,7 +231,7 @@ export class ArrowPlugin implements IShapePlugin {
   getHandleAtPoint(shape: Shape, point: Point, allShapes: Shape[]): string | null {
     const pts = shape.points || [];
     if (pts.length > 1) {
-      const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+      const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
       const d = UI_CONSTANTS.HANDLE_HIT_DISTANCE * 2;
       if (Math.abs(point.x - p1.x) <= d && Math.abs(point.y - p1.y) <= d) return 'start';
       if (Math.abs(point.x - p2.x) <= d && Math.abs(point.y - p2.y) <= d) return 'end';
@@ -249,14 +244,14 @@ export class ArrowPlugin implements IShapePlugin {
     if (pts.length < 2) return false;
 
     // Use the *visually clipped* endpoints for hit testing
-    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes);
+    const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
 
     const threshold = Math.max(UI_CONSTANTS.SEGMENT_HIT_THRESHOLD, (shape.strokeWidth || 2) + 4);
 
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       for (let i = 0; i < path.length - 1; i++) {
         if (pointToSegmentDistance(point, path[i], path[i + 1]) <= threshold) return true;
       }
@@ -272,6 +267,7 @@ export class ArrowPlugin implements IShapePlugin {
   }
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload, _dragStart: Point): Partial<Shape> {
+    void _dragStart;
     if (handle === 'start') {
       const p2WorldX = shape.x + shape.points![1].x;
       const p2WorldY = shape.y + shape.points![1].y;

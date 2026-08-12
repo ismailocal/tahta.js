@@ -1,13 +1,15 @@
 import type { IShapePlugin } from './IShapePlugin';
 import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { getTextMetrics } from '../core/Utils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export class TextPlugin implements IShapePlugin {
   type = 'text';
   defaultStyle: Partial<Shape> = { stroke: '#94a3b8', fontSize: 24, opacity: 1 };
   defaultProperties = ['stroke', 'fontSize', 'layer', 'action'];
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     if (!shape.text) return;
     const fontSize = shape.fontSize || 20;
     const isLight = theme === 'light';
@@ -52,6 +54,7 @@ getBounds(shape: Shape) {
   }
 
   onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    void _shapes;
     const theme = api.getState().theme || 'dark';
     const defaultColor = theme === 'light' ? '#475569' : '#cbd5e0';
     return { x: payload.world.x, y: payload.world.y, width: 200, height: 40, stroke: defaultColor };

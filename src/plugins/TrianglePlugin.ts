@@ -2,6 +2,7 @@ import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { polygonHitTest, toSvgPath, toRoundedSvgPath } from './PolygonUtils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export class TrianglePlugin extends BaseRectPlugin {
   type = 'triangle';
@@ -23,7 +24,7 @@ export class TrianglePlugin extends BaseRectPlugin {
     ];
   }
 
-  render(rc: any, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, _ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const r = this.getCornerRadius(shape);
     if (r > 0) {
       rc.path(toRoundedSvgPath(this.vertices(shape), r), buildRoughOptions(shape, theme));

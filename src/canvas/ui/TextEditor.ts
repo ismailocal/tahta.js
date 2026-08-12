@@ -1,10 +1,9 @@
 import { WhiteboardStore } from '../../core/Store';
 import { getShapeBounds } from '../../geometry/Geometry';
-import { PluginRegistry } from '../../plugins/index';
-import { getCachedStyle } from '../../core/constants';
+import { getShapePlugin } from '../../plugins/index';
 import { getThemeAdjustedStroke } from '../../core/Utils';
 
-export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
+export function initTextEditor(container: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement) {
   const overlay = document.createElement('div');
   overlay.className = 'text-editor-overlay';
   overlay.style.position = 'absolute';
@@ -102,7 +101,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
         }
         editor.style.setProperty('color', textColor, 'important');
 
-        const canvasEl = document.querySelector('.board-canvas');
+        const canvasEl = canvas;
         let offsetX = 0;
         let offsetY = 0;
         if (canvasEl) {
@@ -125,8 +124,8 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
           let cx = 0;
           let cy = 0;
 
-        if (PluginRegistry.hasPlugin(shape.type)) {
-          const plugin = PluginRegistry.getPlugin(shape.type);
+        {
+          const plugin = getShapePlugin(store.registry, shape.type);
           const anchor = plugin.getTextAnchor ? plugin.getTextAnchor(shape, state.shapes) : null;
           if (anchor) {
             cx = anchor.x;
@@ -140,7 +139,7 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
             editor.style.wordBreak = 'normal';
             editor.style.maxWidth = 'none';
           } else {
-            const bounds = getShapeBounds(shape);
+            const bounds = getShapeBounds(shape, store.registry);
             const paddingX = (shape.textPaddingX ?? 8) * zoom;
             const paddingY = (shape.textPaddingY ?? 8) * zoom;
             const textAlign = shape.textAlign || 'center';
@@ -181,21 +180,9 @@ export function initTextEditor(container: HTMLElement, store: WhiteboardStore) {
             editor.style.marginTop = `0`;
             editor.style.textAlign = textAlign;
           }
-        } else {
-          const bounds = getShapeBounds(shape);
-          cx = bounds.x + bounds.width / 2;
-          cy = bounds.y + bounds.height / 2;
-          editor.style.left = `${offsetX + state.viewport.x + cx * zoom}px`;
-          editor.style.top = `${offsetY + state.viewport.y + cy * zoom}px`;
-          editor.style.marginTop = `0`;
-          editor.style.textAlign = 'center';
-          editor.style.transform = 'translate(-50%, -50%)';
-          editor.style.whiteSpace = 'pre';
-          editor.style.wordBreak = 'normal';
-          editor.style.maxWidth = 'none';
-        }
         }
       }
+    }
     }
   };
 

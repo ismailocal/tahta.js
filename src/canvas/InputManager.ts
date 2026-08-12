@@ -5,7 +5,7 @@ import { clamp } from '../core/Utils';
 import { setupKeyboard } from './KeyboardManager';
 import { setupClipboard } from './ClipboardManager';
 
-export function createPointerPayload(canvas: HTMLCanvasElement, event: PointerEvent, state: CanvasState): PointerPayload {
+function createPointerPayload(canvas: HTMLCanvasElement, event: PointerEvent, state: CanvasState): PointerPayload {
   const rect = canvas.getBoundingClientRect();
   const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top };
   const world = screenToWorld(screen, state.viewport);
@@ -59,16 +59,17 @@ export class InputManager {
     const state = this.api.getState();
     const payload = createPointerPayload(this.canvas, event, state);
 
-    // In readOnly mode, only allow hand tool (pan) — block all drawing/editing
+    // Read-only users may pan and use the non-persistent laser pointer.
     if (state.readOnly) {
-      const hand = this.tools['hand'];
-      if (!hand) return;
-      if (kind === 'down') { this.activeOverrideTool = 'hand'; hand.onPointerDown?.(payload, this.api); }
+      const readOnlyToolName = state.activeTool === 'laser' ? 'laser' : 'hand';
+      const readOnlyTool = this.tools[readOnlyToolName];
+      if (!readOnlyTool) return;
+      if (kind === 'down') { this.activeOverrideTool = readOnlyToolName; readOnlyTool.onPointerDown?.(payload, this.api); }
       if (kind === 'move') {
         this.api.bus.emit('pointer:update', { pointer: payload.world, button: payload.button });
-        hand.onPointerMove?.(payload, this.api);
+        readOnlyTool.onPointerMove?.(payload, this.api);
       }
-      if (kind === 'up') { hand.onPointerUp?.(payload, this.api); this.activeOverrideTool = null; this.api.bus.emit('pointer:update', { pointer: payload.world, button: 'up' }); }
+      if (kind === 'up') { readOnlyTool.onPointerUp?.(payload, this.api); this.activeOverrideTool = null; this.api.bus.emit('pointer:update', { pointer: payload.world, button: 'up' }); }
       return;
     }
 
@@ -97,6 +98,7 @@ export class InputManager {
 
   private attach() {
     const onDown = (e: PointerEvent) => {
+      this.api.beginUndoGroup(`pointer:${e.pointerId}`);
       this.canvas.setPointerCapture(e.pointerId);
       if (e.pointerType === 'touch') {
         this.activeTouches.set(e.pointerId, e);
@@ -138,12 +140,14 @@ export class InputManager {
         this.touchGesture.pointerIds.delete(e.pointerId);
         if (this.touchGesture.pointerIds.size === 0) this.touchGesture = null;
         if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+        this.api.endUndoGroup(`pointer:${e.pointerId}`);
         return;
       }
       this.handlePointer('up', e);
       this.activeTouches.delete(e.pointerId);
       if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
       this.activeOverrideTool = null;
+      this.api.endUndoGroup(`pointer:${e.pointerId}`);
     };
     const onCancel = (e: PointerEvent) => {
       if (this.touchGesture?.pointerIds.has(e.pointerId)) {
@@ -151,16 +155,19 @@ export class InputManager {
         this.touchGesture.pointerIds.delete(e.pointerId);
         if (this.touchGesture.pointerIds.size === 0) this.touchGesture = null;
         if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+        this.api.endUndoGroup(`pointer:${e.pointerId}`);
         return;
       }
       this.handlePointer('up', e);
       this.activeTouches.delete(e.pointerId);
       if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
       this.activeOverrideTool = null;
+      this.api.endUndoGroup(`pointer:${e.pointerId}`);
     };
     const onLeave = (e: PointerEvent) => {
       if (e.buttons !== 0) this.handlePointer('up', e);
       this.activeOverrideTool = null;
+      this.api.endUndoGroup(`pointer:${e.pointerId}`);
     };
     const onWheel = (e: WheelEvent) => {
       const rect = this.canvas.getBoundingClientRect();

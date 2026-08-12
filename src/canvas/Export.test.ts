@@ -18,7 +18,7 @@ describe('canvas export', () => {
     expect(svg).toContain('viewBox="0 0');
   });
 
-  it('escapes user-controlled text, colors, fonts, and image references', () => {
+  it('rejects a non-exportable image instead of drawing a fallback', () => {
     const shape = {
       id: 'unsafe',
       type: 'image',
@@ -31,12 +31,6 @@ describe('canvas export', () => {
       fontFamily: '" onload="alert(1)',
     } as unknown as Shape;
 
-    const svg = exportToSvg([shape], '"/><script>alert(1)</script>');
-
-    expect(svg).not.toContain('<script>');
-    expect(svg).not.toContain('onload="alert(1)"');
-    expect(svg).toContain('&lt;script&gt;');
-    expect(svg).toContain('&quot;');
-    expect(svg).not.toContain('data:image/svg+xml');
+    expect(() => exportToSvg([shape], '"/><script>alert(1)</script>')).toThrowError(/no exportable asset/);
   });
 });

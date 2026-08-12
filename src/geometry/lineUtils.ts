@@ -1,10 +1,9 @@
-import type { Shape, Point, ArrowheadStyle, PointerPayload, ICanvasAPI } from '../core/types';
-import { getRayEllipseIntersection } from './GeometryUtils';
-import { PluginRegistry } from '../plugins/PluginRegistry';
+import type { Shape, Point } from '../core/types';
+import type { ShapeRegistry } from '../core/registry';
+import { getShapePlugin } from '../plugins/index';
 import { getThemeAdjustedStroke } from '../core/Utils';
 import type { RoughOptions } from './ArrowheadUtils';
 
-export { getThemeAdjustedStroke };
 export { getArrowheadDrawable, drawArrowhead } from './ArrowheadUtils';
 export { getElbowPath } from './ElbowRouter';
 
@@ -77,13 +76,8 @@ export function renderEndpointHandles(ctx: CanvasRenderingContext2D, p1: Point, 
   ctx.restore();
 }
 
-/** Initializing a drawing action for a generic connector or line. */
-export function onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-  return { x: payload.world.x, y: payload.world.y, points: [{ x: 0, y: 0 }, { x: 0, y: 0 }], stroke: '#64748b', strokeWidth: 1.8 };
-}
-
 /** Calculates the endpoints for an arrow, resolving named port positions if bound. */
-export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1: Point, p2: Point } {
+export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[], registry: ShapeRegistry): { p1: Point, p2: Point } {
   const p0 = shape.points?.[0] || { x: 0, y: 0 };
   const pn = shape.points?.[shape.points!.length - 1] || { x: 0, y: 0 };
   let p1 = { x: shape.x + p0.x, y: shape.y + p0.y }, p2 = { x: shape.x + pn.x, y: shape.y + pn.y };
@@ -91,8 +85,8 @@ export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[]): { p1
   [ { b: shape.startBinding, set: (p: Point) => { p1 = p; } }, { b: shape.endBinding, set: (p: Point) => { p2 = p; } } ].forEach(config => {
     if (config.b?.portId) {
       const bShape = allShapes.find(s => s.id === config.b!.elementId);
-      if (bShape && PluginRegistry.hasPlugin(bShape.type)) {
-        const port = PluginRegistry.getPlugin(bShape.type).getConnectionPoints?.(bShape)?.find(p => p.id === config.b!.portId);
+      if (bShape) {
+        const port = getShapePlugin(registry, bShape.type).getConnectionPoints?.(bShape)?.find(p => p.id === config.b!.portId);
         if (port) config.set({ x: port.x, y: port.y });
       }
     }

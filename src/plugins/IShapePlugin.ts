@@ -1,4 +1,8 @@
 import type { ICanvasAPI, Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
+import type { ShapeRegistry } from '../core/registry';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable } from 'roughjs/bin/core';
+import type { RoughGenerator } from 'roughjs/bin/generator';
 
 export interface IShapePlugin {
   type: string;
@@ -48,11 +52,11 @@ export interface IShapePlugin {
   defaultProperties?: string[];
 
   // 1. Rendering
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
+  render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
   /** Lightweight, zero-latency rendering used while the shape is actively being drawn. */
   renderFast?(ctx: CanvasRenderingContext2D, shape: Shape, theme: 'light' | 'dark'): void;
   /** Generate Rough.js drawables for caching. If not implemented, render() is used directly every frame. */
-  getDrawable?(generator: any, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): any[];
+  getDrawable?(generator: RoughGenerator, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): Drawable[];
   renderSelection?(ctx: CanvasRenderingContext2D, shape: Shape, allShapes: Shape[], theme: 'light' | 'dark'): void;
 
   // 2. Geometry
@@ -83,5 +87,5 @@ export interface IShapePlugin {
 
   // 5. Binding Mechanics
   onDragBindHandle?(shape: Shape, handle: string, payload: PointerPayload, allShapes: Shape[], activeShapeId: string, api: ICanvasAPI): Partial<Shape>;
-  onBoundShapeChange?(shape: Shape, allShapes: Shape[], changedShapeIds: string[]): Partial<Shape> | null;
+  onBoundShapeChange?(shape: Shape, allShapes: Shape[], changedShapeIds: string[], registry: ShapeRegistry): Partial<Shape> | null;
 }

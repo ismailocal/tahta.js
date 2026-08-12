@@ -1,30 +1,40 @@
-import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
-
-export const imageCache = new Map<string, HTMLImageElement>();
-
-/** Release all cached HTMLImageElement objects (call on canvas destroy). */
-export function clearImageCache() {
-  imageCache.clear();
-}
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export class ImagePlugin extends BaseRectPlugin {
   type = 'image';
   defaultStyle: Partial<Shape> = {};
   defaultProperties = ['opacity', 'layer', 'action'];
+  private readonly imageCache = new Map<string, HTMLImageElement>();
+  private invalidate: () => void = () => undefined;
 
-render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
+  setInvalidate(listener: () => void): void { this.invalidate = listener; }
+  cacheImage(source: string, image: HTMLImageElement): void {
+    if (!this.imageCache.has(source) && this.imageCache.size >= 256) {
+      const oldest = this.imageCache.keys().next().value;
+      if (oldest) this.imageCache.delete(oldest);
+    }
+    this.imageCache.set(source, image);
+  }
+  destroy(): void {
+    this.imageCache.clear();
+    this.invalidate = () => undefined;
+  }
+
+render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], _theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes; void _theme;
     const { x, y, width, height } = this.getBounds(shape);
     const { imageSrc } = shape;
 
     if (imageSrc) {
-      let img = imageCache.get(imageSrc);
+      let img = this.imageCache.get(imageSrc);
       if (!img) {
         img = new Image();
-        img.onload = () => { window.dispatchEvent(new CustomEvent('tuval-force-render')); };
+        img.onload = () => this.invalidate();
         img.onerror = () => { console.error('Image failed to load', imageSrc.substring(0, 50)); };
         img.src = imageSrc;
-        imageCache.set(imageSrc, img);
+        this.cacheImage(imageSrc, img);
       }
 
       if (img.complete && img.naturalWidth > 0) {
@@ -77,7 +87,7 @@ getBounds(shape: Shape) {
   }
 
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
+  onDrawInit(payload: PointerPayload): Partial<Shape> {
     return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, imageSrc: '' };
   }
 

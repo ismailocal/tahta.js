@@ -1,9 +1,11 @@
 import type { Shape } from '../core/types';
-import { PluginRegistry } from '../plugins/index';
-import { getThemeAdjustedStroke } from '../core/Utils';
+import { getShapePlugin } from '../plugins/index';
+import type { ShapeRegistry } from '../core/registry';
 import { drawLockIcon } from '../core/Utils';
 import { renderShapeText } from './TextRenderer';
-import { renderSelectionFrame, renderHandleBrackets, renderConnectionPoints } from './UIComponentsRenderer';
+import { renderSelectionFrame, renderConnectionPoints } from './UIComponentsRenderer';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable } from 'roughjs/bin/core';
 
 interface ShapeRenderOptions {
   isSelected: boolean;
@@ -16,14 +18,22 @@ interface ShapeRenderOptions {
   activePortId: string | null | undefined;
 }
 
-class RoughCache {
-  private cache = new Map<string, { drawables: any[], version: string, x: number, y: number }>();
+export class ShapeRenderCache {
+  private cache = new Map<string, { drawables: Drawable[]; shape: Shape; theme: 'light' | 'dark' }>();
 
   get(shapeId: string) {
-    return this.cache.get(shapeId);
+    const value = this.cache.get(shapeId);
+    if (!value) return undefined;
+    this.cache.delete(shapeId);
+    this.cache.set(shapeId, value);
+    return value;
   }
 
-  set(shapeId: string, value: { drawables: any[], version: string, x: number, y: number }) {
+  set(shapeId: string, value: { drawables: Drawable[]; shape: Shape; theme: 'light' | 'dark' }) {
+    if (!this.cache.has(shapeId) && this.cache.size >= 500) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest) this.cache.delete(oldest);
+    }
     this.cache.set(shapeId, value);
   }
 
@@ -32,27 +42,10 @@ class RoughCache {
   }
 }
 
-const roughCache = new RoughCache();
-
 // Shapes that don't go through roughjs and must not be blocked by the
 // zero-dimension guard. Point-based types use a points array instead of
 // width/height; image and text manage their own degenerate-dimension cases.
 const NO_DIMENSION_GUARD_TYPES = new Set(['line', 'arrow', 'freehand', 'image', 'text']);
-
-/**
- * Computes a hash of all visual properties to determine if a cached element
- * needs a re-render. Handles theme changes.
- */
-function getShapeVersionHash(shape: Shape, theme: string): string {
-  // Performance optimization: Avoid JSON.Stringify on massive points arrays.
-  // Instead, use length and last point coordinates as a version proxy.
-  const pointsHash = shape.points && shape.points.length > 0
-    ? `${shape.points.length}-${shape.points[shape.points.length - 1].x}-${shape.points[shape.points.length - 1].y}`
-    : 'no-pts';
-
-  const dataHash = shape.data ? JSON.stringify(shape.data) : '';
-  return `${shape.type}-${theme}-${shape.seed}-${shape.width}-${shape.height}-${shape.stroke}-${shape.strokeWidth}-${shape.strokeStyle}-${shape.fill}-${shape.fillStyle}-${shape.roughness}-${shape.roundness}-${shape.cornerRadius}-${shape.edgeStyle}-${shape.startArrowhead}-${shape.endArrowhead}-${pointsHash}-${shape.x}-${shape.y}-${dataHash}`;
-}
 
 /**
  * The main dispatch for rendering a single shape using its plugin.
@@ -60,14 +53,15 @@ function getShapeVersionHash(shape: Shape, theme: string): string {
  * sub-renderers for text and UI indicators.
  */
 export function renderShape(
-  rc: any,
+  rc: RoughCanvas,
   ctx: CanvasRenderingContext2D,
   shape: Shape,
   allShapes: Shape[],
-  options: ShapeRenderOptions
+  options: ShapeRenderOptions,
+  registry: ShapeRegistry,
+  cache: ShapeRenderCache,
 ) {
   if (shape.type === 'text' && options.isEditingText) return;
-  if (!PluginRegistry.hasPlugin(shape.type)) return;
 
   // Guard: box-like shapes (rectangle, ellipse, diamond, db-*) require positive
   // width AND height. A zero or negative dimension causes roughjs to generate
@@ -77,26 +71,25 @@ export function renderShape(
     if ((shape.width ?? 0) <= 0 || (shape.height ?? 0) <= 0) return;
   }
 
-  const plugin = PluginRegistry.getPlugin(shape.type);
+  const plugin = getShapePlugin(registry, shape.type);
 
   ctx.save();
   let alpha = shape.opacity ?? 1;
   if (options.isErasing) alpha *= 0.3;
   ctx.globalAlpha = alpha;
 
-  const currentVersion = getShapeVersionHash(shape, options.theme);
-  const cacheEntry = roughCache.get(shape.id);
+  const cacheEntry = cache.get(shape.id);
 
   if (options.isDrawing && plugin.renderFast) {
     plugin.renderFast(ctx, shape, options.theme);
-  } else if (cacheEntry && cacheEntry.version === currentVersion) {
-    cacheEntry.drawables.forEach(d => rc.draw(d));
+  } else if (cacheEntry?.shape === shape && cacheEntry.theme === options.theme) {
+    cacheEntry.drawables.forEach((drawable) => rc.draw(drawable));
   } else if (plugin.getDrawable) {
     const drawables = plugin.getDrawable(rc.generator, shape, allShapes, options.theme);
-    roughCache.set(shape.id, { drawables, version: currentVersion, x: shape.x, y: shape.y });
-    drawables.forEach(d => rc.draw(d));
+    cache.set(shape.id, { drawables, shape, theme: options.theme });
+    drawables.forEach((drawable) => rc.draw(drawable));
   } else {
-    // Fallback for plugins that don't implement getDrawable yet
+    // Canvas-native plugins render directly; Rough.js plugins use cached drawables.
     plugin.render(rc, ctx, shape, options.isSelected, options.isErasing, allShapes, options.theme);
   }
 

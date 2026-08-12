@@ -1,5 +1,6 @@
-import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload } from '../core/types';
 import { BaseDbPlugin } from './BaseDbPlugin';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export interface DbEnumData { enumName: string; values: string[]; }
 
@@ -28,7 +29,8 @@ export class DbEnumPlugin extends BaseDbPlugin {
     return values;
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     const { enumName, values } = getEnumData(shape);
     const { x, y } = shape;
     const w = shape.width ?? this.DEFAULT_WIDTH;
@@ -85,14 +87,13 @@ export class DbEnumPlugin extends BaseDbPlugin {
     this.renderBorder(ctx, x, y, w, h, accent);
   }
 
-onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    const theme = api.getState().theme || 'dark';
+onDrawInit(payload: PointerPayload): Partial<Shape> {
     const defaultColor = '#64748b';
     const defaultValues = ['ACTIVE', 'INACTIVE', 'PENDING'];
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
       stroke: defaultColor,
-      data: { enumName: 'Status', values: defaultValues } as any,
+      data: { enumName: 'Status', values: defaultValues },
     };
   }
 }

@@ -1,9 +1,9 @@
-import type { ICanvasAPI, ShapeType } from '../core/types';
+import type { ICanvasAPI, Shape, ShapeType } from '../core/types';
 import { screenToWorld } from '../geometry/Geometry';
 import { UI_CONSTANTS } from '../core/constants';
 import { createId } from '../core/Utils';
 
-export function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file: File, clientX: number, clientY: number) {
+function handleImageFile(api: ICanvasAPI, canvas: HTMLCanvasElement, file: File, clientX: number, clientY: number) {
   if (!file.type.startsWith('image/')) return;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -71,14 +71,30 @@ export function setupClipboard(api: ICanvasAPI, canvas: HTMLCanvasElement): (() 
     const text = e.clipboardData?.getData('text/plain');
     if (!text) return;
     
-    try {
-      const data = JSON.parse(text);
-      if (data.type === 'tuval/clipboard' && Array.isArray(data.shapes)) {
+    const parseClipboard = (): { type: 'tuval/clipboard'; shapes: Shape[] } | null => {
+      try {
+        const value: unknown = JSON.parse(text);
+        if (!value || typeof value !== 'object' || !('type' in value) || value.type !== 'tuval/clipboard' || !('shapes' in value) || !Array.isArray(value.shapes)) return null;
+        const shapes = value.shapes;
+        if (!shapes.every((shape): shape is Shape => Boolean(
+          shape && typeof shape === 'object'
+          && 'id' in shape && typeof shape.id === 'string'
+          && 'type' in shape && typeof shape.type === 'string'
+          && 'x' in shape && typeof shape.x === 'number'
+          && 'y' in shape && typeof shape.y === 'number',
+        ))) return null;
+        return { type: 'tuval/clipboard', shapes: structuredClone(shapes) };
+      } catch {
+        return null;
+      }
+    };
+    const data = parseClipboard();
+    if (data) {
         const newShapes = data.shapes;
         const oldToNewId = new Map<string, string>();
         const oldToNewGroupId = new Map<string, string>();
         
-        newShapes.forEach((s: any) => {
+        newShapes.forEach((s) => {
            const newId = createId();
            oldToNewId.set(s.id, newId);
            s.id = newId;
@@ -94,23 +110,20 @@ export function setupClipboard(api: ICanvasAPI, canvas: HTMLCanvasElement): (() 
            }
         });
 
-        newShapes.forEach((s: any) => {
-           if (s.groupId) s.groupId = oldToNewGroupId.get(s.groupId);
-           if (s.startBinding && oldToNewId.has(s.startBinding.elementId)) s.startBinding.elementId = oldToNewId.get(s.startBinding.elementId);
+        newShapes.forEach((s) => {
+           if (s.groupId) s.groupId = oldToNewGroupId.get(s.groupId) ?? s.groupId;
+           if (s.startBinding && oldToNewId.has(s.startBinding.elementId)) s.startBinding.elementId = oldToNewId.get(s.startBinding.elementId) ?? s.startBinding.elementId;
            else s.startBinding = undefined;
            
-           if (s.endBinding && oldToNewId.has(s.endBinding.elementId)) s.endBinding.elementId = oldToNewId.get(s.endBinding.elementId);
+           if (s.endBinding && oldToNewId.has(s.endBinding.elementId)) s.endBinding.elementId = oldToNewId.get(s.endBinding.elementId) ?? s.endBinding.elementId;
            else s.endBinding = undefined;
 
            api.addShape(s);
         });
         
-        api.setSelection(newShapes.map((s: any) => s.id));
+        api.setSelection(newShapes.map((s) => s.id));
         api.commitState();
         e.preventDefault();
-      }
-    } catch (err) {
-      // Not a tuval json
     }
   };
 

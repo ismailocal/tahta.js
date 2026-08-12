@@ -1,5 +1,6 @@
-import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload } from '../core/types';
 import { BaseDbPlugin } from './BaseDbPlugin';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export interface DbColumn {
   name: string;
@@ -33,8 +34,7 @@ export class DbTablePlugin extends BaseDbPlugin {
   protected readonly BADGE_HEIGHT = 0;
 
   protected getRowCount(shape: Shape): number {
-    const columns = (shape.data?.columns as any[]) ?? [];
-    return columns.length;
+    return getTableData(shape).columns.length;
   }
 
   protected getRowLabels(shape: Shape): string[] {
@@ -42,7 +42,8 @@ export class DbTablePlugin extends BaseDbPlugin {
     return columns.map(col => col.name);
   }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     const { tableName, columns } = getTableData(shape);
     const { x, y } = shape;
     const w = shape.width ?? this.DEFAULT_WIDTH;
@@ -110,8 +111,7 @@ export class DbTablePlugin extends BaseDbPlugin {
   }
 
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    const theme = api.getState().theme || 'dark';
+  onDrawInit(payload: PointerPayload): Partial<Shape> {
     const defaultColor = '#64748b';
     const defaultColumns = [
       { name: 'id', type: 'INT', pk: true },
@@ -121,7 +121,7 @@ export class DbTablePlugin extends BaseDbPlugin {
     return {
       x: payload.world.x, y: payload.world.y, width: 0, height: 0,
       stroke: defaultColor,
-      data: { tableName: 'Table', columns: defaultColumns } as any,
+      data: { tableName: 'Table', columns: defaultColumns },
     };
   }
 }

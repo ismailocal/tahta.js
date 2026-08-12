@@ -1,12 +1,13 @@
 import { WhiteboardStore } from '../../core/Store';
-import { TOOLBAR_ITEMS, type ToolbarItem } from '../../core/constants';
-import { hexToRgba, createId } from '../../core/Utils';
+import { TOOLBAR_ITEMS } from '../../core/constants';
+import { createId } from '../../core/Utils';
 import { UserTemplateManager } from '../../tools/UserTemplateManager';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
 import { initTextEditor } from './TextEditor';
-import { imageCache } from '../../plugins/ImagePlugin';
-import { confirmModal } from './Modal';
-import type { ICanvasAPI } from '../../core/types';
+import { ImagePlugin } from '../../plugins/ImagePlugin';
+import { getShapePlugin } from '../../plugins';
+import { closeModal, confirmModal } from './Modal';
+import type { CanvasState, ICanvasAPI, Shape } from '../../core/types';
 
 function calculateZoomToCenter(canvas: HTMLCanvasElement, currentZoom: number, newZoom: number, viewport: { x: number; y: number; zoom: number }) {
   const rect = canvas.getBoundingClientRect();
@@ -25,6 +26,11 @@ function calculateZoomToCenter(canvas: HTMLCanvasElement, currentZoom: number, n
 }
 
 export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTMLCanvasElement, api: ICanvasAPI) {
+  const lifecycle = new AbortController();
+  const listenerOptions = { signal: lifecycle.signal };
+  let imageInput: HTMLInputElement | null = null;
+  let uiFrame: number | null = null;
+  const propertyCloseTimers = new Set<ReturnType<typeof setTimeout>>();
   root.innerHTML = `
     <div class="tahta-shell">
       <div class="board-shell">
@@ -60,7 +66,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   boardArea.appendChild(canvas);
   canvas.className = 'board-canvas';
 
-  initTextEditor(boardArea, store);
+  const disposeTextEditor = initTextEditor(boardArea, store, canvas);
 
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
@@ -71,7 +77,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const MIN_ZOOM = 0.2;
   const MAX_ZOOM = 5;
 
-  const renderZoomValue = (state: any) => {
+  const renderZoomValue = (state: CanvasState) => {
     const zoom = state.viewport?.zoom || 1;
     const zoomPercent = Math.round(zoom * 100);
     if (zoomValue) {
@@ -88,7 +94,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   // Zoom control event handlers
   zoomControls?.querySelector('[data-zoom-fit]')?.addEventListener('click', () => {
     api.scrollToContent?.();
-  });
+  }, listenerOptions);
 
   zoomControls?.querySelector('[data-zoom-in]')?.addEventListener('click', () => {
     const state = store.getState();
@@ -96,14 +102,14 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const newZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    const canvasEl = canvas;
     if (canvasEl) {
       const newViewport = calculateZoomToCenter(canvasEl, currentZoom, newZoom, viewport);
       store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: newZoom });
     }
-  });
+  }, listenerOptions);
 
   zoomControls?.querySelector('[data-zoom-out]')?.addEventListener('click', () => {
     const state = store.getState();
@@ -111,29 +117,29 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     const newZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    const canvasEl = canvas;
     if (canvasEl) {
       const newViewport = calculateZoomToCenter(canvasEl, currentZoom, newZoom, viewport);
       store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: newZoom });
     }
-  });
+  }, listenerOptions);
 
   zoomValue?.addEventListener('click', () => {
     const state = store.getState();
     const viewport = state.viewport || { x: 0, y: 0, zoom: 1 };
 
-    const canvasEl = document.querySelector('.board-canvas') as HTMLCanvasElement;
+    const canvasEl = canvas;
     if (canvasEl) {
       const newViewport = calculateZoomToCenter(canvasEl, viewport.zoom || 1, 1, viewport);
       store.setViewport(newViewport);
     } else {
       store.setViewport({ ...viewport, zoom: 1 });
     }
-  });
+  }, listenerOptions);
 
-  const renderToolbar = (state: any) => {
+  const renderToolbar = (state: CanvasState) => {
     toolbar.innerHTML = TOOLBAR_ITEMS.map((tool) => {
       if (tool.isSeparator) return `<div class="toolbar-separator"></div>`;
 
@@ -146,8 +152,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         const displayIcon = tool.icon || (activeChild || tool.children[0]).icon;
         const displayLabel = tool.label;
         const groupActive = !!activeChild;
-        // The parent button sets the currently active child tool (or first child)
-        const parentToolKey = (activeChild || tool.children[0]).key;
         return `
           <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
             <button class="tool-button ${groupActive ? 'active' : ''}" data-tool-group="${tool.key}" title="${displayLabel}" aria-label="${displayLabel}">
@@ -155,7 +159,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
             </button>
             <div class="tool-dropdown-menu dropdown-grid-6" id="dropdown-${tool.key}">
               ${(() => {
-                let children = [...tool.children];
+                const children = [...tool.children];
                 if (tool.key === 'library-group') {
                   const userTemplates = UserTemplateManager.getTemplates();
                   const userItems = Object.entries(userTemplates).map(([id, t]) => ({
@@ -166,20 +170,20 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
                     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/></svg>`
                   }));
                   if (userItems.length > 0) {
-                    children.push({ isHeader: true, label: 'User Templates' } as any);
+                    children.push({ isHeader: true, label: 'User Templates' });
                     children.push(...userItems);
                   }
                 }
                 return children.map(child => {
-                  if ((child as any).isHeader) {
+                  if (child.isHeader) {
                     return `<div class="dropdown-header">${child.label}</div>`;
                   }
                   return `
                     <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}" aria-label="${child.label}">
                       <span class="tool-icon">${child.icon}</span>
                       <span class="tool-item-label">${child.label}</span>
-                      ${(child as any).isUserTemplate ? `
-                      <div class="template-delete-btn" data-delete-template="${(child as any).templateId}" title="Delete Template">
+                      ${child.isUserTemplate ? `
+                      <div class="template-delete-btn" data-delete-template="${child.templateId}" title="Delete Template">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </div>
                       ` : ''}
@@ -199,13 +203,6 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         </button>
       `;
     }).join('');
-
-    // Hover-based dropdown open/close
-    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-wrap').forEach(wrap => {
-      const menu = wrap.querySelector<HTMLElement>('.tool-dropdown-menu');
-      if (!menu) return;
-      // Dropdowns are now click-only as per user request
-    });
   };
 
   function closeAllDropdowns() {
@@ -213,7 +210,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   }
 
   const onDocumentClick = () => closeAllDropdowns();
-  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('click', onDocumentClick, listenerOptions);
 
   let propertiesOpen = true;
   const propToggleBtn = document.createElement('button');
@@ -225,18 +222,12 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   propToggleBtn.addEventListener('click', () => {
     propertiesOpen = !propertiesOpen;
     renderProperties(store.getState());
-  });
+  }, listenerOptions);
 
-  const renderProperties = (state: any) => {
+  const renderProperties = (state: CanvasState) => {
     const selectedShapes = state.selectedIds
-      .map((id: string) => state.shapes.find((s: any) => s.id === id))
-      .filter((s: any) => !!s);
-
-    const isDrawingTool = [
-      'rectangle', 'ellipse', 'diamond', 'triangle', 'sticky-note',
-      'arrow', 'freehand', 'text', 'db-table', 'db-view', 'db-enum',
-      'hexagon', 'star', 'parallelogram', 'cylinder', 'cloud', 'callout'
-    ].includes(state.activeTool);
+      .map((id) => state.shapes.find((shape) => shape.id === id))
+      .filter((shape): shape is Shape => Boolean(shape));
 
     properties.classList.remove('hidden');
     properties.innerHTML = renderPropertiesPanelHTML(api);
@@ -266,14 +257,19 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
         if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
         properties.querySelectorAll('.pp-dropdown-menu').forEach(m => m.classList.remove('open'));
         menu.classList.add('open');
-      });
+      }, listenerOptions);
       wrap.addEventListener('mouseleave', () => {
-        closeTimer = setTimeout(() => menu.classList.remove('open'), 150);
-      });
+        closeTimer = setTimeout(() => {
+          propertyCloseTimers.delete(closeTimer!);
+          closeTimer = null;
+          menu.classList.remove('open');
+        }, 150);
+        propertyCloseTimers.add(closeTimer);
+      }, listenerOptions);
     });
   };
 
-  initPropertiesPanel(properties, api);
+  initPropertiesPanel(properties, api, lifecycle.signal);
 
   root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
@@ -289,6 +285,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       const templateId = deleteBtn.getAttribute('data-delete-template');
       if (templateId) {
         confirmModal({
+          owner: root,
           title: 'Delete Template',
           message: 'Are you sure you want to delete this template?',
           confirmLabel: 'Delete',
@@ -326,21 +323,19 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      let input = document.getElementById('hidden-image-input') as HTMLInputElement;
-      if (!input) {
-        input = document.createElement('input');
-        input.id = 'hidden-image-input';
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.style.position = 'absolute';
-        input.style.width = '0';
-        input.style.height = '0';
-        input.style.opacity = '0';
-        document.body.appendChild(input);
+      if (!imageInput) {
+        imageInput = document.createElement('input');
+        imageInput.type = 'file';
+        imageInput.accept = 'image/*';
+        imageInput.style.position = 'absolute';
+        imageInput.style.width = '0';
+        imageInput.style.height = '0';
+        imageInput.style.opacity = '0';
+        document.body.appendChild(imageInput);
       }
 
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
+      imageInput.onchange = (event) => {
+        const file = (event.currentTarget as HTMLInputElement).files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
@@ -365,23 +360,25 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
             }
             const id = createId();
 
-            imageCache.set(imageSrc, img);
+            const imagePlugin = getShapePlugin(api.registry, 'image');
+            if (!(imagePlugin instanceof ImagePlugin)) throw new Error("Image runtime is not configured");
+            imagePlugin.cacheImage(imageSrc, img);
 
             store.setState({
               shapes: [...state.shapes, {
                 id, type: 'image', x: worldX - w / 2, y: worldY - h / 2, width: w, height: h, imageSrc, stroke: 'transparent',
                 strokeWidth: 2, roughness: 1, opacity: 1
-              } as any],
+              } satisfies Shape],
               selectedIds: [id]
             });
             store.commitState();
 
-            input.value = '';
+            if (imageInput) imageInput.value = '';
           };
         };
         reader.readAsDataURL(file);
       };
-      input.click();
+      imageInput.click();
       return;
     }
     if (tool) {
@@ -390,10 +387,10 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       store.setTool(tool);
       return;
     }
-  });
+  }, listenerOptions);
 
 
-  const renderCursor = (state: any) => {
+  const renderCursor = (state: CanvasState) => {
     let cursor = 'default';
     if (state.isSpacePanning || state.activeTool === 'hand') {
       cursor = state.isPanning ? 'grabbing' : 'grab';
@@ -421,7 +418,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
 
   const layersBadge = root.querySelector('[data-layers-badge]') as HTMLElement | null;
 
-  const updateLayersBadge = (state: any) => {
+  const updateLayersBadge = (state: CanvasState) => {
     if (!layersBadge) return;
     const count = state.shapes?.length ?? 0;
     if (count > 0) {
@@ -432,43 +429,76 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     }
   };
 
-  const unsubUI = store.subscribe((state) => {
-    requestAnimationFrame(() => {
-      renderToolbar(state);
-      renderProperties(state);
-      renderCursor(state);
-      renderZoomValue(state);
-      updateLayersBadge(state);
+  let latestState = store.getState();
+  let lastToolbarKey = '';
+  let lastPropertiesKey = '';
+  let lastSelectedShapes: readonly Shape[] = [];
+  let lastCursorKey = '';
+  let lastZoom = Number.NaN;
+  let lastShapeCount = -1;
+  let lastTheme: CanvasState['theme'];
 
-      // Sync theme class to tahta-shell
-      const shell = root.querySelector('.tahta-shell');
-      if (shell) {
-        if (state.theme === 'dark') {
-          shell.classList.add('dark');
-        } else {
-          shell.classList.remove('dark');
-        }
-      }
+  const selectedShapes = (state: CanvasState): Shape[] => state.selectedIds
+    .map((id) => state.shapes.find((shape) => shape.id === id))
+    .filter((shape): shape is Shape => Boolean(shape));
+  const sameReferences = (left: readonly Shape[], right: readonly Shape[]): boolean => (
+    left.length === right.length && left.every((shape, index) => shape === right[index])
+  );
+  const renderChangedUI = (state: CanvasState, force = false) => {
+    const toolbarKey = `${state.activeTool}|${store.canUndo}|${store.canRedo}|${Object.keys(UserTemplateManager.getTemplates()).join('|')}`;
+    if (force || toolbarKey !== lastToolbarKey) {
+      renderToolbar(state);
+      lastToolbarKey = toolbarKey;
+    }
+
+    const currentSelectedShapes = selectedShapes(state);
+    const propertiesKey = `${state.activeTool}|${state.theme}|${state.uiRevision ?? 0}|${state.selectedIds.join('|')}`;
+    if (force || propertiesKey !== lastPropertiesKey || !sameReferences(currentSelectedShapes, lastSelectedShapes)) {
+      renderProperties(state);
+      lastPropertiesKey = propertiesKey;
+      lastSelectedShapes = currentSelectedShapes;
+    }
+
+    const cursorKey = `${state.activeTool}|${state.isSpacePanning}|${state.isPanning}`;
+    if (force || cursorKey !== lastCursorKey) {
+      renderCursor(state);
+      lastCursorKey = cursorKey;
+    }
+    if (force || state.viewport.zoom !== lastZoom) {
+      renderZoomValue(state);
+      lastZoom = state.viewport.zoom;
+    }
+    if (force || state.shapes.length !== lastShapeCount) {
+      updateLayersBadge(state);
+      lastShapeCount = state.shapes.length;
+    }
+    if (force || state.theme !== lastTheme) {
+      root.querySelector('.tahta-shell')?.classList.toggle('dark', state.theme === 'dark');
+      lastTheme = state.theme;
+    }
+  };
+
+  const unsubUI = store.subscribe((state) => {
+    latestState = state;
+    if (uiFrame !== null) return;
+    uiFrame = requestAnimationFrame(() => {
+      uiFrame = null;
+      renderChangedUI(latestState);
     });
   });
 
-  renderToolbar(store.getState());
-  renderProperties(store.getState());
-  renderCursor(store.getState());
-  renderZoomValue(store.getState());
-  updateLayersBadge(store.getState());
-  
-  const initialShell = root.querySelector('.tahta-shell');
-  if (initialShell) {
-    if (store.getState().theme === 'dark') {
-      initialShell.classList.add('dark');
-    } else {
-      initialShell.classList.remove('dark');
-    }
-  }
+  renderChangedUI(store.getState(), true);
 
   return () => {
+    closeModal(root);
+    lifecycle.abort();
     unsubUI();
-    document.removeEventListener('click', onDocumentClick);
+    disposeTextEditor();
+    if (uiFrame !== null) cancelAnimationFrame(uiFrame);
+    propertyCloseTimers.forEach((timer) => clearTimeout(timer));
+    propertyCloseTimers.clear();
+    imageInput?.remove();
+    imageInput = null;
+    propToggleBtn.remove();
   };
 }

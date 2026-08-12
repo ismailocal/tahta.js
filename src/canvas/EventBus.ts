@@ -1,15 +1,17 @@
-export interface IEventBus {
-  on(event: string, listener: (payload: any) => void): () => void;
-  off(event: string, listener: (payload: any) => void): void;
-  emit(event: string, payload: any): void;
+interface IEventBus {
+  on<T>(event: string, listener: (payload: T) => void): () => void;
+  off<T>(event: string, listener: (payload: T) => void): void;
+  emit<T>(event: string, payload: T): void;
 }
+
+type EventListener = (payload: unknown) => void;
 
 /**
  * A lightweight, type-agnostic event bus for canvas and document events.
  * Used for decoupling communication between tools, shortcuts, and the renderer.
  */
 export class EventBus implements IEventBus {
-  private listeners = new Map<string, Set<(payload: any) => void>>();
+  private listeners = new Map<string, Set<EventListener>>();
 
   /**
    * Subscribes to a specific event.
@@ -18,11 +20,11 @@ export class EventBus implements IEventBus {
    * @param listener - The callback function to be executed when the event is emitted.
    * @returns A cleanup function that removes the listener when called.
    */
-  on(event: string, listener: (payload: any) => void) {
+  on<T>(event: string, listener: (payload: T) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)?.add(listener);
+    this.listeners.get(event)?.add(listener as EventListener);
     return () => this.off(event, listener);
   }
 
@@ -32,8 +34,8 @@ export class EventBus implements IEventBus {
    * @param event - The specific event name.
    * @param listener - The exact listener function instance to remove.
    */
-  off(event: string, listener: (payload: any) => void) {
-    this.listeners.get(event)?.delete(listener);
+  off<T>(event: string, listener: (payload: T) => void) {
+    this.listeners.get(event)?.delete(listener as EventListener);
   }
 
   /**
@@ -42,7 +44,7 @@ export class EventBus implements IEventBus {
    * @param event - The name of the event to broadcast.
    * @param payload - Arbitrary data passed to all listeners.
    */
-  emit(event: string, payload: any) {
+  emit<T>(event: string, payload: T) {
     this.listeners.get(event)?.forEach((listener) => listener(payload));
   }
 }

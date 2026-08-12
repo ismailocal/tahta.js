@@ -1,6 +1,6 @@
-import type { Shape, Point, ConnectionPoint } from '../core/types';
+import type { Shape, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
-import { getThemeAdjustedStroke } from '../geometry/lineUtils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 const FOLD = 24; // folded-corner size in px (scales with shape if smaller)
 
@@ -23,14 +23,14 @@ export class StickyNotePlugin extends BaseRectPlugin {
   };
   defaultProperties = ['fill', 'stroke', 'opacity', 'textLayout', 'layer', 'action'];
 
-  getCornerRadius(_shape: Shape): number { return 4; }
+  getCornerRadius(shape?: Shape): number { void shape; return 4; }
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     const { x, y, width: w, height: h } = this.getBounds(shape);
     const fold = Math.min(FOLD, w * 0.2, h * 0.2);
     const r = Math.min(this.getCornerRadius(shape), w / 2, h / 2);
     const fill = shape.fill || '#fde047';
-    const accent = getThemeAdjustedStroke(shape.stroke, theme);
 
     ctx.save();
     ctx.globalAlpha = shape.opacity ?? 1;

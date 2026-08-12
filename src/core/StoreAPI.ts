@@ -16,10 +16,12 @@ import { getTopShapeAtPoint } from '../geometry/Geometry';
 export function createWhiteboardAPI(store: WhiteboardStore, canvas: HTMLCanvasElement): ICanvasAPI {
   return {
     bus: store.bus,
+    registry: store.registry,
     getState: () => store.getState(),
     setState: (updater) => store.setState(updater),
     addShape: (shape) => store.addShape(shape),
     updateShape: (id, patch, force) => store.updateShape(id, patch, force),
+    appendShapePoints: (id, points) => store.appendShapePoints(id, points),
     replaceShape: (id, shape) => store.replaceShape(id, shape),
     deleteShape: (id) => store.deleteShape(id),
     setSelection: (ids) => store.setSelection(ids),
@@ -30,13 +32,15 @@ export function createWhiteboardAPI(store: WhiteboardStore, canvas: HTMLCanvasEl
       store.commitState(); 
     },
     commitState: () => store.commitState(),
+    beginUndoGroup: (group) => store.beginUndoGroup(group),
+    endUndoGroup: (group) => store.endUndoGroup(group),
     undo: () => store.undo(),
     redo: () => store.redo(),
     batchUpdate: (fn: () => void) => store.batchUpdate(fn),
     getSpatialIndex: () => store.getSpatialIndex(),
     getShapeAtPoint: (point) => {
       const state = store.getState();
-      return getTopShapeAtPoint(state.shapes, point, store.getSpatialIndex());
+      return getTopShapeAtPoint(state.shapes, point, store.registry, store.getSpatialIndex());
     },
     forceNotify: () => store.forceNotify(),
     scrollToContent: (shapes) => {

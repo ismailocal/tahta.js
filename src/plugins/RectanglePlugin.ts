@@ -1,7 +1,10 @@
-import type { Shape, PointerPayload, ICanvasAPI } from '../core/types';
+import type { Shape } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { UI_CONSTANTS } from '../core/constants';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable } from 'roughjs/bin/core';
+import type { RoughGenerator } from 'roughjs/bin/generator';
 
 function getRoundRectPath(x: number, y: number, w: number, h: number, r: number) {
   return `M ${x + r} ${y} h ${w - 2 * r} a ${r} ${r} 0 0 1 ${r} ${r} v ${h - 2 * r} a ${r} ${r} 0 0 1 -${r} ${r} h -${w - 2 * r} a ${r} ${r} 0 0 1 -${r} -${r} v -${h - 2 * r} a ${r} ${r} 0 0 1 ${r} -${r} Z`;
@@ -19,7 +22,7 @@ export class RectanglePlugin extends BaseRectPlugin {
     return Math.min(customRadius, w / 2, h / 2);
   }
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const options = buildRoughOptions(shape, theme);
@@ -52,7 +55,7 @@ export class RectanglePlugin extends BaseRectPlugin {
     ctx.restore();
   }
 
-  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+  getDrawable(generator: RoughGenerator, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): Drawable[] {
     const w = shape.width || 0;
     const h = shape.height || 0;
     // Degenerate shapes crash roughjs — zero-radius arc ops become undefined in

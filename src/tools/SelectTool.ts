@@ -4,10 +4,10 @@ import type { HandleType } from '../geometry/Geometry';
 import { updateBoxSelection } from './SelectBoxHelper';
 import { dragHandle, translateSelection } from './SelectDragHelper';
 import { openDbTableEditor } from '../canvas/ui/DbTableEditor';
-import { PluginRegistry } from '../plugins/index';
+import { getShapePlugin } from '../plugins/index';
+import type { ShapeRegistry } from '../core/registry';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset, UI_CONSTANTS } from '../core/constants';
-import { ConnectorMixin } from '../plugins/ConnectorMixin';
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
@@ -21,9 +21,8 @@ function setCanvasCursor(event: PointerEvent, cursor: string) {
   if (el) el.style.cursor = cursor;
 }
 
-function getNearestPort(shape: Shape, world: { x: number; y: number }) {
-  if (!PluginRegistry.hasPlugin(shape.type)) return null;
-  const plugin = PluginRegistry.getPlugin(shape.type);
+function getNearestPort(shape: Shape, world: { x: number; y: number }, registry: ShapeRegistry) {
+  const plugin = getShapePlugin(registry, shape.type);
   if (!plugin.getConnectionPoints) return null;
   const ports = plugin.getConnectionPoints(shape);
   for (const port of ports) {
@@ -33,8 +32,8 @@ function getNearestPort(shape: Shape, world: { x: number; y: number }) {
 }
 
 // Helper to check if a plugin supports binding
-function isBindingPlugin(type: string): boolean {
-  return PluginRegistry.hasPlugin(type) && !!PluginRegistry.getPlugin(type).canBind;
+function isBindingPlugin(type: string, registry: ShapeRegistry): boolean {
+  return !!getShapePlugin(registry, type).canBind;
 }
 
 export class SelectTool implements ToolDefinition {
@@ -52,15 +51,10 @@ export class SelectTool implements ToolDefinition {
     const state = api.getState();
 
     // Check if clicking on a connection port of the hovered shape (only when ports are visible)
-    const selectedHasConnector = !state.drawingShapeId && state.selectedIds.some(id => {
-      const s = state.shapes.find(x => x.id === id);
-      return s && isBindingPlugin(s.type);
-    });
-    const portsVisible = isBindingPlugin(state.activeTool) || selectedHasConnector;
-    if (isBindingPlugin(state.activeTool) && state.hoveredShapeId) {
+    if (api.registry.hasRuntime(state.activeTool) && isBindingPlugin(state.activeTool, api.registry) && state.hoveredShapeId) {
       const hoveredShape = state.shapes.find(s => s.id === state.hoveredShapeId);
       if (hoveredShape) {
-        const port = getNearestPort(hoveredShape, payload.world);
+        const port = getNearestPort(hoveredShape, payload.world, api.registry);
         if (port) {
           // Start drawing an arrow from this port
           const preset = getStylePreset('arrow');
@@ -85,19 +79,19 @@ export class SelectTool implements ToolDefinition {
       }
     }
 
-    const hit = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
+    const hit = getTopShapeAtPoint(state.shapes, payload.world, api.registry, api.getSpatialIndex());
 
     // Check handles only on already-selected shapes — resize requires prior selection
     const selectedShape = state.selectedIds.length === 1 ? state.shapes.find(s => s.id === state.selectedIds[0]) : null;
 
     if (selectedShape) {
-      const handle = getHandleAtPoint(selectedShape, payload.world, state.shapes);
+      const handle = getHandleAtPoint(selectedShape, payload.world, state.shapes, api.registry);
       if (handle) {
         this.activeShapeId = selectedShape.id;
         this.activeHandle = handle as HandleType;
         this.initialSnapshot = [structuredClone(selectedShape)];
         this.dragStartWorld = payload.world;
-        api.setState({ isDraggingSelection: true });
+        api.setState({ isDraggingSelection: true, resizingShapeId: selectedShape.id });
         return;
       }
     }
@@ -139,8 +133,7 @@ export class SelectTool implements ToolDefinition {
         .map(id => state.shapes.find(s => s.id === id))
         .filter((s): s is Shape => !!s);
       const frameHit = selShapes.find(sel => {
-        if (!PluginRegistry.hasPlugin(sel.type)) return false;
-        const plugin = PluginRegistry.getPlugin(sel.type);
+        const plugin = getShapePlugin(api.registry, sel.type);
         if (!plugin.getBounds) return false;
         const b = plugin.getBounds(sel);
         return payload.world.x >= b.x - framePad && payload.world.x <= b.x + b.width + framePad &&
@@ -181,7 +174,7 @@ export class SelectTool implements ToolDefinition {
     if (this.arrowId && this.dragStartWorld) {
       const arrow = state.shapes.find(s => s.id === this.arrowId);
       if (arrow) {
-        const plugin = PluginRegistry.getPlugin('arrow');
+        const plugin = getShapePlugin(api.registry, 'arrow');
         if (plugin.onDrawUpdate) {
           const patch = plugin.onDrawUpdate(arrow, payload, this.dragStartWorld, state.shapes, api);
           api.updateShape(this.arrowId, patch);
@@ -190,7 +183,7 @@ export class SelectTool implements ToolDefinition {
       return;
     }
 
-    const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
+    const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.registry, api.getSpatialIndex());
     const hoveredId = hovered?.id || null;
     if (hoveredId !== state.hoveredShapeId) {
       api.setState({ hoveredShapeId: hoveredId });
@@ -205,7 +198,7 @@ export class SelectTool implements ToolDefinition {
         ? state.shapes.find(s => s.id === state.selectedIds[0])
         : null;
       if (selectedShape) {
-        const handle = getHandleAtPoint(selectedShape, payload.world, state.shapes);
+        const handle = getHandleAtPoint(selectedShape, payload.world, state.shapes, api.registry);
         if (handle && HANDLE_CURSORS[handle]) {
           cursor = HANDLE_CURSORS[handle];
           setCanvasCursor(payload.nativeEvent, cursor);
@@ -220,7 +213,7 @@ export class SelectTool implements ToolDefinition {
 
       // Priority 4: hovering on selection frame of selected shape (when not directly over a shape)
       if (!hovered && selectedShape) {
-        const selPlugin = PluginRegistry.hasPlugin(selectedShape.type) ? PluginRegistry.getPlugin(selectedShape.type) : null;
+        const selPlugin = getShapePlugin(api.registry, selectedShape.type);
         if (selPlugin?.getBounds) {
           const b = selPlugin.getBounds(selectedShape);
           const framePad = UI_CONSTANTS.FRAME_PAD + UI_CONSTANTS.FRAME_HIT_TOLERANCE;
@@ -257,7 +250,7 @@ export class SelectTool implements ToolDefinition {
       const state = api.getState();
       const arrow = state.shapes.find(s => s.id === this.arrowId);
       if (arrow) {
-        const plugin = PluginRegistry.getPlugin('arrow');
+        const plugin = getShapePlugin(api.registry, 'arrow');
         if (plugin.onDrawUpdate) {
           const patch = plugin.onDrawUpdate(arrow, payload, this.dragStartWorld, state.shapes, api);
           api.updateShape(this.arrowId, patch);
@@ -287,7 +280,7 @@ export class SelectTool implements ToolDefinition {
       api.setState({ hoveredShapeId: null });
     }
     if (api.getState().isDraggingSelection) {
-      api.setState({ isDraggingSelection: false, snapLines: undefined });
+      api.setState({ isDraggingSelection: false, resizingShapeId: null, snapLines: undefined });
       if (this.dragStartWorld) {
         const dx = payload.world.x - this.dragStartWorld.x;
         const dy = payload.world.y - this.dragStartWorld.y;
@@ -325,8 +318,7 @@ export class SelectTool implements ToolDefinition {
     // even if the shape has transparent fill (border-only isPointInside).
     const pt = payload.world;
     const hit = [...state.shapes].reverse().find(s => {
-      if (!PluginRegistry.hasPlugin(s.type)) return false;
-      const plugin = PluginRegistry.getPlugin(s.type);
+      const plugin = getShapePlugin(api.registry, s.type);
       if (!plugin.getBounds) return false;
       // Connectors (arrow/line): use isPointInside (distance-to-path check)
       if (plugin.isConnector) {

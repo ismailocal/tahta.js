@@ -1,10 +1,11 @@
 import { getThemeAdjustedStroke } from '../core/Utils';
 import type { Shape } from '../core/types';
+import type { IShapePlugin } from '../plugins/IShapePlugin';
 
 function renderConnectorText(
   ctx: CanvasRenderingContext2D,
   shape: Shape,
-  plugin: any,
+  plugin: IShapePlugin,
   allShapes: Shape[],
   theme: 'light' | 'dark'
 ): void {
@@ -45,7 +46,7 @@ function renderConnectorText(
 function renderBoundedShapeText(
   ctx: CanvasRenderingContext2D,
   shape: Shape,
-  plugin: any,
+  plugin: IShapePlugin,
   theme: 'light' | 'dark'
 ): void {
   const bounds = plugin.getBounds?.(shape);
@@ -55,7 +56,6 @@ function renderBoundedShapeText(
   const fontFamily = shape.fontFamily || "'Architects Daughter', cursive";
   ctx.font = `${fontSize}px ${fontFamily}`;
 
-  const lineHeight = fontSize * 1.2;
   const rawLines = shape.text!.split('\n');
 
   const textAlign: 'left' | 'center' | 'right' = shape.textAlign || 'center';
@@ -142,7 +142,7 @@ function renderBoundedShapeText(
 export function renderShapeText(
   ctx: CanvasRenderingContext2D,
   shape: Shape,
-  plugin: any,
+  plugin: IShapePlugin,
   allShapes: Shape[],
   isEditingText: boolean,
   theme: 'light' | 'dark'

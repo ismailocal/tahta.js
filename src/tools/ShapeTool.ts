@@ -1,7 +1,7 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, ShapeType, Shape } from '../core/types';
-import { getStylePreset, cacheStyle, getCachedStyle } from '../core/constants';
+import { getCachedStyle } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
-import { PluginRegistry } from '../plugins/index';
+import { getShapePlugin } from '../plugins/index';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
 import { findNearestPort } from '../plugins/ArrowPlugin';
 
@@ -33,14 +33,11 @@ export class ShapeTool implements ToolDefinition {
 
     let shape: Shape = { ...common, type: this.shapeType } as Shape;
     
-    if (PluginRegistry.hasPlugin(this.shapeType)) {
-      const plugin = PluginRegistry.getPlugin(this.shapeType);
-      if (plugin.onDrawInit) {
-        const pluginShape = plugin.onDrawInit(payload, api.getState().shapes, api);
-        shape = { ...shape, ...pluginShape } as Shape;
-        // Re-apply cached style after plugin init
-        shape = { ...shape, ...preset } as Shape;
-      }
+    const plugin = getShapePlugin(api.registry, this.shapeType);
+    if (plugin.onDrawInit) {
+      const pluginShape = plugin.onDrawInit(payload, api.getState().shapes, api);
+      shape = { ...shape, ...pluginShape } as Shape;
+      shape = { ...shape, ...preset } as Shape;
     }
 
     this.currentShapeId = shape.id;
@@ -50,19 +47,19 @@ export class ShapeTool implements ToolDefinition {
   }
 
   onPointerMove(payload: PointerPayload, api: ICanvasAPI) {
-    const plugin = PluginRegistry.hasPlugin(this.shapeType) ? PluginRegistry.getPlugin(this.shapeType) : null;
-    const isConnector = !!(plugin as any)?.canBind;
+    const plugin = getShapePlugin(api.registry, this.shapeType);
+    const isConnector = !!plugin.canBind;
 
     if (!this.drawStartWorld || !this.currentShapeId) {
       // Not drawing — update hover so ports show on shapes for connector tools
       const state = api.getState();
-      const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.getSpatialIndex());
+      const hovered = getTopShapeAtPoint(state.shapes, payload.world, api.registry, api.getSpatialIndex());
       const hoveredId = hovered?.id ?? null;
       if (hoveredId !== state.hoveredShapeId) api.setState({ hoveredShapeId: hoveredId });
 
       // Highlight nearest port when hovering before drawing starts
       if (isConnector) {
-        const nearestPort = findNearestPort(payload.world, state.shapes, []);
+        const nearestPort = findNearestPort(payload.world, state.shapes, api.registry, []);
         const newPortShapeId = nearestPort?.shape.id ?? null;
         const newPortId = nearestPort?.portId ?? null;
         if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
@@ -75,7 +72,7 @@ export class ShapeTool implements ToolDefinition {
     // While drawing a connector, track the nearest port for highlight feedback
     if (isConnector) {
       const state = api.getState();
-      const nearestPort = findNearestPort(payload.world, state.shapes, [this.currentShapeId]);
+      const nearestPort = findNearestPort(payload.world, state.shapes, api.registry, [this.currentShapeId]);
       const newPortShapeId = nearestPort?.shape.id ?? null;
       const newPortId = nearestPort?.portId ?? null;
       if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
@@ -83,17 +80,13 @@ export class ShapeTool implements ToolDefinition {
       }
     }
 
-    if (PluginRegistry.hasPlugin(this.shapeType)) {
-      const plugin = PluginRegistry.getPlugin(this.shapeType);
-      if (plugin.onDrawUpdate) {
-        const state = api.getState();
-        const shape = state.shapes.find(s => s.id === this.currentShapeId);
-        if (shape) {
-          const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
-          
-          if (Object.keys(patch).length > 0) {
-            api.updateShape(this.currentShapeId, patch);
-          }
+    if (plugin.onDrawUpdate) {
+      const state = api.getState();
+      const shape = state.shapes.find(s => s.id === this.currentShapeId);
+      if (shape) {
+        const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
+        if (Object.keys(patch).length > 0) {
+          api.updateShape(this.currentShapeId, patch);
         }
       }
     }
@@ -110,15 +103,13 @@ export class ShapeTool implements ToolDefinition {
         api.setSelection([]);
       } else {
         // Final update at exact release position so bindings are detected correctly
-        if (PluginRegistry.hasPlugin(this.shapeType)) {
-          const plugin = PluginRegistry.getPlugin(this.shapeType);
-          if (plugin.onDrawUpdate) {
-            const state = api.getState();
-            const shape = state.shapes.find(s => s.id === this.currentShapeId);
-            if (shape) {
-              const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
-              api.updateShape(this.currentShapeId!, patch);
-            }
+        const plugin = getShapePlugin(api.registry, this.shapeType);
+        if (plugin.onDrawUpdate) {
+          const state = api.getState();
+          const shape = state.shapes.find(s => s.id === this.currentShapeId);
+          if (shape) {
+            const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
+            api.updateShape(this.currentShapeId!, patch);
           }
         }
         api.commitState();

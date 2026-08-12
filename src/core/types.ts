@@ -1,5 +1,5 @@
 /** Open string type — no core change needed to add new shape types. */
-export type ShapeType = string & { readonly __brand: 'ShapeType' };
+export type ShapeType = string;
 export type ArrowheadStyle = 'none' | 'arrow' | 'triangle' | 'circle' | 'diamond' | 'bar';
 
 export interface Point {
@@ -75,12 +75,14 @@ export interface CanvasState {
   activeTool: string;
   viewport: { x: number; y: number; zoom: number };
   userToFollow?: { socketId: string; username: string } | null;
-  collaborators?: Map<string, unknown>;
+  collaborators?: Map<string, import('./CanvasEngine.js').CanvasCollaborator>;
   hoveredShapeId: string | null;
   hoveredPortShapeId?: string | null;
   hoveredPortId?: string | null;
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
+  resizingShapeId?: string | null;
+  laserTrail?: import('./laser.js').LaserPoint[];
   isPanning: boolean;
   isSpacePanning: boolean;
   showGrid?: boolean;
@@ -93,6 +95,10 @@ export interface CanvasState {
   theme?: 'light' | 'dark';
   canvasBackground?: string;
   readOnly?: boolean;
+  /** Record projections changed by the latest document transaction. */
+  changedShapeIds?: readonly string[];
+  /** Explicit refresh token for local style/template changes outside document state. */
+  uiRevision?: number;
   version: number;
 }
 
@@ -111,10 +117,12 @@ export interface PointerPayload {
 
 export interface ICanvasAPI {
   bus: EventBus;
+  registry: import('./registry').ShapeRegistry;
   getState: () => CanvasState;
   setState: (updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState), forceVersion?: number) => void;
   addShape: (shape: Shape) => void;
   updateShape: (id: string, patch: Partial<Shape>, force?: boolean) => void;
+  appendShapePoints: (id: string, points: readonly Point[]) => void;
   replaceShape: (id: string, shape: Shape) => void;
   deleteShape: (id: string) => void;
   setSelection: (ids: string[]) => void;
@@ -122,10 +130,12 @@ export interface ICanvasAPI {
   setTool: (tool: string, keepSelection?: boolean) => void;
   reorderShape: (id: string, direction: 'forward' | 'backward' | 'front' | 'back') => void;
   commitState: () => void;
+  beginUndoGroup: (group: string) => void;
+  endUndoGroup: (group: string) => void;
   undo: () => void;
   redo: () => void;
   batchUpdate: (fn: () => void) => void;
-  getSpatialIndex: () => Quadtree;
+  getSpatialIndex: () => ShapeSpatialIndex;
   getShapeAtPoint: (point: Point) => Shape | null;
   forceNotify: () => void;
   scrollToContent: (shapes?: Shape[]) => void;
@@ -141,4 +151,4 @@ export interface ToolDefinition {
   onDoubleClick?: (payload: PointerPayload, api: ICanvasAPI) => void;
 }
 import type { EventBus } from '../canvas/EventBus';
-import type { Quadtree } from '../geometry/SpatialIndex';
+import type { ShapeSpatialIndex } from '../geometry/SpatialIndex';

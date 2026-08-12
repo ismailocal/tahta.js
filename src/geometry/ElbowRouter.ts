@@ -1,5 +1,6 @@
 import type { Shape, Point } from '../core/types';
-import { PluginRegistry } from '../plugins/PluginRegistry';
+import type { ShapeRegistry } from '../core/registry';
+import { getShapePlugin } from '../plugins/index';
 
 const CLEARANCE = 20;
 
@@ -23,13 +24,12 @@ const DIRS = [
   { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 }
 ];
 
-function getShapeBoundsLocal(shape: Shape) {
-  if (PluginRegistry.hasPlugin(shape.type)) return PluginRegistry.getPlugin(shape.type).getBounds(shape);
-  return { x: shape.x, y: shape.y, width: shape.width || 0, height: shape.height || 0 };
+function getShapeBoundsLocal(shape: Shape, registry: ShapeRegistry) {
+  return getShapePlugin(registry, shape.type).getBounds(shape);
 }
 
-function getExitDir(p: Point, shape: Shape): { x: number; y: number } {
-  const b = getShapeBoundsLocal(shape);
+function getExitDir(p: Point, shape: Shape, registry: ShapeRegistry): { x: number; y: number } {
+  const b = getShapeBoundsLocal(shape, registry);
   const dL = Math.abs(p.x - b.x);
   const dR = Math.abs(p.x - (b.x + b.width));
   const dT = Math.abs(p.y - b.y);
@@ -70,15 +70,15 @@ function collapseCollinear(pts: Point[]): Point[] {
   return out;
 }
 
-export function getElbowPath(p1: Point, p2: Point, b1?: Shape, b2?: Shape): Point[] {
-  const ed1 = b1 ? getExitDir(p1, b1) : (Math.abs(p2.x - p1.x) >= Math.abs(p2.y - p1.y) ? { x: p2.x > p1.x ? 1 : -1, y: 0 } : { x: 0, y: p2.y > p1.y ? 1 : -1 });
-  const ed2 = b2 ? getExitDir(p2, b2) : { x: -ed1.x, y: -ed1.y };
+export function getElbowPath(p1: Point, p2: Point, registry: ShapeRegistry, b1?: Shape, b2?: Shape): Point[] {
+  const ed1 = b1 ? getExitDir(p1, b1, registry) : (Math.abs(p2.x - p1.x) >= Math.abs(p2.y - p1.y) ? { x: p2.x > p1.x ? 1 : -1, y: 0 } : { x: 0, y: p2.y > p1.y ? 1 : -1 });
+  const ed2 = b2 ? getExitDir(p2, b2, registry) : { x: -ed1.x, y: -ed1.y };
 
   const d1 = { x: p1.x + ed1.x * CLEARANCE, y: p1.y + ed1.y * CLEARANCE };
   const d2 = { x: p2.x + ed2.x * CLEARANCE, y: p2.y + ed2.y * CLEARANCE };
 
-  const raw1 = b1 ? getShapeBoundsLocal(b1) : null;
-  const raw2 = b2 ? getShapeBoundsLocal(b2) : null;
+  const raw1 = b1 ? getShapeBoundsLocal(b1, registry) : null;
+  const raw2 = b2 ? getShapeBoundsLocal(b2, registry) : null;
   const boxes = [raw1 ? inflate(raw1, CLEARANCE * 0.4) : null, raw2 ? inflate(raw2, CLEARANCE * 0.4) : null].filter((b): b is InflatedBox => b !== null);
 
   const xSet = new Set([d1.x, d2.x]);

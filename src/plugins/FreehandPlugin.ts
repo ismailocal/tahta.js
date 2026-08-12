@@ -3,13 +3,15 @@ import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
 import { pointToSegmentDistance } from '../geometry/Geometry';
 import { getThemeAdjustedStroke } from '../core/Utils';
 import { getStroke } from 'perfect-freehand';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 export class FreehandPlugin implements IShapePlugin {
   type = 'freehand';
   defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'opacity', 'layer', 'action'];
 
-  render(_rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(_rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+    void _rc; void _isSelected; void _isErasing; void _allShapes;
     const pts = shape.points || [];
     if (pts.length < 2) return;
 
@@ -84,7 +86,7 @@ export class FreehandPlugin implements IShapePlugin {
     ctx.fill();
   }
 
-  getResizeHandlePositions(_shape: Shape): Array<any> {
+  getResizeHandlePositions(): Array<{ x: number; y: number; angle: number }> {
     return [];
   }
 
@@ -101,7 +103,7 @@ getBounds(shape: Shape) {
     return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }
 
-  getHandleAtPoint(_shape: Shape, _point: Point): string | null {
+  getHandleAtPoint(): string | null {
     return null;
   }
 
@@ -123,7 +125,7 @@ getBounds(shape: Shape) {
     return false;
   }
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
+  onDrawInit(payload: PointerPayload): Partial<Shape> {
     return {
       x: payload.world.x,
       y: payload.world.y,
@@ -132,7 +134,7 @@ getBounds(shape: Shape) {
     };
   }
 
-  onDrawUpdate(shape: Shape, payload: PointerPayload): Partial<Shape> {
+  onDrawUpdate(shape: Shape, payload: PointerPayload, _start: Point, _allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
     const pts = shape.points || [];
     const next = {
       x: payload.world.x - shape.x,
@@ -149,10 +151,11 @@ getBounds(shape: Shape) {
       if (dx * dx + dy * dy < 1) return {};
     }
 
-    return { points: [...pts, next] };
+    api.appendShapePoints(shape.id, [next]);
+    return {};
   }
 
-  onDragHandle(_shape: Shape, _handle: string, _payload: PointerPayload, _dragStart: Point): Partial<Shape> {
+  onDragHandle(): Partial<Shape> {
     return {};
   }
 }

@@ -1,4 +1,4 @@
-import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
+import type { Shape, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
 /**

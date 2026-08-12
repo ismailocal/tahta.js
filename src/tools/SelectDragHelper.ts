@@ -1,8 +1,8 @@
 import type { ICanvasAPI, Shape, PointerPayload } from '../core/types';
 import type { HandleType } from '../geometry/Geometry';
-import { getArrowClippedEndpoints, getShapeBounds } from '../geometry/Geometry';
+import { getShapeBounds } from '../geometry/Geometry';
 import { updateDependentShapes } from '../core/Utils';
-import { PluginRegistry } from '../plugins/index';
+import { getShapePlugin } from '../plugins/index';
 
 export function dragHandle(
   api: ICanvasAPI, 
@@ -16,9 +16,8 @@ export function dragHandle(
   const shape = initialSnapshot[0];
   if (!shape || shape.locked) return;
   
-  if (PluginRegistry.hasPlugin(shape.type)) {
-    const plugin = PluginRegistry.getPlugin(shape.type);
-    if (plugin.onDragHandle) {
+  const plugin = getShapePlugin(api.registry, shape.type);
+  if (plugin.onDragHandle) {
       const patch = plugin.onDragHandle(shape, activeHandle, payload, dragStartWorld);
       
       if (plugin.onDragBindHandle) {
@@ -29,7 +28,6 @@ export function dragHandle(
         api.updateShape(activeShapeId, patch);
         updateDependentShapes(api.getState(), api, [activeShapeId]);
       });
-    }
   }
 }
 
@@ -46,7 +44,7 @@ export function translateSelection(
   if (initialSnapshot.length > 0 && !payload.metaKey) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     initialSnapshot.forEach(s => {
-      const b = getShapeBounds(s);
+      const b = getShapeBounds(s, api.registry);
       minX = Math.min(minX, b.x);
       minY = Math.min(minY, b.y);
       maxX = Math.max(maxX, b.x + b.width);
@@ -74,15 +72,16 @@ export function translateSelection(
     const vpWidth = window.innerWidth / state.viewport.zoom + viewportMargin * 2;
     const vpHeight = window.innerHeight / state.viewport.zoom + viewportMargin * 2;
 
-    const otherShapes = state.shapes.filter(s => {
-      if (state.selectedIds.includes(s.id)) return false;
-      const b = getShapeBounds(s);
+    const selectedIds = new Set(state.selectedIds);
+    const otherShapes = api.getSpatialIndex().queryBounds({ x: vpX, y: vpY, width: vpWidth, height: vpHeight }).filter(s => {
+      if (selectedIds.has(s.id)) return false;
+      const b = getShapeBounds(s, api.registry);
       return b.x >= vpX && b.x <= vpX + vpWidth && b.y >= vpY && b.y <= vpY + vpHeight;
     });
     
     // We only take the unique guides within the viewport or reasonably close
     for (const os of otherShapes) {
-      const b = getShapeBounds(os);
+      const b = getShapeBounds(os, api.registry);
       if (b.width === 0 && b.height === 0) continue;
       
       const vGuides = [b.x, b.x + b.width / 2, b.x + b.width];

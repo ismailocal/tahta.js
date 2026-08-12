@@ -1,4 +1,4 @@
-import type { ICanvasAPI, Shape, PointerPayload } from '../core/types';
+import type { ICanvasAPI, PointerPayload } from '../core/types';
 import { getShapeBounds } from '../geometry/Geometry';
 
 export function updateBoxSelection(api: ICanvasAPI, payload: PointerPayload, dragStartWorld: { x: number, y: number }) {
@@ -12,7 +12,7 @@ export function updateBoxSelection(api: ICanvasAPI, payload: PointerPayload, dra
   api.setState({ selectionBox: box });
 
   let hitIds = state.shapes.filter(s => {
-    const sb = getShapeBounds(s);
+    const sb = getShapeBounds(s, api.registry);
     return !(sb.x > box.x + box.width || sb.x + sb.width < box.x || sb.y > box.y + box.height || sb.y + sb.height < box.y);
   }).map(s => s.id);
 

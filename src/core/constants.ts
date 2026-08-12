@@ -1,4 +1,3 @@
-import { PluginRegistry } from '../plugins/PluginRegistry';
 import type { Shape } from './types';
 
 /**
@@ -47,12 +46,21 @@ export const UI_CONSTANTS = {
   MAX_ROUGH_CACHE_SIZE: 500,
 };
 
-export const STYLE_PRESETS: Record<string, any> = {
-  rectangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'sharp', opacity: 1 },
+const STYLE_PRESETS: Record<string, Partial<Shape>> = {
+  rectangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, roundness: 'round', opacity: 1 },
   ellipse: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
+  diamond: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
+  triangle: { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 },
+  'sticky-note': { stroke: '#ca8a04', fill: '#fde047', strokeWidth: 1, roughness: 0, opacity: 1, textPaddingX: 16, textPaddingY: 16 },
+  frame: { stroke: '#94a3b8', fill: 'transparent', strokeWidth: 1.5, strokeStyle: 'dashed', roughness: 0, roundness: 'round', opacity: 1, textColor: '#475569', fontSize: 18, textAlign: 'left', textVerticalAlign: 'top' },
+  line: { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', opacity: 1 },
   arrow: { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', startArrowhead: 'none', endArrowhead: 'arrow', opacity: 1 },
-  freehand: { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, opacity: 1 },
-  text: { stroke: '#64748b', fontSize: 24, opacity: 1 },
+  freehand: { stroke: '#64748b', strokeWidth: 1.8, opacity: 1 },
+  text: { stroke: '#94a3b8', fontSize: 24, opacity: 1 },
+  image: {},
+  'db-table': { stroke: '#64748b', opacity: 1 },
+  'db-view': { stroke: '#64748b', opacity: 1 },
+  'db-enum': { stroke: '#64748b', opacity: 1 },
 };
 
 const STORAGE_KEY = 'tahta_style_cache';
@@ -96,7 +104,7 @@ function saveCacheToStorage(cache: Map<string, Partial<Shape>>): void {
 }
 
 /** Cache for last used styles per shape type - remembers user's style preferences */
-let STYLE_CACHE = loadCacheFromStorage();
+const STYLE_CACHE = loadCacheFromStorage();
 
 /** Clear the style cache (useful for resetting to defaults) */
 export function clearStyleCache(): void {
@@ -130,12 +138,15 @@ export function cacheStyle(type: string, style: Partial<Shape>): void {
 }
 
 export type ToolbarItem = {
-  key: string;
+  key?: string;
   label?: string;
   shortcut?: string;
   icon?: string;
   isSeparator?: boolean;
   isDropdown?: boolean;
+  isHeader?: boolean;
+  isUserTemplate?: boolean;
+  templateId?: string;
   children?: ToolbarItem[];
 };
 
@@ -152,6 +163,7 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
   { key: 'arrow', label: 'Arrow', shortcut: 'A', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>` },
   { isSeparator: true, key: 'sep-shapes' },
   { key: 'freehand', label: 'Pen', shortcut: 'P', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` },
+  { key: 'laser', label: 'Laser', shortcut: 'K', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 7-7"/><path d="m13 11 7-7"/><path d="m14 4 6 6"/><path d="M5 5h4"/><path d="M7 3v4"/><path d="M16 16h5"/><path d="M18.5 13.5v5"/></svg>` },
   { key: 'text', label: 'Text', shortcut: 'T', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M12 4v16M9 20h6"/></svg>` },
   { key: 'image', label: 'Image', shortcut: 'I', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>` },
   { isSeparator: true, key: 'sep-draw' },
@@ -159,11 +171,11 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
     key: 'library-group', label: 'Library', shortcut: 'L', isDropdown: true,
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/></svg>`,
     children: [
-      { isHeader: true, label: 'Database Tools' } as any,
+      { isHeader: true, label: 'Database Tools' },
       { key: 'db-table', label: 'Table', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/></svg>` },
       { key: 'db-view', label: 'View', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>` },
       { key: 'db-enum', label: 'Enum', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="7" cy="12" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/><path d="M11 12h6"/><path d="M11 17h6"/><path d="M7 7h10"/></svg>` },
-      { isHeader: true, label: 'Templates' } as any,
+      { isHeader: true, label: 'Templates' },
       { key: 'template-decision-tree', label: 'Decision Tree', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L19 9L12 16L5 9Z"/><path d="M5 9v6"/><path d="M19 9v6"/><rect x="2" y="15" width="6" height="4" rx="1"/><rect x="16" y="15" width="6" height="4" rx="1"/></svg>` },
       { key: 'template-flowchart', label: 'Flowchart', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="5" rx="2"/><rect x="6" y="10" width="12" height="5"/><path d="M6 19h12l-2 3H8l-2-3z"/><path d="M12 7v3"/><path d="M12 15v4"/></svg>` },
       { key: 'template-db-schema', label: 'DB Schema', shortcut: '', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="8" height="16" rx="1"/><rect x="14" y="4" width="8" height="16" rx="1"/><path d="M2 9h8"/><path d="M14 9h8"/><path d="M10 12h4"/></svg>` },
@@ -190,7 +202,5 @@ export const TOOLBAR_ITEMS: ToolbarItem[] = [
  * Prefers the plugin's declared defaultStyle, falls back to the legacy STYLE_PRESETS map.
  */
 export function getStylePreset(type: string): Partial<Shape> {
-  const fromPlugin = PluginRegistry.getDefaultStyle(type);
-  if (Object.keys(fromPlugin).length > 0) return fromPlugin;
   return STYLE_PRESETS[type] ?? {};
 }

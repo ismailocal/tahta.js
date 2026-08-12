@@ -1,17 +1,9 @@
 import type { Point, ArrowheadStyle } from '../core/types';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable, Options } from 'roughjs/bin/core';
+import type { RoughGenerator } from 'roughjs/bin/generator';
 
-interface RoughGenerator {
-  line(x1: number, y1: number, x2: number, y2: number, options?: Record<string, unknown>): unknown;
-  polygon(points: number[][], options?: Record<string, unknown>): unknown;
-  ellipse(cx: number, cy: number, rx: number, ry: number, options?: Record<string, unknown>): unknown;
-}
-
-interface RoughCanvas {
-  generator: RoughGenerator;
-  draw(drawable: unknown): void;
-}
-
-export interface RoughOptions extends Record<string, unknown> {
+export interface RoughOptions extends Options {
   stroke: string;
   fill?: string;
   fillStyle?: string;
@@ -30,7 +22,7 @@ export function drawArrowhead(rc: RoughCanvas, ctx: CanvasRenderingContext2D, po
 /**
  * Generates Rough.js drawables for an arrowhead.
  */
-export function getArrowheadDrawable(generator: RoughGenerator, point: Point, angle: number, style: ArrowheadStyle, options: RoughOptions, theme: 'light' | 'dark' = 'dark'): unknown[] {
+export function getArrowheadDrawable(generator: RoughGenerator, point: Point, angle: number, style: ArrowheadStyle, options: RoughOptions, theme: 'light' | 'dark' = 'dark'): Drawable[] {
   if (style === 'none') return [];
   const size = Math.max(12, Math.min(30, (options.strokeWidth || 1) * 6 + 8));
 

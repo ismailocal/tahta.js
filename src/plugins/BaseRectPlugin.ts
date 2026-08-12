@@ -1,7 +1,8 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point, ConnectionPoint, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload, Point, ConnectionPoint } from '../core/types';
 import { UI_CONSTANTS } from '../core/constants';
 import { genericHitTest } from './PolygonUtils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 /**
  * Shared base for all rectangle-bounded shape plugins.
@@ -11,7 +12,7 @@ import { genericHitTest } from './PolygonUtils';
  */
 export abstract class BaseRectPlugin implements IShapePlugin {
   abstract type: string;
-  abstract render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
+  abstract render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark'): void;
 
   defaultStyle?: Partial<Shape>;
   defaultProperties?: string[];
@@ -33,7 +34,7 @@ export abstract class BaseRectPlugin implements IShapePlugin {
    * Corner radius used by both hover border and bracket indicators.
    * Override this in subclasses — no need to override getBracketRadius or drawHoverOutline separately.
    */
-  getCornerRadius(_shape: Shape): number { return 0; }
+  getCornerRadius(shape?: Shape): number { void shape; return 0; }
 
   getBracketRadius(shape: Shape): number { return this.getCornerRadius(shape); }
 
@@ -88,7 +89,7 @@ export abstract class BaseRectPlugin implements IShapePlugin {
   }
 
 
-  onDrawInit(payload: PointerPayload, _shapes: Shape[], _api: ICanvasAPI): Partial<Shape> {
+  onDrawInit(payload: PointerPayload): Partial<Shape> {
     return { x: payload.world.x, y: payload.world.y, width: 0, height: 0, strokeWidth: 1.8 };
   }
 

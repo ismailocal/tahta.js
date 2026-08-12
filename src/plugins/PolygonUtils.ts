@@ -6,7 +6,7 @@ import type { Point } from '../core/types';
  */
 
 /** Ray-casting point-in-polygon test. Works for any simple (non-self-intersecting) polygon. */
-export function isPointInPolygon(px: number, py: number, polygon: Point[]): boolean {
+function isPointInPolygon(px: number, py: number, polygon: Point[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const { x: xi, y: yi } = polygon[i];
@@ -28,7 +28,7 @@ function pointSegmentDistSq(px: number, py: number, ax: number, ay: number, bx: 
 }
 
 /** True if point is within `threshold` pixels of any polygon edge. */
-export function isPointNearEdge(px: number, py: number, polygon: Point[], threshold: number): boolean {
+function isPointNearEdge(px: number, py: number, polygon: Point[], threshold: number): boolean {
   const tSq = threshold * threshold;
   for (let i = 0; i < polygon.length; i++) {
     const a = polygon[i], b = polygon[(i + 1) % polygon.length];

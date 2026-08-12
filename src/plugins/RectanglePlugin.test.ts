@@ -4,12 +4,12 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('../core/Utils', () => ({
   drawLockIcon: vi.fn(),
   createId: () => 'mock-id',
-  getThemeAdjustedStroke: (_stroke: string, _theme: string) => _stroke ?? '#64748b',
+  getThemeAdjustedStroke: (stroke: string) => stroke ?? '#64748b',
 }));
 
 // Also mock lineUtils to avoid its own Utils import
 vi.mock('../geometry/lineUtils', () => ({
-  buildRoughOptions: (_shape: unknown, _theme: string) => ({
+  buildRoughOptions: () => ({
     stroke: '#64748b',
     fill: undefined,
     strokeWidth: 1.8,

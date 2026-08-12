@@ -2,13 +2,16 @@ import type { Shape, Point, ConnectionPoint } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 import { buildRoughOptions } from '../geometry/lineUtils';
 import { genericHitTest } from './PolygonUtils';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
+import type { Drawable } from 'roughjs/bin/core';
+import type { RoughGenerator } from 'roughjs/bin/generator';
 
 export class EllipsePlugin extends BaseRectPlugin {
   type = 'ellipse';
   defaultStyle: Partial<Shape> = { stroke: '#64748b', fill: 'transparent', strokeWidth: 1.8, roughness: 0, opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'fill', 'fillStyle', 'roughness', 'opacity', 'textLayout', 'layer', 'action'];
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, _allShapes: Shape[], theme: 'light' | 'dark') {
     const w = shape.width || 0;
     const h = shape.height || 0;
     const options = buildRoughOptions(shape, theme);
@@ -29,7 +32,7 @@ export class EllipsePlugin extends BaseRectPlugin {
     ctx.restore();
   }
 
-  getDrawable(generator: any, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): any[] {
+  getDrawable(generator: RoughGenerator, shape: Shape, _allShapes: Shape[], theme: 'light' | 'dark'): Drawable[] {
     const w = shape.width || 0;
     const h = shape.height || 0;
     if (w <= 0 || h <= 0) return [];

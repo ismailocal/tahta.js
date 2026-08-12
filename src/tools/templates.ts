@@ -1,12 +1,6 @@
 import type { Shape, Point } from '../core/types';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset } from '../core/constants';
-import { TEMPLATES_DSL } from './templates-dsl';
-import { dslToJson, jsonToShapes } from '../dsl/converter';
-import { registerAllPlugins } from '../dsl/plugins';
-
-// Ensure DSL plugins are registered
-registerAllPlugins();
 
 // ─── Core data model ──────────────────────────────────────────────────────────
 
@@ -15,12 +9,87 @@ registerAllPlugins();
  * origin (0, 0). `_tid` is a stable intra-template ID used for binding refs.
  * Real `id`s are generated fresh on each instantiation.
  */
-export type TemplateShape = Omit<Shape, 'id'> & { _tid: string };
+type TemplateShape = Omit<Shape, 'id'> & { _tid: string };
 
 export type Template = {
   label: string;
   shapes: TemplateShape[];
 };
+
+function builtInNode(
+  tid: string,
+  type: 'rectangle' | 'ellipse' | 'diamond',
+  x: number,
+  y: number,
+  text: string,
+  width: number,
+  height: number,
+  style: Partial<Shape> = {},
+): TemplateShape {
+  return {
+    ...getStylePreset(type),
+    _tid: tid,
+    type,
+    x,
+    y,
+    width,
+    height,
+    text,
+    strokeStyle: 'solid',
+    strokeWidth: 1,
+    roughness: 0,
+    opacity: 1,
+    zIndex: 0,
+    ...style,
+  };
+}
+
+function builtInArrow(
+  tid: string,
+  from: string,
+  fromPort: string,
+  to: string,
+  toPort: string,
+  style: Partial<Shape> = {},
+): TemplateShape {
+  return {
+    _tid: tid,
+    type: 'arrow',
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    zIndex: 0,
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    startBinding: { elementId: from, portId: fromPort },
+    endBinding: { elementId: to, portId: toPort },
+    strokeStyle: 'solid',
+    strokeWidth: 1,
+    roughness: 0,
+    ...style,
+  };
+}
+
+function builtInDbTable(
+  tid: string,
+  x: number,
+  tableName: string,
+  columns: Array<{ name: string; type: string; pk?: boolean; fk?: boolean }>,
+): TemplateShape {
+  return {
+    _tid: tid,
+    type: 'db-table',
+    x,
+    y: 0,
+    width: 220,
+    height: 36 + Math.max(1, columns.length) * 28,
+    zIndex: 0,
+    strokeStyle: 'solid',
+    strokeWidth: 1,
+    roughness: 0,
+    data: { tableName, columns },
+  };
+}
 
 /**
  * Instantiate a template at `origin`. Generates fresh IDs, remaps all
@@ -37,8 +106,10 @@ export function instantiateTemplate(template: Template, origin: Point): Shape[] 
 
   return template.shapes.map(s => {
     const newId = idMap.get(s._tid)!;
+    const { _tid, ...storedShape } = s;
+    void _tid;
     const shape: Shape = {
-      ...(s as any),
+      ...storedShape,
       id: newId,
       x: s.x + origin.x,
       y: s.y + origin.y,
@@ -72,7 +143,7 @@ export function selectionToTemplate(label: string, shapes: Shape[]): Template {
   for (const s of shapes) tidMap.set(s.id, s.id); // keep original id as _tid
 
   const templateShapes: TemplateShape[] = shapes.map(s => {
-    const { id, ...rest } = s as any;
+    const { id, ...rest } = s;
     const ts: TemplateShape = {
       ...rest,
       _tid: id,
@@ -88,25 +159,6 @@ export function selectionToTemplate(label: string, shapes: Shape[]): Template {
     return ts;
   });
 
-  return { label, shapes: templateShapes };
-}
-
-// ─── DSL to Template converter ───────────────────────────────────────────────────
-
-/**
- * Convert DSL string to Template format
- * This bridges the DSL system with the existing Template format
- */
-function dslToTemplate(dslText: string, label: string): Template {
-  const doc = dslToJson(dslText);
-  const shapes = jsonToShapes(doc);
-  
-  // Convert Shape[] to TemplateShape[] by replacing id with _tid
-  const templateShapes: TemplateShape[] = shapes.map(s => {
-    const { id, ...rest } = s as any;
-    return { ...rest, _tid: id } as TemplateShape;
-  });
-  
   return { label, shapes: templateShapes };
 }
 
@@ -160,57 +212,102 @@ function s_oval(x: number, y: number, w: number, h: number,
   } as TemplateShape;
 }
 
-function s_diamond(x: number, y: number, w: number, h: number,
-                   text: string, opts: Partial<Shape> = {}): TemplateShape {
-  return {
-    ...getStylePreset('diamond'),
-    _tid: createId(), type: 'diamond', x, y, width: w, height: h, zIndex: 0,
-    text, seed: randomSeed(), ...opts,
-  } as TemplateShape;
-}
-
-const DB_HEADER = 36, DB_ROW = 28;
-
-function s_dbTable(x: number, y: number, tableName: string,
-                   columns: Array<{ name: string; type: string; pk?: boolean; fk?: boolean }>,
-                   opts: Partial<Shape> = {}): TemplateShape {
-  const height = DB_HEADER + Math.max(1, columns.length) * DB_ROW;
-  return {
-    ...getStylePreset('db-table'),
-    _tid: createId(), type: 'db-table', x, y, width: 220, height, zIndex: 0,
-    data: { tableName, columns },
-    seed: randomSeed(), ...opts,
-  } as TemplateShape;
-}
-
 // ─── Built-in templates ───────────────────────────────────────────────────────
 
 function makeDecisionTree(): Template {
-  return dslToTemplate(TEMPLATES_DSL['decision-tree'], 'Decision Tree');
+  return { label: 'Decision Tree', shapes: [
+    builtInNode('root', 'diamond', -90, 0, 'Decision?', 120, 80),
+    builtInNode('yes', 'rectangle', -210, 100, 'Yes', 160, 52, { stroke: '#22c55e' }),
+    builtInNode('no', 'rectangle', 210, 100, 'No', 160, 52, { stroke: '#ef4444' }),
+    builtInNode('yesEnd', 'ellipse', -210, 200, 'Result A', 140, 52, { stroke: '#22c55e' }),
+    builtInNode('noEnd', 'ellipse', 210, 200, 'Result B', 140, 52, { stroke: '#ef4444' }),
+    builtInArrow('root-yes', 'root', 'left', 'yes', 'right', { text: '"Yes"' }),
+    builtInArrow('root-no', 'root', 'right', 'no', 'left', { text: '"No"' }),
+    builtInArrow('yes-end', 'yes', 'bottom', 'yesEnd', 'top'),
+    builtInArrow('no-end', 'no', 'bottom', 'noEnd', 'top'),
+  ] };
 }
 
 function makeFlowchart(): Template {
-  return dslToTemplate(TEMPLATES_DSL['flowchart'], 'Flowchart');
+  return { label: 'Flowchart', shapes: [
+    builtInNode('start', 'ellipse', -80, 0, 'Start', 160, 52, { stroke: '#6366f1' }),
+    builtInNode('process', 'rectangle', -80, 132, 'Process', 160, 52, { stroke: '#6366f1' }),
+    builtInNode('decide', 'diamond', -100, 264, 'Condition?', 120, 80, { stroke: '#6366f1' }),
+    builtInNode('yes', 'rectangle', -80, 396, 'Yes path', 160, 52, { stroke: '#22c55e' }),
+    builtInNode('no', 'rectangle', 140, 332, 'No path', 160, 52, { stroke: '#ef4444' }),
+    builtInNode('end', 'ellipse', -80, 528, 'End', 160, 52, { stroke: '#6366f1' }),
+    builtInArrow('start-process', 'start', 'bottom', 'process', 'top'),
+    builtInArrow('process-decide', 'process', 'bottom', 'decide', 'top'),
+    builtInArrow('decide-yes', 'decide', 'bottom', 'yes', 'top', { text: '"Yes"' }),
+    builtInArrow('decide-no', 'decide', 'right', 'no', 'left', { text: '"No"' }),
+    builtInArrow('yes-end', 'yes', 'bottom', 'end', 'top'),
+  ] };
 }
 
 function makeDbSchema(): Template {
-  return dslToTemplate(TEMPLATES_DSL['db-schema'], 'DB Schema');
+  return { label: 'DB Schema', shapes: [
+    builtInDbTable('users', 0, 'users', [{ name: 'id', type: 'INT', pk: true }, { name: 'name', type: 'VARCHAR' }, { name: 'email', type: 'VARCHAR' }, { name: 'created_at', type: 'TIMESTAMP' }]),
+    builtInDbTable('orders', 300, 'orders', [{ name: 'id', type: 'INT', pk: true }, { name: 'user_id', type: 'INT', fk: true }, { name: 'total', type: 'DECIMAL' }, { name: 'status', type: 'VARCHAR' }, { name: 'created_at', type: 'TIMESTAMP' }]),
+    builtInDbTable('items', 600, 'order_items', [{ name: 'id', type: 'INT', pk: true }, { name: 'order_id', type: 'INT', fk: true }, { name: 'product', type: 'VARCHAR' }, { name: 'quantity', type: 'INT' }, { name: 'price', type: 'DECIMAL' }]),
+    builtInArrow('users-orders', 'users', 'row-0-right', 'orders', 'row-1-left'),
+    builtInArrow('orders-items', 'orders', 'row-0-right', 'items', 'row-1-left'),
+  ] };
 }
 
 function makeUserFlow(): Template {
-  return dslToTemplate(TEMPLATES_DSL['user-flow'], 'User Flow');
+  return { label: 'User Flow', shapes: [
+    builtInNode('login', 'rectangle', 0, 0, 'Login', 150, 52, { stroke: '#06b6d4' }),
+    builtInNode('dashboard', 'rectangle', 180, 0, 'Dashboard', 150, 52, { stroke: '#06b6d4' }),
+    builtInNode('action', 'diamond', 330, -10, 'Action?', 120, 80, { stroke: '#06b6d4' }),
+    builtInNode('success', 'rectangle', 510, -20, 'Success', 150, 52, { stroke: '#22c55e' }),
+    builtInNode('error', 'rectangle', 510, 52, 'Error', 150, 52, { stroke: '#ef4444' }),
+    builtInNode('logout', 'ellipse', 0, 152, 'Logout', 150, 52, { stroke: '#06b6d4' }),
+    builtInArrow('login-dashboard', 'login', 'right', 'dashboard', 'left'),
+    builtInArrow('dashboard-action', 'dashboard', 'right', 'action', 'left'),
+    builtInArrow('action-success', 'action', 'right', 'success', 'left', { text: '"Yes"' }),
+    builtInArrow('action-error', 'action', 'bottom', 'error', 'left', { text: '"No"' }),
+    builtInArrow('login-logout', 'login', 'bottom', 'logout', 'top'),
+  ] };
 }
 
 function makeMindMap(): Template {
-  return dslToTemplate(TEMPLATES_DSL['mind-map'], 'Mind Map');
+  return { label: 'Mind Map', shapes: [
+    builtInNode('center', 'rectangle', -80, -26, 'Main Idea', 160, 52, { stroke: '#f59e0b', fill: '#1c1310' }),
+    builtInNode('topic1', 'rectangle', -350, -120, 'Topic 1', 130, 44, { stroke: '#8b5cf6' }),
+    builtInNode('topic3', 'rectangle', -350, 50, 'Topic 3', 130, 44, { stroke: '#22c55e' }),
+    builtInNode('topic2', 'rectangle', 170, -120, 'Topic 2', 130, 44, { stroke: '#06b6d4' }),
+    builtInNode('topic4', 'rectangle', 170, 50, 'Topic 4', 130, 44, { stroke: '#f43f5e' }),
+    builtInArrow('topic1-center', 'topic1', 'right', 'center', 'left', { endArrowhead: 'none', stroke: '#8b5cf6' }),
+    builtInArrow('topic3-center', 'topic3', 'right', 'center', 'left', { endArrowhead: 'none', stroke: '#22c55e' }),
+    builtInArrow('topic2-center', 'topic2', 'left', 'center', 'right', { endArrowhead: 'none', stroke: '#06b6d4' }),
+    builtInArrow('topic4-center', 'topic4', 'left', 'center', 'right', { endArrowhead: 'none', stroke: '#f43f5e' }),
+  ] };
 }
 
 function makeSwot(): Template {
-  return dslToTemplate(TEMPLATES_DSL['swot'], 'SWOT Analysis');
+  return { label: 'SWOT Analysis', shapes: [
+    builtInNode('strengths', 'rectangle', 0, 0, 'Strengths', 300, 200, { stroke: '#22c55e', fill: '#f0fdf4' }),
+    builtInNode('weaknesses', 'rectangle', 304, 0, 'Weaknesses', 300, 200, { stroke: '#ef4444', fill: '#fef2f2' }),
+    builtInNode('opportunities', 'rectangle', 0, 204, 'Opportunities', 300, 200, { stroke: '#06b6d4', fill: '#f0f9ff' }),
+    builtInNode('threats', 'rectangle', 304, 204, 'Threats', 300, 200, { stroke: '#f59e0b', fill: '#fffbeb' }),
+  ] };
 }
 
 function makeOrgChart(): Template {
-  return dslToTemplate(TEMPLATES_DSL['org-chart'], 'Org Chart');
+  const nodes = [
+    builtInNode('ceo', 'rectangle', -70, 0, 'CEO', 140, 48, { stroke: '#6366f1', fill: '#eef2ff' }),
+    builtInNode('mgr1', 'rectangle', -250, 120, 'Manager 1', 140, 48, { stroke: '#8b5cf6' }),
+    builtInNode('mgr2', 'rectangle', -70, 120, 'Manager 2', 140, 48, { stroke: '#8b5cf6' }),
+    builtInNode('mgr3', 'rectangle', 110, 120, 'Manager 3', 140, 48, { stroke: '#8b5cf6' }),
+    ...Array.from({ length: 6 }, (_, index) => builtInNode(`emp${index + 1}`, 'rectangle', -380 + index * 130, 200, `Employee ${index + 1}`, 119, 41, { stroke: '#a78bfa' })),
+  ];
+  return { label: 'Org Chart', shapes: [
+    ...nodes,
+    builtInArrow('ceo-mgr1', 'ceo', 'bottom', 'mgr1', 'top', { endArrowhead: 'none' }),
+    builtInArrow('ceo-mgr2', 'ceo', 'bottom', 'mgr2', 'top', { endArrowhead: 'none' }),
+    builtInArrow('ceo-mgr3', 'ceo', 'bottom', 'mgr3', 'top', { endArrowhead: 'none' }),
+    ...Array.from({ length: 6 }, (_, index) => builtInArrow(`mgr-emp${index + 1}`, `mgr${Math.floor(index / 2) + 1}`, 'bottom', `emp${index + 1}`, 'top', { endArrowhead: 'none' })),
+  ] };
 }
 
 function makeTimeline(): Template {
@@ -263,7 +360,6 @@ function makeUmlClass(): Template {
   const W = 200, HDR = 44, ROW = 28;
   const ATTRS = ['- id: int', '- name: string', '- email: string'];
   const METHS = ['+ getId(): int', '+ save(): void'];
-  const H = HDR + (ATTRS.length + METHS.length) * ROW;
   const GAP = 120;
 
   function umlClass(x: number, name: string): TemplateShape[] {
@@ -279,14 +375,18 @@ function makeUmlClass(): Template {
   const arrow = s_arrow(
     port(cls1[0], 'right'),
     port(cls2[0], 'left'),
-    { endArrowhead: 'triangle', text: 'has many' } as any
+    { endArrowhead: 'triangle', text: 'has many' }
   );
 
   return { label: 'UML Class', shapes: [...cls1, ...cls2, arrow] };
 }
 
 function makeVennDiagram(): Template {
-  return dslToTemplate(TEMPLATES_DSL['venn'], 'Venn Diagram');
+  return { label: 'Venn Diagram', shapes: [
+    builtInNode('setA', 'ellipse', -190, -132, 'Set A', 220, 220, { stroke: '#6366f1', fill: '#6366f1', opacity: 0.25 }),
+    builtInNode('setB', 'ellipse', -30, -132, 'Set B', 220, 220, { stroke: '#ec4899', fill: '#ec4899', opacity: 0.25 }),
+    builtInNode('setC', 'ellipse', -110, 28, 'Set C', 220, 220, { stroke: '#f59e0b', fill: '#f59e0b', opacity: 0.25 }),
+  ] };
 }
 
 function makeFishbone(): Template {
@@ -336,7 +436,14 @@ function makeFishbone(): Template {
 }
 
 function makeWireframe(): Template {
-  return dslToTemplate(TEMPLATES_DSL['wireframe'], 'Wireframe');
+  return { label: 'Wireframe', shapes: [
+    builtInNode('header', 'rectangle', 0, -12, 'Header / Nav', 720, 60, { stroke: '#94a3b8', fill: '#f1f5f9' }),
+    builtInNode('sidebar', 'rectangle', 0, 64, 'Sidebar', 160, 400, { stroke: '#94a3b8', fill: '#f8fafc' }),
+    builtInNode('footer', 'rectangle', 0, 472, 'Footer', 720, 48, { stroke: '#94a3b8', fill: '#f1f5f9' }),
+    builtInNode('content1', 'rectangle', 168, 64, 'Content 1', 552, 120, { stroke: '#cbd5e1' }),
+    builtInNode('content2', 'rectangle', 168, 200, 'Content 2', 552, 120, { stroke: '#cbd5e1' }),
+    builtInNode('content3', 'rectangle', 168, 336, 'Content 3', 552, 120, { stroke: '#cbd5e1' }),
+  ] };
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────────────

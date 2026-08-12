@@ -1,5 +1,5 @@
 import type { Shape, ICanvasAPI } from '../../core/types';
-import { getShapePropertyKeys, STROKE_COLORS, getFillColors, CANVAS_COLORS } from './PropertyConstants';
+import { getShapePropertyKeys, STROKE_COLORS, getFillColors } from './PropertyConstants';
 import { getCachedStyle } from '../../core/constants';
 import { ICONS } from '../../core/icons';
 
@@ -97,29 +97,6 @@ function btnGroup(...btns: string[]): string {
 
 // ─── Main render ───────────────────────────────────────────────────────────────
 
-function dropdown(label: string, icon: string, content: string, title: string): string {
-  return `<div class="pp-dropdown-wrap">
-    <button class="pp-dbat" title="${title}" aria-label="${title}">
-      <span class="pp-dbat-icon">${icon}</span>
-      <span class="tool-dropdown-arrow">▸</span>
-    </button>
-    <div class="pp-dropdown-menu">
-      <div class="pp-dropdown-label" aria-label="${label}">${label}</div>
-      <div class="pp-dropdown-content">${content}</div>
-    </div>
-  </div>`;
-}
-
-function colorIcon(color: string): string {
-  const isTrans = color === 'transparent';
-  return `<div class="pp-color-preview${isTrans ? ' pp-swatch--trans' : ''}" 
-    style="${isTrans ? '' : `background:${color}; border: 1px solid rgba(0,0,0,0.1);`}"></div>`;
-}
-
-const PROPERTIES_ICONS = {
-  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-};
-
 function renderTextLayoutSection(shape: Shape): string {
   let textHtml = '';
   const fs = shape.fontSize || 20;
@@ -132,7 +109,6 @@ function renderTextLayoutSection(shape: Shape): string {
     )
   );
 
-  const textColor = shape.textColor || '';
   textHtml += row('Text color', `<div class="pp-swatches">${STROKE_COLORS.map(c => swatch('textColor', c, shape.textColor === c)).join('')}</div>`);
 
   const alignH = shape.textAlign || 'center';
@@ -182,14 +158,14 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     const cachedStyle = getCachedStyle(state.activeTool);
     const shape: Shape = {
       id: '',
-      type: state.activeTool as any,
+      type: state.activeTool,
       x: 0, y: 0,
       width: 0, height: 0,
       ...cachedStyle
     };
 
     // Tek bir şekil gibi davran
-    const props = getShapePropertyKeys(shape.type);
+    const props = getShapePropertyKeys(shape.type, api.registry);
     const has = (k: string) => props.includes(k);
     const sw = shape.strokeWidth ?? 2;
     const groups: string[] = [];
@@ -329,9 +305,9 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
 
   const shape = selectedShapes[0]!;
 
-  let props = getShapePropertyKeys(shape.type);
+  let props = getShapePropertyKeys(shape.type, api.registry);
   for (let i = 1; i < selectedShapes.length; i++) {
-    const p = getShapePropertyKeys(selectedShapes[i]!.type);
+    const p = getShapePropertyKeys(selectedShapes[i]!.type, api.registry);
     props = props.filter(k => p.includes(k));
   }
 
@@ -493,8 +469,3 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
     <div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join('')}</div>
   `;
 }
-
-// backward compat exports (referenced by PropertiesPanel.ts re-export)
-export function renderColorSwatches(): string { return ''; }
-export function renderBtnGroup(): string { return ''; }
-

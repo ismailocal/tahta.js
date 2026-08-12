@@ -1,11 +1,12 @@
 import rough from 'roughjs';
 import type { Shape, CanvasState } from '../core/types';
-import { PluginRegistry } from '../plugins/index';
+import { getShapePlugin } from '../plugins/index';
+import type { ShapeRegistry } from '../core/registry';
 import { renderGrid } from './GridRenderer';
-import { renderWelcome, renderOverlays } from './OverlayRenderer';
-import { renderShape } from './ShapeRenderer';
+import { hasActiveLaserAnimation, renderWelcome, renderOverlays } from './OverlayRenderer';
+import { renderShape, ShapeRenderCache } from './ShapeRenderer';
 import { RENDERING_CONSTANTS } from './RenderingConstants';
-import { createShapeSpatialIndex, type Quadtree } from '../geometry/SpatialIndex';
+import type { ShapeSpatialIndex } from '../geometry/SpatialIndex';
 
 interface RendererState {
   staticCanvas: HTMLCanvasElement | null;
@@ -15,9 +16,8 @@ interface RendererState {
   lastEditingShapeId: string | null;
   lastShapesRef: Shape[] | null;
   lastTheme: string | null;
-  lastGen: number;
-  spatialIndex: Quadtree | null;
   shapeOrder: Map<string, number>;
+  shapeCache: ShapeRenderCache;
 }
 
 const rendererStateMap = new WeakMap<HTMLCanvasElement, RendererState>();
@@ -43,9 +43,8 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
       lastEditingShapeId: null,
       lastShapesRef: null,
       lastTheme: null,
-      lastGen: 0,
-      spatialIndex: null,
       shapeOrder: new Map(),
+      shapeCache: new ShapeRenderCache(),
     });
   }
   return rendererStateMap.get(canvas)!;
@@ -54,11 +53,6 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
 function setupCanvas(canvas: HTMLCanvasElement, rs: RendererState, rect: DOMRect, dpr: number): boolean {
   const width = Math.floor(rect.width * dpr);
   const height = Math.floor(rect.height * dpr);
-
-  if (rs.lastGen !== currentGen) {
-    rs.isStaticValid = false;
-    rs.lastGen = currentGen;
-  }
 
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
@@ -69,7 +63,7 @@ function setupCanvas(canvas: HTMLCanvasElement, rs: RendererState, rect: DOMRect
   return false;
 }
 
-function shouldInvalidateStatic(state: CanvasState, rs: RendererState): boolean {
+function shouldInvalidateStatic(state: CanvasState, rs: RendererState, dynamicIds: ReadonlySet<string>): boolean {
   if (rs.lastViewport.x !== state.viewport.x || rs.lastViewport.y !== state.viewport.y || rs.lastViewport.zoom !== state.viewport.zoom) {
     rs.isStaticValid = false;
     rs.lastViewport = { ...state.viewport };
@@ -79,7 +73,7 @@ function shouldInvalidateStatic(state: CanvasState, rs: RendererState): boolean 
     rs.lastEditingShapeId = state.editingShapeId || null;
   }
   if (state.shapes !== rs.lastShapesRef) {
-    rs.isStaticValid = false;
+    if ((state.changedShapeIds ?? []).some((id) => !dynamicIds.has(id))) rs.isStaticValid = false;
     rs.lastShapesRef = state.shapes;
   }
   return rs.isStaticValid;
@@ -94,6 +88,7 @@ function renderStaticLayer(
   dynamicIds: Set<string>,
   showPorts: boolean,
   visibleShapes: Shape[],
+  registry: ShapeRegistry,
 ): void {
   if (!rs.isStaticValid || !rs.staticCanvas) {
     if (!rs.staticCanvas) rs.staticCanvas = document.createElement('canvas');
@@ -121,7 +116,7 @@ function renderStaticLayer(
           theme: state.theme || 'light',
           isDrawing: false,
           activePortId
-        });
+        }, registry, rs.shapeCache);
     });
     sCtx.restore();
     rs.isStaticValid = true;
@@ -137,6 +132,8 @@ function renderDynamicLayer(
   dynamicIds: Set<string>,
   showPorts: boolean,
   visibleShapes: Shape[],
+  registry: ShapeRegistry,
+  cache: ShapeRenderCache,
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -154,7 +151,7 @@ function renderDynamicLayer(
       theme: state.theme || 'light',
       isDrawing: shape.id === state.drawingShapeId,
       activePortId
-    });
+    }, registry, cache);
     renderedCount++;
   });
   return renderedCount;
@@ -169,6 +166,8 @@ function renderFullScene(
   dpr: number,
   showPorts: boolean,
   visibleShapes: Shape[],
+  registry: ShapeRegistry,
+  cache: ShapeRenderCache,
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -191,51 +190,26 @@ function renderFullScene(
         theme: state.theme || 'light',
         isDrawing: shape.id === state.drawingShapeId,
         activePortId
-      });
+      }, registry, cache);
       renderedCount++;
   });
   return renderedCount;
 }
 
-function getDynamicIds(state: CanvasState): Set<string> {
+function getDynamicIds(state: CanvasState, spatialIndex: ShapeSpatialIndex): Set<string> {
   const dynamicIds = new Set(state.selectedIds);
   if (state.drawingShapeId) dynamicIds.add(state.drawingShapeId);
   if (state.hoveredShapeId) dynamicIds.add(state.hoveredShapeId);
-
-  // Perform a small number of passes to collect connected shapes and connectors
-  // Usually 2 passes is enough: Connector -> Shape, Shape -> Connector
-  for (let pass = 0; pass < 2; pass++) {
-    let added = false;
-    for (const s of state.shapes) {
-      if (dynamicIds.has(s.id)) continue;
-      if (PluginRegistry.hasPlugin(s.type) && PluginRegistry.getPlugin(s.type).isConnector) {
-        // If shape is dynamic, its connectors should be dynamic
-        if ((s.startBinding && dynamicIds.has(s.startBinding.elementId)) ||
-            (s.endBinding && dynamicIds.has(s.endBinding.elementId))) {
-          dynamicIds.add(s.id);
-          added = true;
-        }
-        // If connector is dynamic, its bound shapes should be dynamic
-        if (dynamicIds.has(s.id)) { // Re-check after possible addition above
-          if (s.startBinding) dynamicIds.add(s.startBinding.elementId);
-          if (s.endBinding) dynamicIds.add(s.endBinding.elementId);
-          added = true;
-        }
-      }
-    }
-    if (!added) break;
-  }
-  return dynamicIds;
+  return spatialIndex.expandConnected(dynamicIds);
 }
 
-function getVisibleShapes(state: CanvasState, rect: DOMRect, rs: RendererState): Shape[] {
-  if (!rs.spatialIndex || rs.lastShapesRef !== state.shapes) {
-    rs.spatialIndex = createShapeSpatialIndex(state.shapes);
+function getVisibleShapes(state: CanvasState, rect: DOMRect, rs: RendererState, spatialIndex: ShapeSpatialIndex): Shape[] {
+  if (rs.lastShapesRef !== state.shapes) {
     rs.shapeOrder = new Map(state.shapes.map((shape, index) => [shape.id, index]));
   }
   const zoom = state.viewport.zoom || 1;
   const overscan = 100 / zoom;
-  const visible = rs.spatialIndex.queryBounds({
+  const visible = spatialIndex.queryBounds({
     x: -state.viewport.x / zoom - overscan,
     y: -state.viewport.y / zoom - overscan,
     width: rect.width / zoom + overscan * 2,
@@ -245,12 +219,9 @@ function getVisibleShapes(state: CanvasState, rect: DOMRect, rs: RendererState):
   return visible;
 }
 
-/** Call on canvas destroy to release the off-screen static canvas pixel buffer. */
-let currentGen = 0;
-if (typeof window !== 'undefined') {
-  window.addEventListener('tuval-force-render', () => {
-    currentGen++;
-  });
+export function invalidateRendererState(canvas: HTMLCanvasElement): void {
+  const state = rendererStateMap.get(canvas);
+  if (state) state.isStaticValid = false;
 }
 
 export function clearRendererState(canvas?: HTMLCanvasElement) {
@@ -262,54 +233,60 @@ export function clearRendererState(canvas?: HTMLCanvasElement) {
     }
     rendererStateMap.delete(canvas);
     roughCanvasCache.delete(canvas);
+    rs?.shapeCache.clear();
   }
 }
 
-export function renderScene(canvas: HTMLCanvasElement, state: CanvasState): { total: number, rendered: number } {
+export function renderScene(
+  canvas: HTMLCanvasElement,
+  state: CanvasState,
+  registry: ShapeRegistry,
+  spatialIndex: ShapeSpatialIndex,
+): { total: number, rendered: number, needsAnimation: boolean } {
   const rs = getRendererState(canvas);
 
-  const activeToolPlugin = PluginRegistry.getPluginForTool(state.activeTool);
+  const activeToolPlugin = registry.hasRuntime(state.activeTool) ? getShapePlugin(registry, state.activeTool) : null;
   const isBindingTool = !!activeToolPlugin?.canBind;
   const showPorts = isBindingTool ||
     (!state.drawingShapeId && state.selectedIds.some(id => {
       const s = state.shapes.find(x => x.id === id);
-      return s && PluginRegistry.hasPlugin(s.type) && !!PluginRegistry.getPlugin(s.type).canBind;
+      return s && !!getShapePlugin(registry, s.type).canBind;
     }));
 
   const ctx = canvas.getContext('2d');
-  if (!ctx) return { total: 0, rendered: 0 };
+  if (!ctx) return { total: 0, rendered: 0, needsAnimation: false };
 
   const totalCount = state.shapes.length;
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const visibleShapes = getVisibleShapes(state, rect, rs);
+  const visibleShapes = getVisibleShapes(state, rect, rs, spatialIndex);
 
   setupCanvas(canvas, rs, rect, dpr);
-  shouldInvalidateStatic(state, rs);
-
   const rc = getRoughCanvas(canvas);
 
-  const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId;
-  const dynamicIds = isDrawnAction ? getDynamicIds(state) : new Set(state.selectedIds);
+  const needsAnimation = hasActiveLaserAnimation(state);
+  const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId || needsAnimation;
+  const dynamicIds = isDrawnAction ? getDynamicIds(state, spatialIndex) : new Set(state.selectedIds);
   if (state.hoveredPortShapeId) dynamicIds.add(state.hoveredPortShapeId);
   if (isDrawnAction && !rs.lastDragState) rs.isStaticValid = false;
+  shouldInvalidateStatic(state, rs, dynamicIds);
   rs.lastDragState = isDrawnAction;
 
   let renderedCount: number;
   if (isDrawnAction) {
-    renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes);
+    renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes, registry);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(rs.staticCanvas!, 0, 0, canvas.width, canvas.height);
 
-    renderedCount = renderDynamicLayer(rc, ctx, state, rect, dpr, dynamicIds, showPorts, visibleShapes);
+    renderedCount = renderDynamicLayer(rc, ctx, state, rect, dpr, dynamicIds, showPorts, visibleShapes, registry, rs.shapeCache);
   } else {
-    renderedCount = renderFullScene(rc, ctx, canvas, state, rect, dpr, showPorts, visibleShapes);
+    renderedCount = renderFullScene(rc, ctx, canvas, state, rect, dpr, showPorts, visibleShapes, registry, rs.shapeCache);
   }
 
-  renderOverlays(ctx, state);
+  renderOverlays(ctx, state, registry);
   ctx.restore();
-  return { total: totalCount, rendered: renderedCount };
+  return { total: totalCount, rendered: renderedCount, needsAnimation };
 }

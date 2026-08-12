@@ -1,5 +1,6 @@
-import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
-import { PluginRegistry } from './PluginRegistry';
+import type { Shape, ShapeBinding, PointerPayload, Point, ICanvasAPI } from '../core/types';
+import type { ShapeRegistry } from '../core/registry';
+import { getShapePlugin } from './index';
 import { UI_CONSTANTS } from '../core/constants';
 
 /**
@@ -13,14 +14,14 @@ export class ConnectorMixin {
   static findNearestPort(
     cursor: { x: number; y: number },
     allShapes: Shape[],
+    registry: ShapeRegistry,
     excludeIds: string[] = []
   ): { shape: Shape; portId: string; x: number; y: number } | null {
     let best: { shape: Shape; portId: string; x: number; y: number } | null = null;
     let bestDist = UI_CONSTANTS.PORT_SNAP_RADIUS;
     for (const s of allShapes) {
       if (excludeIds.includes(s.id)) continue;
-      if (!PluginRegistry.hasPlugin(s.type)) continue;
-      const plugin = PluginRegistry.getPlugin(s.type);
+      const plugin = getShapePlugin(registry, s.type);
       if (plugin.isConnector || !plugin.getConnectionPoints) continue;
       for (const port of plugin.getConnectionPoints(s)) {
         const d = Math.hypot(cursor.x - port.x, cursor.y - port.y);
@@ -34,9 +35,9 @@ export class ConnectorMixin {
    * Get the binding point for a shape.
    * Priority: portId > normalX/normalY (proportional float) > shape center.
    */
-  static getBindingPoint(shape: Shape, portId?: string, normalX?: number, normalY?: number): { x: number; y: number } {
-    if (portId && PluginRegistry.hasPlugin(shape.type)) {
-      const plugin = PluginRegistry.getPlugin(shape.type);
+  static getBindingPoint(shape: Shape, registry: ShapeRegistry, portId?: string, normalX?: number, normalY?: number): { x: number; y: number } {
+    if (portId) {
+      const plugin = getShapePlugin(registry, shape.type);
       if (plugin.getConnectionPoints) {
         const port = plugin.getConnectionPoints(shape).find(p => p.id === portId);
         if (port) return { x: port.x, y: port.y };
@@ -60,10 +61,10 @@ export class ConnectorMixin {
     payload: PointerPayload,
     allShapes: Shape[],
     activeShapeId: string,
-    api: any
+    api: ICanvasAPI
   ): Partial<Shape> {
-    let snap = (!payload.ctrlKey && !payload.metaKey)
-      ? ConnectorMixin.findNearestPort(payload.world, allShapes, [activeShapeId])
+    const snap = (!payload.ctrlKey && !payload.metaKey)
+      ? ConnectorMixin.findNearestPort(payload.world, allShapes, api.registry, [activeShapeId])
       : null;
 
     const patch: Partial<Shape> = {};
@@ -91,7 +92,7 @@ export class ConnectorMixin {
   /**
    * Update connector when a bound shape changes position.
    */
-  static onBoundShapeChange(shape: Shape, allShapes: Shape[], changedShapeIds: string[]): Partial<Shape> | null {
+  static onBoundShapeChange(shape: Shape, allShapes: Shape[], changedShapeIds: string[], registry: ShapeRegistry): Partial<Shape> | null {
     const startId = shape.startBinding?.elementId;
     const endId = shape.endBinding?.elementId;
     if (!startId && !endId) return null;
@@ -102,11 +103,11 @@ export class ConnectorMixin {
 
       if (startId) {
         const sShape = allShapes.find(s => s.id === startId);
-        if (sShape) p1 = ConnectorMixin.getBindingPoint(sShape, shape.startBinding!.portId, shape.startBinding!.normalX, shape.startBinding!.normalY);
+        if (sShape) p1 = ConnectorMixin.getBindingPoint(sShape, registry, shape.startBinding!.portId, shape.startBinding!.normalX, shape.startBinding!.normalY);
       }
       if (endId) {
         const eShape = allShapes.find(s => s.id === endId);
-        if (eShape) p2 = ConnectorMixin.getBindingPoint(eShape, shape.endBinding!.portId, shape.endBinding!.normalX, shape.endBinding!.normalY);
+        if (eShape) p2 = ConnectorMixin.getBindingPoint(eShape, registry, shape.endBinding!.portId, shape.endBinding!.normalX, shape.endBinding!.normalY);
       }
 
       return {
@@ -121,10 +122,10 @@ export class ConnectorMixin {
    * Initialize connector drawing with optional port snapping.
    */
   static onDrawInit(payload: PointerPayload, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
-    let snap = ConnectorMixin.findNearestPort(payload.world, allShapes);
-    let startBinding: any = snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined;
-    let x = snap ? snap.x : payload.world.x;
-    let y = snap ? snap.y : payload.world.y;
+    const snap = ConnectorMixin.findNearestPort(payload.world, allShapes, api.registry);
+    const startBinding: ShapeBinding | undefined = snap ? { elementId: snap.shape.id, portId: snap.portId } : undefined;
+    const x = snap ? snap.x : payload.world.x;
+    const y = snap ? snap.y : payload.world.y;
 
     // No fallback: only bind to named ports, not arbitrary shape points
 
@@ -140,7 +141,8 @@ export class ConnectorMixin {
   /**
    * Update connector during drawing with optional port snapping.
    */
-  static onDrawUpdate(shape: Shape, payload: PointerPayload, _dragStart: Point, allShapes: Shape[], api: any): Partial<Shape> {
+  static onDrawUpdate(shape: Shape, payload: PointerPayload, _dragStart: Point, allShapes: Shape[], api: ICanvasAPI): Partial<Shape> {
+    void _dragStart;
     let dx = payload.world.x - shape.x;
     let dy = payload.world.y - shape.y;
     if (payload.shiftKey) {
@@ -150,8 +152,8 @@ export class ConnectorMixin {
     const patch: Partial<Shape> = { points: [{ x: 0, y: 0 }, { x: dx, y: dy }], endBinding: undefined };
     const state = api.getState();
 
-    let snap = (!payload.ctrlKey && !payload.metaKey)
-      ? ConnectorMixin.findNearestPort(payload.world, allShapes, [shape.id])
+    const snap = (!payload.ctrlKey && !payload.metaKey)
+      ? ConnectorMixin.findNearestPort(payload.world, allShapes, api.registry, [shape.id])
       : null;
 
     if (snap) {

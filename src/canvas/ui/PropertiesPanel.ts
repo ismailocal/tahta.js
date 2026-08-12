@@ -52,13 +52,14 @@ function handleActionClick(val: string, selectedIds: string[], api: ICanvasAPI) 
 }
 
 function handleLayerClick(val: string, selectedIds: string[], api: ICanvasAPI) {
-  selectedIds.forEach((id: string) => api.reorderShape(id, val as any));
+  if (val !== 'forward' && val !== 'backward' && val !== 'front' && val !== 'back') return;
+  selectedIds.forEach((id: string) => api.reorderShape(id, val));
 }
 
 function handleMultiPropClick(prop: string, val: string, selectedIds: string[], api: ICanvasAPI) {
   const propKeys = prop.split('|');
   const propVals = val.split('|');
-  const patch: Record<string, any> = {};
+  const patch: Record<string, unknown> = {};
   propKeys.forEach((k, i) => { patch[k] = propVals[i]; });
   
   const state = api.getState();
@@ -78,12 +79,12 @@ function handleMultiPropClick(prop: string, val: string, selectedIds: string[], 
     return;
   }
   
-  selectedIds.forEach((id: string) => api.updateShape(id, patch));
+  selectedIds.forEach((id: string) => api.updateShape(id, patch as Partial<Shape>));
   api.commitState();
 }
 
 function handlePropClick(prop: string, val: string, selectedIds: string[], api: ICanvasAPI) {
-  let parsedVal: any = val;
+  let parsedVal: string | number | boolean = val;
   if (prop === 'strokeWidth' || prop === 'roughness' || prop === 'opacity' || prop === 'cornerRadius' || prop === 'fontSize') {
     parsedVal = parseFloat(val);
   } else if (prop === 'locked') {
@@ -159,7 +160,7 @@ function handleOpacityChange(api: ICanvasAPI) {
   api.commitState();
 }
 
-export function initPropertiesPanel(container: HTMLElement, api: ICanvasAPI) {
+export function initPropertiesPanel(container: HTMLElement, api: ICanvasAPI, signal: AbortSignal) {
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     const btn = target.closest('[data-prop]');
@@ -192,19 +193,19 @@ export function initPropertiesPanel(container: HTMLElement, api: ICanvasAPI) {
 
       handlePropClick(prop, val, selectedIds, api);
     }
-  });
+  }, { signal });
 
   container.addEventListener('input', (e) => {
     const target = e.target as HTMLInputElement;
     if (target.matches('[data-prop="opacity"]')) {
       handleOpacityInput(target, api);
     }
-  });
+  }, { signal });
 
   container.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement;
     if (target.matches('[data-prop="opacity"]')) {
       handleOpacityChange(api);
     }
-  });
+  }, { signal });
 }

@@ -20,6 +20,10 @@ export function setupKeyboard(
 
     // In readOnly mode, only allow pan (Space) and zoom shortcuts
     if (state.readOnly) {
+      if (e.key.toLowerCase() === 'k') {
+        api.setTool('laser');
+        return;
+      }
       if (e.code === 'Space' && !state.isSpacePanning) {
         api.setState({ isSpacePanning: true });
         setActiveOverrideTool('hand');
@@ -158,6 +162,7 @@ export function setupKeyboard(
       if (e.key === 'l') api.setTool('line');
       if (e.key === 'a') api.setTool('arrow');
       if (e.key === 'p') api.setTool('freehand');
+      if (e.key === 'k') api.setTool('laser');
       if (e.key === 'x') api.setTool('eraser');
       if (e.key === 't') api.setTool('text');
     }

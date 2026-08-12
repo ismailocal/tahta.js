@@ -1,21 +1,25 @@
-import { EventBus } from '../canvas/EventBus';
-import type { CanvasState, Shape } from './types';
-import { HistoryManager } from '../canvas/HistoryManager';
-import { Quadtree, createShapeSpatialIndex } from '../geometry/SpatialIndex';
-import { ShapeManager } from '../geometry/ShapeManager';
-import { getArrowClippedEndpoints } from '../geometry/lineUtils';
-import { PluginRegistry } from '../plugins/PluginRegistry';
-import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants';
+import { generateKeyBetween } from 'fractional-indexing';
+import { EventBus } from '../canvas/EventBus.js';
+import { createShapeSpatialIndex, ShapeSpatialIndex } from '../geometry/SpatialIndex.js';
+import { getArrowClippedEndpoints } from '../geometry/lineUtils.js';
+import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants.js';
+import type { CanvasCommand } from './commands.js';
+import type { CanvasEngine, CanvasViewState } from './CanvasEngine.js';
+import {
+  shapePatchToRecordPatch,
+  commandsForShapeReplacement,
+  shapeToBindingRecord,
+  shapeToRecord,
+} from './projection.js';
+import { CanvasShapeProjection } from './CanvasShapeProjection.js';
+import type { CanvasState, Shape } from './types.js';
+import type { ShapeRegistry } from './registry.js';
 
-// Static mapping for variant cache keys
 const VARIANT_CACHE_KEYS: Record<string, (shape: Shape) => string | null> = {
-  arrow: () => {
-    return null;
-  },
+  arrow: () => null,
 };
 
-/** Default initial state for a new canvas. */
-export const DEFAULT_STATE: CanvasState = {
+const DEFAULT_STATE: CanvasState = {
   shapes: [],
   selectedIds: [],
   activeTool: 'select',
@@ -23,6 +27,8 @@ export const DEFAULT_STATE: CanvasState = {
   hoveredShapeId: null,
   drawingShapeId: null,
   isDraggingSelection: false,
+  resizingShapeId: null,
+  laserTrail: [],
   isPanning: false,
   isSpacePanning: false,
   showGrid: false,
@@ -33,84 +39,317 @@ export const DEFAULT_STATE: CanvasState = {
 };
 
 /**
- * Central state container for the whiteboard engine.
- * Handles state updates, history (undo/redo), spatial indexing, and event broadcasting.
+ * DOM araçlarının mevcut sözleşmesini Yjs motoruna yansıtan instance-scope adaptör.
+ * Belge verisi bu sınıfta tutulmaz; her shape okuması engine snapshot'ından üretilir.
  */
 export class WhiteboardStore {
-  /** The event bus used for internal and external communication. */
-  public bus: EventBus;
-  private subscribers = new Set<(state: CanvasState) => void>();
+  readonly bus: EventBus;
+  readonly engine: CanvasEngine;
+  readonly registry: ShapeRegistry;
+  private readonly subscribers = new Set<(state: CanvasState) => void>();
+  private readonly unsubscribeEngine: () => void;
+  private readonly projection: CanvasShapeProjection;
   private state: CanvasState;
-  private historyManager: HistoryManager;
-  private spatialIndex: Quadtree | null = null;
+  private spatialIndex: ShapeSpatialIndex | null = null;
   private indexedShapes: Shape[] | null = null;
+  private version = 0;
+  private uiRevision = 0;
+  private activeUndoGroup: string | null = null;
   private batchDepth = 0;
+  private queuedCommands: CanvasCommand[] = [];
 
-  constructor(initialState: Partial<CanvasState> = {}, bus = new EventBus()) {
+  constructor(
+    engine: CanvasEngine,
+    initialState: Partial<CanvasState> = {},
+    bus = new EventBus(),
+    registry = engine.registry,
+  ) {
     this.bus = bus;
-    this.state = { ...DEFAULT_STATE, ...initialState };
-    this.historyManager = new HistoryManager(this.state.shapes);
+    this.engine = engine;
+    this.registry = registry;
+    this.projection = new CanvasShapeProjection(registry);
+    if (initialState.viewport || initialState.theme || initialState.activeTool) {
+      this.engine.setViewState({
+        ...(initialState.viewport ? { viewport: initialState.viewport } : {}),
+        ...(initialState.theme ? { theme: initialState.theme } : {}),
+        ...(initialState.activeTool ? { activeTool: initialState.activeTool } : {}),
+      });
+    }
+    this.state = this.project(initialState);
+    this.unsubscribeEngine = this.engine.subscribe((view) => view, () => {
+      this.state = this.project();
+      this.notify();
+    });
   }
 
-  /** Returns the current snapshot of the canvas state. */
   getState(): CanvasState { return this.state; }
-  
-  /** Commits the current shapes to the history manager for undo/redo. */
-  commitState(): void { this.historyManager.commit(this.state.shapes); }
-  
-  get canUndo(): boolean { return this.historyManager.canUndo; }
-  get canRedo(): boolean { return this.historyManager.canRedo; }
+  get canUndo(): boolean { return this.engine.canUndo(); }
+  get canRedo(): boolean { return this.engine.canRedo(); }
 
-  /** Reverts the last committed state transition. */
+  commitState(): void {
+    if (!this.activeUndoGroup) return;
+    this.engine.completeUndoGroup(this.activeUndoGroup);
+    this.activeUndoGroup = null;
+  }
+
+  beginUndoGroup(group: string): void {
+    if (this.activeUndoGroup && this.activeUndoGroup !== group) this.commitState();
+    this.activeUndoGroup = group;
+  }
+
+  endUndoGroup(group: string): void {
+    if (this.activeUndoGroup !== group) return;
+    this.commitState();
+  }
+
   undo(): void {
-    const nextShapes = this.historyManager.undo();
-    if (nextShapes) {
-      this.state = { ...this.state, shapes: nextShapes, selectedIds: [] };
-      this.notify();
-    }
+    this.commitState();
+    this.engine.undo();
+    this.engine.setViewState({ selectedIds: [] });
   }
 
-  /** Re-applies the last undone state transition. */
   redo(): void {
-    const nextShapes = this.historyManager.redo();
-    if (nextShapes) {
-      this.state = { ...this.state, shapes: nextShapes, selectedIds: [] };
-      this.notify();
-    }
+    this.commitState();
+    this.engine.redo();
+    this.engine.setViewState({ selectedIds: [] });
   }
 
-  /** 
-   * Changes the stack order of a shape.
-   * @param direction 'forward' | 'backward' | 'front' | 'back'
-   */
   reorderShape(shapeId: string, direction: 'forward' | 'backward' | 'front' | 'back'): void {
-    this.state = { 
-      ...this.state, 
-      shapes: ShapeManager.reorder(this.state.shapes, shapeId, direction)
-    };
-    this.notify();
+    const shapes = this.state.shapes;
+    const position = shapes.findIndex(({ id }) => id === shapeId);
+    if (position < 0) return;
+    let beforeId: string | undefined;
+    if (direction === 'backward') beforeId = shapes[position - 1]?.id;
+    if (direction === 'back') beforeId = shapes[0]?.id;
+    if (direction === 'forward') beforeId = shapes[position + 2]?.id;
+    this.execute({ type: 'shape.reorder', id: shapeId, ...(beforeId ? { beforeId } : {}) });
   }
 
-  /** Registers a listener for state changes. Returns an unbsubscribe function. */
   subscribe(listener: (state: CanvasState) => void): () => void {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
   }
 
-  /** 
-   * Triggers a re-render and broadcasts 'document:changed' through the event bus.
-   * Automatically increments state version unless forceVersion is specified.
-   */
-  notify(forceVersion?: number): void {
-    if (this.batchDepth > 0) return;
-    
-    if (forceVersion !== undefined) {
-      this.state.version = forceVersion;
-    } else {
-      this.state.version++;
+  batchUpdate(fn: () => void): void {
+    const queueStart = this.queuedCommands.length;
+    let completed = false;
+    this.batchDepth += 1;
+    try {
+      fn();
+      completed = true;
+    } finally {
+      this.batchDepth -= 1;
+      if (!completed) this.queuedCommands.splice(queueStart);
+      if (this.batchDepth === 0 && this.queuedCommands.length > 0) {
+        const commands = this.queuedCommands;
+        this.queuedCommands = [];
+        if (completed) this.dispatch({ type: 'batch', commands });
+      }
     }
+  }
 
-    if (this.indexedShapes !== this.state.shapes) {
+  getSpatialIndex(): ShapeSpatialIndex {
+    if (this.spatialIndex) return this.spatialIndex;
+    this.spatialIndex = createShapeSpatialIndex(this.state.shapes, this.registry);
+    this.indexedShapes = this.state.shapes;
+    return this.spatialIndex;
+  }
+
+  setState(updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)): void {
+    const current = this.state;
+    const next = typeof updater === 'function' ? updater(current) : { ...current, ...updater };
+    const documentChanged = next.shapes !== current.shapes;
+    if (documentChanged) {
+      const commands = this.commandsForShapes(next.shapes);
+      if (commands.length > 0) this.execute(commands.length === 1 ? commands[0] : { type: 'batch', commands });
+    }
+    if (next.canvasBackground !== current.canvasBackground || next.showGrid !== current.showGrid || next.gridSize !== current.gridSize) {
+      this.dispatch({
+        type: 'document.update',
+        patch: {
+          background: next.canvasBackground ?? this.engine.getSnapshot().document.background,
+          grid: {
+            enabled: next.showGrid ?? this.engine.getSnapshot().document.grid.enabled,
+            size: next.gridSize ?? this.engine.getSnapshot().document.grid.size,
+          },
+        },
+      });
+    }
+    const viewPatch = this.toViewPatch(current, next);
+    if (Object.keys(viewPatch).length > 0) this.engine.setViewState(viewPatch);
+  }
+
+  setTool(tool: string, keepSelection = false): void {
+    this.engine.setViewState({ activeTool: tool, selectedIds: keepSelection ? this.state.selectedIds : [] });
+    this.bus.emit('tool:changed', { tool });
+  }
+
+  setViewport(viewport: CanvasState['viewport']): void {
+    this.engine.setViewState({ viewport });
+    this.bus.emit('viewport:changed', { viewport });
+  }
+
+  addShape(shape: Shape): void {
+    const records = this.engine.getSnapshot().records;
+    const index = generateKeyBetween(records.at(-1)?.index ?? null, null);
+    const record = shapeToRecord(shape, index, this.registry);
+    const commands: CanvasCommand[] = [{ type: 'shape.create', record }];
+    if (shape.startBinding || shape.endBinding) commands.push({ type: 'binding.set', binding: shapeToBindingRecord(shape) });
+    this.execute(commands.length === 1 ? commands[0] : { type: 'batch', commands });
+    this.bus.emit('shape:created', { shape: { ...shape, zIndex: records.length } });
+  }
+
+  updateShape(shapeId: string, patch: Partial<Shape>, force = false): void {
+    const current = this.state.shapes.find(({ id }) => id === shapeId);
+    if (!current) return;
+    if (!force && current.locked && patch.locked === undefined) return;
+    const next = { ...current, ...patch };
+    const commands: CanvasCommand[] = [];
+    const onlyUnlock = current.locked && Object.keys(patch).every((key) => key === 'locked');
+    if (force && current.locked && !onlyUnlock) commands.push({ type: 'shape.update', id: shapeId, patch: { locked: false } });
+    commands.push({
+      type: 'shape.update',
+      id: shapeId,
+      patch: onlyUnlock ? { locked: next.locked ?? false } : shapePatchToRecordPatch(next),
+    });
+    const hadBinding = Boolean(current.startBinding || current.endBinding);
+    const hasBinding = Boolean(next.startBinding || next.endBinding);
+    if (hasBinding) commands.push({ type: 'binding.set', binding: shapeToBindingRecord(next) });
+    else if (hadBinding) commands.push({ type: 'binding.delete', ids: [`${shapeId}:binding`] });
+    if (force && current.locked && !onlyUnlock) commands.push({ type: 'shape.update', id: shapeId, patch: { locked: true } });
+    this.cacheShapeStyle(next, patch);
+    this.execute(commands.length === 1 ? commands[0] : { type: 'batch', commands });
+    this.bus.emit('shape:updated', { shape: next });
+  }
+
+  appendShapePoints(shapeId: string, points: readonly { x: number; y: number; pressure?: number }[]): void {
+    if (points.length === 0) return;
+    this.execute({ type: 'shape.points.append', id: shapeId, points: [...points] });
+    this.bus.emit('shape:updated', { shape: this.state.shapes.find(({ id }) => id === shapeId) });
+  }
+
+  replaceShape(shapeId: string, shape: Shape): void {
+    const snapshot = this.engine.getSnapshot();
+    const current = snapshot.records.find(({ id }) => id === shapeId);
+    if (!current) return;
+    const record = shapeToRecord({ ...shape, id: shapeId }, current.index, this.registry);
+    const commands: CanvasCommand[] = [
+      { type: 'shape.delete', ids: [shapeId], mode: 'only' },
+      { type: 'shape.create', record },
+    ];
+    if (shape.startBinding || shape.endBinding) commands.push({ type: 'binding.set', binding: shapeToBindingRecord(shape) });
+    this.execute({ type: 'batch', commands });
+    this.bus.emit('shape:updated', { shape });
+  }
+
+  deleteShape(shapeId: string): void {
+    const shape = this.state.shapes.find(({ id }) => id === shapeId);
+    if (!shape || shape.locked) return;
+    const commands: CanvasCommand[] = [];
+    const connectedIds = this.getSpatialIndex().expandConnected(new Set([shapeId]), 1);
+    for (const connectedId of connectedIds) {
+      if (connectedId === shapeId) continue;
+      const connector = this.getSpatialIndex().getShape(connectedId);
+      if (!connector) continue;
+      if (connector.startBinding?.elementId !== shapeId && connector.endBinding?.elementId !== shapeId) continue;
+      const { p1, p2 } = getArrowClippedEndpoints(connector, this.state.shapes, this.registry);
+      const detached: Shape = {
+        ...connector,
+        x: p1.x,
+        y: p1.y,
+        points: [{ x: 0, y: 0 }, { x: p2.x - p1.x, y: p2.y - p1.y }],
+        startBinding: connector.startBinding?.elementId === shapeId ? undefined : connector.startBinding,
+        endBinding: connector.endBinding?.elementId === shapeId ? undefined : connector.endBinding,
+      };
+      commands.push({ type: 'shape.update', id: connector.id, patch: shapePatchToRecordPatch(detached) });
+      if (detached.startBinding || detached.endBinding) commands.push({ type: 'binding.set', binding: shapeToBindingRecord(detached) });
+      else commands.push({ type: 'binding.delete', ids: [`${connector.id}:binding`] });
+    }
+    commands.push({ type: 'shape.delete', ids: [shapeId], mode: 'only' });
+    this.execute(commands.length === 1 ? commands[0] : { type: 'batch', commands });
+    this.bus.emit('shape:deleted', { shapeId });
+  }
+
+  setSelection(ids: string[]): void {
+    this.engine.setViewState({ selectedIds: ids });
+    this.bus.emit('selection:changed', { ids });
+  }
+
+  forceNotify(): void {
+    this.uiRevision += 1;
+    this.notify();
+  }
+
+  destroy(): void {
+    this.commitState();
+    this.unsubscribeEngine();
+    this.projection.clear();
+    this.spatialIndex?.clear();
+    this.spatialIndex = null;
+    this.indexedShapes = null;
+    this.subscribers.clear();
+  }
+
+  private execute(command: CanvasCommand): void {
+    if (this.batchDepth > 0) {
+      if (command.type === 'batch') this.queuedCommands.push(...command.commands);
+      else this.queuedCommands.push(command);
+      return;
+    }
+    this.dispatch(command);
+  }
+
+  private dispatch(command: CanvasCommand): void {
+    if (!this.activeUndoGroup) this.activeUndoGroup = crypto.randomUUID();
+    this.engine.dispatch(command, { undoGroup: this.activeUndoGroup });
+  }
+
+  private project(initial: Partial<CanvasState> = {}): CanvasState {
+    const view = this.engine.getViewState();
+    const snapshot = view.snapshot;
+    const shapes = this.projection.project(view);
+    if (this.spatialIndex && this.indexedShapes !== shapes) {
+      this.spatialIndex.update(shapes, this.projection.changedShapeIds);
+      this.indexedShapes = shapes;
+    }
+    return {
+      ...DEFAULT_STATE,
+      ...initial,
+      shapes,
+      selectedIds: [...view.selectedIds],
+      activeTool: view.activeTool,
+      viewport: { ...view.viewport },
+      collaborators: new Map(view.collaborators),
+      userToFollow: view.followingId ? { socketId: view.followingId, username: view.collaborators.get(view.followingId)?.name ?? '' } : null,
+      hoveredShapeId: view.hoveredShapeId,
+      hoveredPortShapeId: view.hoveredPortShapeId,
+      hoveredPortId: view.hoveredPortId,
+      drawingShapeId: view.drawingShapeId,
+      isDraggingSelection: view.isDraggingSelection,
+      resizingShapeId: view.resizingShapeId,
+      laserTrail: [...view.laserTrail],
+      isPanning: view.isPanning,
+      isSpacePanning: view.isSpacePanning,
+      selectionBox: view.selectionBox,
+      erasingPath: view.erasingPath ? [...view.erasingPath] : null,
+      erasingShapeIds: [...view.erasingShapeIds],
+      editingShapeId: view.editingShapeId,
+      snapLines: [...view.snapLines],
+      showGrid: snapshot.document.grid.enabled,
+      gridSize: snapshot.document.grid.size,
+      canvasBackground: snapshot.document.background,
+      theme: view.theme,
+      readOnly: view.readonly,
+      changedShapeIds: this.projection.changedShapeIds,
+      uiRevision: this.uiRevision,
+      version: this.version,
+    };
+  }
+
+  private notify(): void {
+    this.version += 1;
+    this.state = { ...this.state, version: this.version };
+    if (this.indexedShapes !== this.state.shapes && !this.spatialIndex) {
       this.spatialIndex = null;
       this.indexedShapes = null;
     }
@@ -118,139 +357,45 @@ export class WhiteboardStore {
     this.bus.emit('document:changed', { state: this.state });
   }
 
-  /** Groups multiple operations into a single notification. */
-  batchUpdate(fn: () => void): void {
-    this.batchDepth++;
-    try { fn(); } finally {
-      this.batchDepth--;
-      if (this.batchDepth === 0) this.notify();
-    }
+  private toViewPatch(current: CanvasState, next: CanvasState): Partial<Omit<CanvasViewState, 'snapshot' | 'readonly' | 'changedRecordIds'>> {
+    const patch: Partial<Omit<CanvasViewState, 'snapshot' | 'readonly' | 'changedRecordIds'>> = {};
+    if (next.selectedIds !== current.selectedIds) patch.selectedIds = next.selectedIds;
+    if (next.activeTool !== current.activeTool) patch.activeTool = next.activeTool;
+    if (next.viewport !== current.viewport) patch.viewport = next.viewport;
+    if (next.theme !== current.theme && next.theme) patch.theme = next.theme;
+    if (next.collaborators !== current.collaborators && next.collaborators) patch.collaborators = next.collaborators as Map<string, CanvasViewState['collaborators'] extends ReadonlyMap<string, infer T> ? T : never>;
+    if (next.userToFollow !== current.userToFollow) patch.followingId = next.userToFollow?.socketId ?? null;
+    if (next.hoveredShapeId !== current.hoveredShapeId) patch.hoveredShapeId = next.hoveredShapeId;
+    if (next.hoveredPortShapeId !== current.hoveredPortShapeId) patch.hoveredPortShapeId = next.hoveredPortShapeId ?? null;
+    if (next.hoveredPortId !== current.hoveredPortId) patch.hoveredPortId = next.hoveredPortId ?? null;
+    if (next.drawingShapeId !== current.drawingShapeId) patch.drawingShapeId = next.drawingShapeId;
+    if (next.isDraggingSelection !== current.isDraggingSelection) patch.isDraggingSelection = next.isDraggingSelection;
+    if (next.resizingShapeId !== current.resizingShapeId) patch.resizingShapeId = next.resizingShapeId ?? null;
+    if (next.laserTrail !== current.laserTrail) patch.laserTrail = next.laserTrail ?? [];
+    if (next.isPanning !== current.isPanning) patch.isPanning = next.isPanning;
+    if (next.isSpacePanning !== current.isSpacePanning) patch.isSpacePanning = next.isSpacePanning;
+    if (next.selectionBox !== current.selectionBox) patch.selectionBox = next.selectionBox ?? null;
+    if (next.erasingPath !== current.erasingPath) patch.erasingPath = next.erasingPath ?? null;
+    if (next.erasingShapeIds !== current.erasingShapeIds) patch.erasingShapeIds = next.erasingShapeIds ?? [];
+    if (next.editingShapeId !== current.editingShapeId) patch.editingShapeId = next.editingShapeId ?? null;
+    if (next.snapLines !== current.snapLines) patch.snapLines = next.snapLines ?? [];
+    return patch;
   }
 
-  /** Returns built-in spatial index (Quadtree) for fast bounding-box queries. */
-  getSpatialIndex(): Quadtree {
-    if (this.spatialIndex) return this.spatialIndex;
-    const tree = createShapeSpatialIndex(this.state.shapes);
-    this.spatialIndex = tree;
-    this.indexedShapes = this.state.shapes;
-    return tree;
-  }
-
-  /** Directly patches or calculates the new state. */
-  setState(updater: Partial<CanvasState> | ((state: CanvasState) => CanvasState)): void {
-    const nextState = typeof updater === 'function' ? updater(this.state) : { ...this.state, ...updater };
-    
-    // Quick shallow equality check to avoid unnecessary notifies (Rule 8.1)
-    const hasChanged = (Object.keys(nextState) as Array<keyof CanvasState>).some(
-      (key) => nextState[key] !== this.state[key]
-    );
-
-    if (hasChanged) {
-      this.state = nextState;
-      this.notify();
-    }
-  }
-
-  /** Updates tool with optional selection preservation. */
-  setTool(tool: string, keepSelection = false): void {
-    this.state = { ...this.state, activeTool: tool, selectedIds: keepSelection ? this.state.selectedIds : [] };
-    this.notify();
-    this.bus.emit('tool:changed', { tool });
-  }
-
-  /** Pan and zoom the viewport. */
-  setViewport(viewport: CanvasState['viewport']): void {
-    this.state = { ...this.state, viewport };
-    this.notify();
-    this.bus.emit('viewport:changed', { viewport });
-  }
-
-  /** Add a shape to the world. */
-  addShape(shape: Shape): void {
-    this.state = { ...this.state, shapes: ShapeManager.add(this.state.shapes, shape) };
-    const newShape = this.state.shapes[this.state.shapes.length - 1];
-    this.notify();
-    this.bus.emit('shape:created', { shape: newShape });
-  }
-
-  /** Partial update of a shape by ID. */
-  updateShape(shapeId: string, patch: Partial<Shape>, force = false): void {
-    const { shapes, updated } = ShapeManager.update(this.state.shapes, shapeId, patch, force);
-    this.state = { ...this.state, shapes };
-    
-    // Cache style when style properties change
-    if (updated && patch) {
-      const styleProperties = STYLE_PROPERTY_KEYS;
-      const hasStyleChange = styleProperties.some(prop => prop in patch);
-      
-      if (hasStyleChange) {
-        const styleToCache: Partial<Shape> = {};
-        const styleRecord = styleToCache as Record<string, unknown>;
-        const updatedRecord = updated as unknown as Record<string, unknown>;
-        styleProperties.forEach(prop => {
-          if (prop in updated) {
-            styleRecord[prop] = updatedRecord[prop];
-          }
-        });
-        
-        const variantKey = updated ? VARIANT_CACHE_KEYS[updated.type as string]?.(updated) : null;
-        
-        // Cache for both base type and variant key
-        if (updated) {
-          cacheStyle(updated.type, styleToCache);
-          if (variantKey) {
-            cacheStyle(variantKey, styleToCache);
-          }
-        }
-      }
-    }
-    
-    this.notify();
-    if (updated) this.bus.emit('shape:updated', { shape: updated });
-  }
-
-  /** Full substitution of a shape. */
-  replaceShape(shapeId: string, nextShape: Shape): void {
-    this.state = { ...this.state, shapes: ShapeManager.replace(this.state.shapes, shapeId, nextShape) };
-    this.notify();
-    this.bus.emit('shape:updated', { shape: nextShape });
-  }
-
-  /** Deletes a shape and resolves its connector bindings. */
-  deleteShape(shapeId: string): void {
-    const shapes = this.state.shapes;
-    const shapeToDelete = shapes.find(s => s.id === shapeId);
-    if (!shapeToDelete || shapeToDelete.locked) return;
-
-    const nextShapes = ShapeManager.delete(shapes, shapeId).map(s => {
-      const p = PluginRegistry.getPlugin(s.type);
-      if (p?.isConnector && (s.startBinding?.elementId === shapeId || s.endBinding?.elementId === shapeId)) {
-        const { p1, p2 } = getArrowClippedEndpoints(s, shapes);
-        return {
-          ...s,
-          x: p1.x, y: p1.y,
-          points: [{ x: 0, y: 0 }, { x: p2.x - p1.x, y: p2.y - p1.y }],
-          startBinding: s.startBinding?.elementId === shapeId ? undefined : s.startBinding,
-          endBinding: s.endBinding?.elementId === shapeId ? undefined : s.endBinding
-        };
-      }
-      return s;
+  private cacheShapeStyle(shape: Shape, patch: Partial<Shape>): void {
+    if (!STYLE_PROPERTY_KEYS.some((property) => property in patch)) return;
+    const style: Partial<Shape> = {};
+    const styleRecord = style as Record<string, unknown>;
+    const shapeRecord = shape as unknown as Record<string, unknown>;
+    STYLE_PROPERTY_KEYS.forEach((property) => {
+      if (property in shape) styleRecord[property] = shapeRecord[property];
     });
-
-    this.state = { ...this.state, shapes: nextShapes, selectedIds: this.state.selectedIds.filter(id => id !== shapeId) };
-    this.notify();
-    this.bus.emit('shape:deleted', { shapeId });
+    cacheStyle(shape.type, style);
+    const variant = VARIANT_CACHE_KEYS[shape.type]?.(shape);
+    if (variant) cacheStyle(variant, style);
   }
 
-  /** Updates the selection set. */
-  setSelection(ids: string[]): void {
-    this.state = { ...this.state, selectedIds: ids };
-    this.notify();
-    this.bus.emit('selection:changed', { ids });
-  }
-
-  /** Force notify without state change - useful for external cache updates */
-  forceNotify(): void {
-    this.notify();
+  private commandsForShapes(shapes: readonly Shape[]): CanvasCommand[] {
+    return commandsForShapeReplacement(this.engine.getSnapshot(), shapes, this.registry);
   }
 }

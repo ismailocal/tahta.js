@@ -1,5 +1,5 @@
 import type { ICanvasAPI, PointerPayload, ToolDefinition, Shape } from '../core/types';
-import { getStylePreset, getCachedStyle } from '../core/constants';
+import { getCachedStyle } from '../core/constants';
 import { createId } from '../core/Utils';
 
 export class TextTool implements ToolDefinition {

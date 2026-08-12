@@ -1,16 +1,14 @@
 import type { IShapePlugin } from './IShapePlugin';
-import type { Shape, PointerPayload, Point, ICanvasAPI } from '../core/types';
+import type { Shape, PointerPayload, Point } from '../core/types';
 import { drawLockIcon } from '../core/Utils';
-import { pointToSegmentDistance, getTopShapeAtPoint, pointToQuadraticBezierDistance } from '../geometry/Geometry';
-import { getPathMidpoint, renderEndpointHandles, buildRoughOptions, getElbowPath, drawRoundedPath, getRoundedPathData } from '../geometry/lineUtils';
-import { PluginRegistry } from './PluginRegistry';
+import { pointToSegmentDistance, pointToQuadraticBezierDistance } from '../geometry/Geometry';
+import { getPathMidpoint, renderEndpointHandles, buildRoughOptions, getElbowPath, drawRoundedPath } from '../geometry/lineUtils';
+import type { ShapeRegistry } from '../core/registry';
 import { UI_CONSTANTS } from '../core/constants';
 import { ConnectorMixin } from './ConnectorMixin';
+import type { RoughCanvas } from 'roughjs/bin/canvas';
 
 // Re-export for backward compatibility
-export const findNearestPort = ConnectorMixin.findNearestPort;
-export const getBindingPoint = ConnectorMixin.getBindingPoint;
-
 /** Control point for a quadratic bezier curved line — offset perpendicular to the midpoint. */
 function getCurvedControlPoint(p1: Point, p2: Point): Point {
   const mx = (p1.x + p2.x) / 2;
@@ -22,7 +20,7 @@ function getCurvedControlPoint(p1: Point, p2: Point): Point {
 }
 
 /** Use elbow routing only when explicitly selected. */
-function useSmartRouting(shape: Shape): boolean {
+function shouldUseElbowRouting(shape: Shape): boolean {
   return shape.edgeStyle === 'elbow';
 }
 
@@ -32,6 +30,8 @@ export class LinePlugin implements IShapePlugin {
   canBind = true;
   defaultStyle: Partial<Shape> = { stroke: '#64748b', strokeWidth: 1.8, roughness: 0, edgeStyle: 'straight', opacity: 1 };
   defaultProperties = ['stroke', 'strokeWidth', 'strokeStyle', 'edgeStyle', 'roughness', 'layer', 'action'];
+
+  constructor(private readonly registry: ShapeRegistry) {}
   
   getTextAnchor(shape: Shape, allShapes: Shape[] = []): Point | null {
     const pts = shape.points || [];
@@ -47,10 +47,10 @@ export class LinePlugin implements IShapePlugin {
     const p2 = wpts[1];
 
     // Calculate midpoint based on edgeStyle
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       return getPathMidpoint(path);
     } else if (shape.edgeStyle === 'curved') {
       const cp = getCurvedControlPoint(p1, p2);
@@ -65,7 +65,7 @@ export class LinePlugin implements IShapePlugin {
     return (shape.points || []).map(p => ({ x: shape.x + p.x, y: shape.y + p.y }));
   }
 
-  render(rc: any, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
+  render(rc: RoughCanvas, ctx: CanvasRenderingContext2D, shape: Shape, _isSelected: boolean, _isErasing: boolean, allShapes: Shape[], theme: 'light' | 'dark') {
     const wpts = this.worldPoints(shape);
     if (wpts.length < 2) return;
 
@@ -81,10 +81,10 @@ export class LinePlugin implements IShapePlugin {
     const p2 = wpts[1];
 
     // Handle edgeStyle for 2-point lines
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       ctx.save();
       ctx.strokeStyle = options.stroke as string;
       ctx.lineWidth = (options.strokeWidth as number) || 1;
@@ -180,10 +180,10 @@ export class LinePlugin implements IShapePlugin {
     const p2 = wpts[1];
 
     // Handle edgeStyle for 2-point lines
-    if (useSmartRouting(shape)) {
+    if (shouldUseElbowRouting(shape)) {
       const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
       const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
-      const path = getElbowPath(p1, p2, b1, b2);
+      const path = getElbowPath(p1, p2, this.registry, b1, b2);
       for (let i = 0; i < path.length - 1; i++) {
         if (pointToSegmentDistance(point, path[i], path[i + 1]) <= threshold) return true;
       }
@@ -203,7 +203,8 @@ export class LinePlugin implements IShapePlugin {
   onDrawInit = ConnectorMixin.onDrawInit;
   onDrawUpdate = ConnectorMixin.onDrawUpdate;
   onDragBindHandle = ConnectorMixin.onDragBindHandle;
-  onBoundShapeChange = ConnectorMixin.onBoundShapeChange;
+  onBoundShapeChange = (shape: Shape, allShapes: Shape[], changedShapeIds: string[]) =>
+    ConnectorMixin.onBoundShapeChange(shape, allShapes, changedShapeIds, this.registry);
 
   onDragHandle(shape: Shape, handle: string, payload: PointerPayload): Partial<Shape> {
     const pts = [...(shape.points || [])];

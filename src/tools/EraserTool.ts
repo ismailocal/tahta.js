@@ -41,7 +41,7 @@ export class EraserTool implements ToolDefinition {
 
   private checkErase(payload: PointerPayload, api: ICanvasAPI) {
     const state = api.getState();
-    const hitShape = getTopShapeAtPoint(state.shapes, payload.world);
+    const hitShape = getTopShapeAtPoint(state.shapes, payload.world, api.registry);
     if (hitShape) {
        const currentIds = state.erasingShapeIds || [];
        if (!currentIds.includes(hitShape.id)) {
@@ -50,4 +50,3 @@ export class EraserTool implements ToolDefinition {
     }
   }
 }
-

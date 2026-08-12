@@ -1,149 +1,204 @@
-import type { Shape, Point } from '../core/types';
-import { getShapeBounds } from './Geometry';
+import type { Point, Shape } from '../core/types.js';
+import type { ShapeRegistry } from '../core/registry.js';
+import { getShapeBounds } from './Geometry.js';
 
-interface Bounds {
+export interface Bounds {
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-function intersects(a: Bounds, b: Bounds): boolean {
-  return a.x <= b.x + b.width
-    && a.x + a.width >= b.x
-    && a.y <= b.y + b.height
-    && a.y + a.height >= b.y;
+interface IndexedShape {
+  shape: Shape;
+  bounds: Bounds;
+  cells: readonly string[] | null;
 }
 
-export class Quadtree {
-  private shapes: { shape: Shape; bounds: Bounds }[] = [];
-  private children: Quadtree[] = [];
-  private maxShapes = 10;
-  private depth = 0;
-  private maxDepth = 5;
+const CELL_SIZE = 512;
+const MAX_CELLS_PER_SHAPE = 256;
 
-  private bounds: Bounds;
+function intersects(left: Bounds, right: Bounds): boolean {
+  return left.x <= right.x + right.width
+    && left.x + left.width >= right.x
+    && left.y <= right.y + right.height
+    && left.y + left.height >= right.y;
+}
 
-  constructor(bounds: Bounds, depth = 0) {
-    this.bounds = bounds;
-    this.depth = depth;
+function containsPoint(bounds: Bounds, point: Point): boolean {
+  return point.x >= bounds.x
+    && point.x <= bounds.x + bounds.width
+    && point.y >= bounds.y
+    && point.y <= bounds.y + bounds.height;
+}
+
+function cellCoordinate(value: number): number {
+  return Math.floor(value / CELL_SIZE);
+}
+
+function cellKey(x: number, y: number): string {
+  return `${x}:${y}`;
+}
+
+function cellsForBounds(bounds: Bounds): readonly string[] | null {
+  const minX = cellCoordinate(bounds.x);
+  const minY = cellCoordinate(bounds.y);
+  const maxX = cellCoordinate(bounds.x + bounds.width);
+  const maxY = cellCoordinate(bounds.y + bounds.height);
+  const count = (maxX - minX + 1) * (maxY - minY + 1);
+  if (count > MAX_CELLS_PER_SHAPE) return null;
+  const keys = new Array<string>(count);
+  let index = 0;
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) keys[index++] = cellKey(x, y);
+  }
+  return keys;
+}
+
+/**
+ * Incremental, unbounded spatial hash used by hit testing and rendering.
+ * A record change only reindexes that record; very large shapes are kept in a
+ * bounded overflow set instead of allocating an unbounded number of cells.
+ */
+export class ShapeSpatialIndex {
+  readonly #registry: ShapeRegistry;
+  readonly #entries = new Map<string, IndexedShape>();
+  readonly #cells = new Map<string, Set<string>>();
+  readonly #oversized = new Set<string>();
+  readonly #connections = new Map<string, Set<string>>();
+  readonly #connectorTargets = new Map<string, readonly string[]>();
+
+  constructor(shapes: readonly Shape[], registry: ShapeRegistry) {
+    this.#registry = registry;
+    shapes.forEach((shape) => this.#insert(shape));
   }
 
-  insert(shape: Shape, bounds: Bounds) {
-    if (this.children.length > 0) {
-      const index = this.getQuadrantIndex(bounds);
-      if (index !== -1) {
-        this.children[index].insert(shape, bounds);
-        return;
-      }
+  update(shapes: readonly Shape[], changedIds: readonly string[]): void {
+    if (changedIds.length === 0) return;
+    const changed = new Set(changedIds);
+    const replacements = new Map<string, Shape>();
+    for (const shape of shapes) {
+      if (changed.has(shape.id)) replacements.set(shape.id, shape);
     }
-
-    this.shapes.push({ shape, bounds });
-
-    if (this.shapes.length > this.maxShapes && this.depth < this.maxDepth) {
-      if (this.children.length === 0) {
-        this.split();
-      }
-
-      let i = 0;
-      while (i < this.shapes.length) {
-        const item = this.shapes[i];
-        const index = this.getQuadrantIndex(item.bounds);
-        if (index !== -1) {
-          this.children[index].insert(item.shape, item.bounds);
-          this.shapes.splice(i, 1);
-        } else {
-          i++;
-        }
-      }
-    }
+    changed.forEach((id) => this.#remove(id));
+    replacements.forEach((shape) => this.#insert(shape));
   }
 
-  private split() {
-    const subW = this.bounds.width / 2;
-    const subH = this.bounds.height / 2;
-    const x = this.bounds.x;
-    const y = this.bounds.y;
-
-    this.children = [
-      new Quadtree({ x: x + subW, y: y, width: subW, height: subH }, this.depth + 1),
-      new Quadtree({ x: x, y: y, width: subW, height: subH }, this.depth + 1),
-      new Quadtree({ x: x, y: y + subH, width: subW, height: subH }, this.depth + 1),
-      new Quadtree({ x: x + subW, y: y + subH, width: subW, height: subH }, this.depth + 1),
-    ];
+  queryPoint(point: Point): Shape[] {
+    return this.#queryCandidates([cellKey(cellCoordinate(point.x), cellCoordinate(point.y))])
+      .filter(({ bounds }) => containsPoint(bounds, point))
+      .map(({ shape }) => shape);
   }
 
-  private getQuadrantIndex(bounds: Bounds): number {
-    const midX = this.bounds.x + this.bounds.width / 2;
-    const midY = this.bounds.y + this.bounds.height / 2;
-
-    const top = bounds.y < midY && bounds.y + bounds.height < midY;
-    const bottom = bounds.y > midY;
-    const left = bounds.x < midX && bounds.x + bounds.width < midX;
-    const right = bounds.x > midX;
-
-    if (top) {
-      if (right) return 0;
-      if (left) return 1;
-    } else if (bottom) {
-      if (left) return 2;
-      if (right) return 3;
-    }
-
-    return -1;
+  queryBounds(bounds: Bounds): Shape[] {
+    const keys = cellsForBounds(bounds);
+    const candidates = keys === null
+      ? [...this.#entries.values()]
+      : this.#queryCandidates(keys);
+    return candidates.filter((entry) => intersects(entry.bounds, bounds)).map(({ shape }) => shape);
   }
 
-  queryPoint(point: Point, results: Shape[] = []) {
-    if (this.children.length > 0) {
-      const index = this.getQuadrantIndex({ x: point.x, y: point.y, width: 0, height: 0 });
-      if (index !== -1) {
-        this.children[index].queryPoint(point, results);
-      } else {
-        // If the point is on a boundary, check all children
-        this.children.forEach(child => child.queryPoint(point, results));
-      }
+  expandConnected(shapeIds: ReadonlySet<string>, maximumDepth = 2): Set<string> {
+    const expanded = new Set(shapeIds);
+    let frontier = [...shapeIds];
+    for (let depth = 0; depth < maximumDepth && frontier.length > 0; depth += 1) {
+      const next: string[] = [];
+      frontier.forEach((id) => this.#connections.get(id)?.forEach((connectedId) => {
+        if (expanded.has(connectedId)) return;
+        expanded.add(connectedId);
+        next.push(connectedId);
+      }));
+      frontier = next;
     }
+    return expanded;
+  }
 
-    for (const item of this.shapes) {
-      if (
-        point.x >= item.bounds.x &&
-        point.x <= item.bounds.x + item.bounds.width &&
-        point.y >= item.bounds.y &&
-        point.y <= item.bounds.y + item.bounds.height
-      ) {
-        results.push(item.shape);
-      }
-    }
+  getShape(id: string): Shape | undefined {
+    return this.#entries.get(id)?.shape;
+  }
 
+  clear(): void {
+    this.#entries.clear();
+    this.#cells.clear();
+    this.#oversized.clear();
+    this.#connections.clear();
+    this.#connectorTargets.clear();
+  }
+
+  #queryCandidates(keys: readonly string[]): IndexedShape[] {
+    const ids = new Set(this.#oversized);
+    keys.forEach((key) => this.#cells.get(key)?.forEach((id) => ids.add(id)));
+    const results: IndexedShape[] = [];
+    ids.forEach((id) => {
+      const entry = this.#entries.get(id);
+      if (entry) results.push(entry);
+    });
     return results;
   }
 
-  queryBounds(bounds: Bounds, results: Shape[] = []): Shape[] {
-    if (!intersects(this.bounds, bounds)) return results;
-    for (const item of this.shapes) {
-      if (intersects(item.bounds, bounds)) results.push(item.shape);
+  #insert(shape: Shape): void {
+    const bounds = getShapeBounds(shape, this.#registry);
+    const cells = cellsForBounds(bounds);
+    this.#entries.set(shape.id, { shape, bounds, cells });
+    const targets = [shape.startBinding?.elementId, shape.endBinding?.elementId]
+      .filter((id): id is string => typeof id === 'string');
+    if (targets.length > 0) {
+      this.#connectorTargets.set(shape.id, targets);
+      targets.forEach((targetId) => this.#connect(shape.id, targetId));
     }
-    this.children.forEach(child => child.queryBounds(bounds, results));
-    return results;
+    if (cells === null) {
+      this.#oversized.add(shape.id);
+      return;
+    }
+    cells.forEach((key) => {
+      let ids = this.#cells.get(key);
+      if (!ids) {
+        ids = new Set();
+        this.#cells.set(key, ids);
+      }
+      ids.add(shape.id);
+    });
+  }
+
+  #remove(id: string): void {
+    const entry = this.#entries.get(id);
+    if (!entry) return;
+    this.#connectorTargets.get(id)?.forEach((targetId) => this.#disconnect(id, targetId));
+    this.#connectorTargets.delete(id);
+    this.#entries.delete(id);
+    if (entry.cells === null) {
+      this.#oversized.delete(id);
+      return;
+    }
+    entry.cells.forEach((key) => {
+      const ids = this.#cells.get(key);
+      if (!ids) return;
+      ids.delete(id);
+      if (ids.size === 0) this.#cells.delete(key);
+    });
+  }
+
+  #connect(left: string, right: string): void {
+    for (const [source, target] of [[left, right], [right, left]] as const) {
+      let connections = this.#connections.get(source);
+      if (!connections) {
+        connections = new Set();
+        this.#connections.set(source, connections);
+      }
+      connections.add(target);
+    }
+  }
+
+  #disconnect(left: string, right: string): void {
+    for (const [source, target] of [[left, right], [right, left]] as const) {
+      const connections = this.#connections.get(source);
+      if (!connections) continue;
+      connections.delete(target);
+      if (connections.size === 0) this.#connections.delete(source);
+    }
   }
 }
 
-export function createShapeSpatialIndex(shapes: Shape[]): Quadtree {
-  const extent = shapes.reduce((acc, shape) => {
-    const bounds = getShapeBounds(shape);
-    return {
-      x: Math.min(acc.x, bounds.x),
-      y: Math.min(acc.y, bounds.y),
-      x2: Math.max(acc.x2, bounds.x + bounds.width),
-      y2: Math.max(acc.y2, bounds.y + bounds.height),
-    };
-  }, { x: -1000, y: -1000, x2: 2000, y2: 2000 });
-  const tree = new Quadtree({
-    x: extent.x - 100,
-    y: extent.y - 100,
-    width: extent.x2 - extent.x + 200,
-    height: extent.y2 - extent.y + 200,
-  });
-  shapes.forEach(shape => tree.insert(shape, getShapeBounds(shape)));
-  return tree;
+export function createShapeSpatialIndex(shapes: readonly Shape[], registry: ShapeRegistry): ShapeSpatialIndex {
+  return new ShapeSpatialIndex(shapes, registry);
 }
