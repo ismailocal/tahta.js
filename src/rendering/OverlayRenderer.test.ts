@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBuiltinShapeRegistry } from '../core/builtinRegistry';
 import type { CanvasState, Shape } from '../core/types';
 import { attachBuiltinShapeRuntimes } from '../plugins';
-import { getResizeMeasurement, renderLaserTrail } from './OverlayRenderer';
+import { getResizeMeasurement, renderLaserTrail, renderWelcome } from './OverlayRenderer';
 
 function state(shape: Shape, resizingShapeId: string | null): CanvasState {
   return {
@@ -72,5 +72,32 @@ describe('laser overlay', () => {
     expect(context.moveTo).toHaveBeenNthCalledWith(2, 20, 0);
     expect(context.lineTo).toHaveBeenNthCalledWith(2, 30, 0);
     expect(context.arc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('welcome overlay', () => {
+  it('fits the empty-state copy within a narrow mobile canvas', () => {
+    const renderedFonts: string[] = [];
+    const context = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillText: vi.fn(function (this: CanvasRenderingContext2D) { renderedFonts.push(this.font); }),
+      measureText: vi.fn(function (this: CanvasRenderingContext2D, text: string) {
+        const size = Number.parseFloat(this.font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? '16');
+        return { width: text.length * size * 0.58 } as TextMetrics;
+      }),
+      font: '',
+      fillStyle: '',
+      textAlign: 'start',
+    } as unknown as CanvasRenderingContext2D;
+    const canvas = {
+      getBoundingClientRect: () => ({ width: 390, height: 844 }),
+    } as unknown as HTMLCanvasElement;
+
+    renderWelcome(canvas, context);
+
+    expect(renderedFonts).toHaveLength(2);
+    expect(Number.parseFloat(renderedFonts[0].match(/(\d+(?:\.\d+)?)px/)?.[1] ?? '0')).toBeLessThan(42);
+    expect(context.fillText).toHaveBeenNthCalledWith(1, 'Welcome to your whiteboard', 195, 412);
   });
 });

@@ -3,21 +3,39 @@ import { getShapeBounds } from '../geometry/Geometry';
 import type { ShapeRegistry } from '../core/registry';
 import { LASER_TRAIL_LIFETIME_MS, hasVisibleLaserPoints, type LaserPoint } from '../core/laser';
 
+function fitCanvasFontSize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  availableWidth: number,
+  preferredSize: number,
+  minimumSize: number,
+  weight = '',
+): number {
+  ctx.font = `${weight}${preferredSize}px 'Architects Daughter', cursive`;
+  const measuredWidth = ctx.measureText(text).width;
+  return measuredWidth > availableWidth
+    ? Math.max(minimumSize, Math.floor(preferredSize * availableWidth / measuredWidth))
+    : preferredSize;
+}
+
 export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, theme: 'light' | 'dark' = 'light') {
   const { width, height } = canvas.getBoundingClientRect();
   const isLight = theme === 'light';
+  const availableWidth = Math.max(240, width - 32);
+  const title = 'Welcome to your whiteboard';
+  const hint = 'Choose a tool and start drawing.';
 
   ctx.save();
   // Using Slate 900 (#0f172a) for prominent contrast in light mode
   // and Slate 300 (#cbd5e0) for dark mode
   ctx.fillStyle = isLight ? '#0f172a' : '#cbd5e0';
   ctx.textAlign = 'center';
-  ctx.font = `600 42px 'Architects Daughter', cursive`;
-  ctx.fillText('Welcome to your whiteboard', width / 2, height / 2 - 10);
+  ctx.font = `600 ${fitCanvasFontSize(ctx, title, availableWidth, 42, 24, '600 ')}px 'Architects Daughter', cursive`;
+  ctx.fillText(title, width / 2, height / 2 - 10);
 
   ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(203, 213, 224, 0.6)';
-  ctx.font = `20px 'Architects Daughter', cursive`;
-  ctx.fillText('Choose a tool and start drawing.', width / 2, height / 2 + 40);
+  ctx.font = `${fitCanvasFontSize(ctx, hint, availableWidth, 20, 14)}px 'Architects Daughter', cursive`;
+  ctx.fillText(hint, width / 2, height / 2 + 40);
   ctx.restore();
 }
 

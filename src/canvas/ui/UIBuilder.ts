@@ -1,5 +1,6 @@
 import { WhiteboardStore } from '../../core/Store';
 import { TOOLBAR_ITEMS } from '../../core/constants';
+import type { ToolbarItem } from '../../core/constants';
 import { createId } from '../../core/Utils';
 import { UserTemplateManager } from '../../tools/UserTemplateManager';
 import { initPropertiesPanel, renderPropertiesPanelHTML } from './PropertiesPanel';
@@ -8,6 +9,39 @@ import { ImagePlugin } from '../../plugins/ImagePlugin';
 import { getShapePlugin } from '../../plugins';
 import { closeModal, confirmModal } from './Modal';
 import type { CanvasState, ICanvasAPI, Shape } from '../../core/types';
+
+const MOBILE_SHAPE_TOOL_KEYS = ['rectangle', 'ellipse', 'diamond', 'sticky-note', 'frame', 'arrow'] as const;
+const MOBILE_MORE_TOOL_KEYS = ['laser', 'text', 'image', 'eraser', 'undo', 'redo'] as const;
+
+const MOBILE_SHAPES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><circle cx="17" cy="7" r="4"/><path d="m7 14-4 7h8z"/><path d="m17 14 4 7h-8z"/></svg>`;
+const MOBILE_MORE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>`;
+
+function getToolbarTool(key: string): ToolbarItem {
+  const tool = TOOLBAR_ITEMS.find((item) => item.key === key && !item.isSeparator);
+  if (!tool) throw new Error(`Toolbar tool is not registered: ${key}`);
+  return tool;
+}
+
+function getUserTemplateItems(): ToolbarItem[] {
+  return Object.entries(UserTemplateManager.getTemplates()).map(([id, template]) => ({
+    key: `template-${id}`,
+    label: template.label,
+    isUserTemplate: true,
+    templateId: id,
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/></svg>`,
+  }));
+}
+
+function getDropdownChildren(tool: ToolbarItem): ToolbarItem[] {
+  const children = [...(tool.children ?? [])];
+  if (tool.key !== 'library-group') return children;
+
+  const userTemplates = getUserTemplateItems();
+  if (userTemplates.length > 0) {
+    children.push({ isHeader: true, label: 'User Templates' }, ...userTemplates);
+  }
+  return children;
+}
 
 function calculateZoomToCenter(canvas: HTMLCanvasElement, currentZoom: number, newZoom: number, viewport: { x: number; y: number; zoom: number }) {
   const rect = canvas.getBoundingClientRect();
@@ -36,6 +70,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       <div class="board-shell">
         <div class="toolbar-wrap">
           <div class="toolbar" data-toolbar></div>
+          <div class="mobile-toolbar" data-mobile-toolbar></div>
         </div>
         <section class="board-area">
           <div class="properties-panel" data-properties></div>
@@ -69,6 +104,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const disposeTextEditor = initTextEditor(boardArea, store, canvas);
 
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
+  const mobileToolbar = root.querySelector('[data-mobile-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
   const zoomControls = root.querySelector('[data-zoom-controls]') as HTMLElement;
   const zoomValue = root.querySelector('[data-zoom-value]') as HTMLElement;
@@ -139,77 +175,96 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     }
   }, listenerOptions);
 
+  const isToolDisabled = (tool: ToolbarItem) => (
+    (tool.key === 'undo' && !store.canUndo) || (tool.key === 'redo' && !store.canRedo)
+  );
+
+  const renderDropdownItems = (items: ToolbarItem[], state: CanvasState) => items.map((item) => {
+    if (item.isHeader) return `<div class="dropdown-header">${item.label}</div>`;
+    const disabled = isToolDisabled(item);
+    return `
+      <button class="tool-dropdown-item ${state.activeTool === item.key ? 'active' : ''}" data-tool="${item.key}" title="${item.label}" aria-label="${item.label}" ${disabled ? 'disabled' : ''}>
+        <span class="tool-icon">${item.icon}</span>
+        <span class="tool-item-label">${item.label}</span>
+        ${item.isUserTemplate ? `
+        <div class="template-delete-btn" data-delete-template="${item.templateId}" title="Delete Template">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </div>
+        ` : ''}
+      </button>
+    `;
+  }).join('');
+
+  const renderToolButton = (tool: ToolbarItem, state: CanvasState) => `
+    <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${isToolDisabled(tool) ? 'disabled' : ''} aria-label="${tool.label}">
+      <span class="tool-icon">${tool.icon}</span>
+      ${tool.shortcut ? `<span class="tool-shortcut">${tool.shortcut}</span>` : ''}
+    </button>
+  `;
+
+  const renderDropdown = (
+    key: string,
+    label: string,
+    icon: string,
+    items: ToolbarItem[],
+    state: CanvasState,
+    mobile = false,
+    active = items.some((item) => item.key === state.activeTool),
+  ) => {
+    return `
+      <div class="tool-dropdown-wrap" data-dropdown="${key}">
+        <button class="tool-button ${active ? 'active' : ''}" data-tool-group="${key}" title="${label}" aria-label="${label}"${mobile ? ' aria-haspopup="menu"' : ''}>
+          <span class="tool-icon">${icon}</span>
+        </button>
+        <div class="tool-dropdown-menu dropdown-grid-6" id="dropdown-${key}"${mobile ? ' role="menu"' : ''}>
+          ${renderDropdownItems(items, state)}
+        </div>
+      </div>
+    `;
+  };
+
   const renderToolbar = (state: CanvasState) => {
     toolbar.innerHTML = TOOLBAR_ITEMS.map((tool) => {
       if (tool.isSeparator) return `<div class="toolbar-separator"></div>`;
 
-      let disabled = false;
-      if (tool.key === 'undo') disabled = !store.canUndo;
-      if (tool.key === 'redo') disabled = !store.canRedo;
-
       if (tool.isDropdown && tool.children) {
         const activeChild = tool.children.find(c => c.key === state.activeTool);
         const displayIcon = tool.icon || (activeChild || tool.children[0]).icon;
-        const displayLabel = tool.label;
-        const groupActive = !!activeChild;
-        return `
-          <div class="tool-dropdown-wrap" data-dropdown="${tool.key}">
-            <button class="tool-button ${groupActive ? 'active' : ''}" data-tool-group="${tool.key}" title="${displayLabel}" aria-label="${displayLabel}">
-              <span class="tool-icon">${displayIcon}</span>
-            </button>
-            <div class="tool-dropdown-menu dropdown-grid-6" id="dropdown-${tool.key}">
-              ${(() => {
-                const children = [...tool.children];
-                if (tool.key === 'library-group') {
-                  const userTemplates = UserTemplateManager.getTemplates();
-                  const userItems = Object.entries(userTemplates).map(([id, t]) => ({
-                    key: `template-${id}`,
-                    label: t.label,
-                    isUserTemplate: true,
-                    templateId: id,
-                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L16 10 H8 Z"/><rect x="4" y="14" width="6" height="6" rx="1"/><circle cx="17" cy="17" r="3"/></svg>`
-                  }));
-                  if (userItems.length > 0) {
-                    children.push({ isHeader: true, label: 'User Templates' });
-                    children.push(...userItems);
-                  }
-                }
-                return children.map(child => {
-                  if (child.isHeader) {
-                    return `<div class="dropdown-header">${child.label}</div>`;
-                  }
-                  return `
-                    <button class="tool-dropdown-item ${state.activeTool === child.key ? 'active' : ''}" data-tool="${child.key}" title="${child.label}" aria-label="${child.label}">
-                      <span class="tool-icon">${child.icon}</span>
-                      <span class="tool-item-label">${child.label}</span>
-                      ${child.isUserTemplate ? `
-                      <div class="template-delete-btn" data-delete-template="${child.templateId}" title="Delete Template">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </div>
-                      ` : ''}
-                    </button>
-                  `;
-                }).join('');
-              })()}
-            </div>
-          </div>
-        `;
+        return renderDropdown(tool.key!, tool.label!, displayIcon!, getDropdownChildren(tool), state, false, !!activeChild);
       }
 
-      return `
-        <button class="tool-button ${state.activeTool === tool.key ? 'active' : ''}" data-tool="${tool.key}" title="${tool.label} (${tool.shortcut})" ${disabled ? 'disabled' : ''} aria-label="${tool.label}">
-          <span class="tool-icon">${tool.icon}</span>
-          ${tool.shortcut ? `<span class="tool-shortcut">${tool.shortcut}</span>` : ''}
-        </button>
-      `;
+      return renderToolButton(tool, state);
     }).join('');
+
+    const shapeItems = MOBILE_SHAPE_TOOL_KEYS.map(getToolbarTool);
+    const library = getToolbarTool('library-group');
+    const moreItems = [
+      ...MOBILE_MORE_TOOL_KEYS.slice(0, 3).map(getToolbarTool),
+      { isHeader: true, label: 'Library' },
+      ...getDropdownChildren(library),
+      { isHeader: true, label: 'Actions' },
+      ...MOBILE_MORE_TOOL_KEYS.slice(3).map(getToolbarTool),
+    ];
+    mobileToolbar.innerHTML = [
+      renderToolButton(getToolbarTool('hand'), state),
+      renderToolButton(getToolbarTool('select'), state),
+      renderDropdown('mobile-shapes', 'Shapes', MOBILE_SHAPES_ICON, shapeItems, state, true),
+      renderToolButton(getToolbarTool('freehand'), state),
+      renderDropdown('mobile-more', 'More tools', MOBILE_MORE_ICON, moreItems, state, true),
+    ].join('');
   };
 
   function closeAllDropdowns() {
-    toolbar.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
+    root.querySelectorAll<HTMLElement>('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
   }
 
-  const onDocumentClick = () => closeAllDropdowns();
+  const onDocumentClick = (event: Event) => {
+    closeAllDropdowns();
+    const target = event.target as Node | null;
+    if (!target || !properties.contains(target)) {
+      properties.querySelectorAll<HTMLElement>('.pp-dropdown-menu').forEach((menu) => menu.classList.remove('open'));
+    }
+  };
   document.addEventListener('click', onDocumentClick, listenerOptions);
 
   let propertiesOpen = true;
@@ -251,6 +306,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     // Hover-based dropdown for property panel
     properties.querySelectorAll<HTMLElement>('.pp-dropdown-wrap').forEach(wrap => {
       const menu = wrap.querySelector<HTMLElement>('.pp-dropdown-menu');
+      const button = wrap.querySelector<HTMLElement>('.pp-dbat');
       if (!menu) return;
       let closeTimer: ReturnType<typeof setTimeout> | null = null;
       wrap.addEventListener('mouseenter', () => {
@@ -265,6 +321,12 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
           menu.classList.remove('open');
         }, 150);
         propertyCloseTimers.add(closeTimer);
+      }, listenerOptions);
+      button?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const shouldOpen = !menu.classList.contains('open');
+        properties.querySelectorAll<HTMLElement>('.pp-dropdown-menu').forEach((otherMenu) => otherMenu.classList.remove('open'));
+        if (shouldOpen) menu.classList.add('open');
       }, listenerOptions);
     });
   };

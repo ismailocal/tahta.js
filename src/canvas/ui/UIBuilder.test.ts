@@ -45,6 +45,16 @@ describe('canvas UI contract', () => {
     expect(rectangle?.getAttribute('aria-label')).toBe('Rectangle');
     expect(rectangle?.querySelector('svg')?.outerHTML).toBe('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>');
 
+    const mobileToolbar = root.querySelector<HTMLElement>('[data-mobile-toolbar]');
+    expect(mobileToolbar).not.toBeNull();
+    expect([...mobileToolbar!.children].map((element) =>
+      element.getAttribute('data-tool') ?? element.getAttribute('data-dropdown'),
+    )).toEqual(['hand', 'select', 'mobile-shapes', 'freehand', 'mobile-more']);
+    expect(mobileToolbar!.querySelectorAll(':scope > .tool-button, :scope > .tool-dropdown-wrap')).toHaveLength(5);
+    expect(mobileToolbar!.querySelector('#dropdown-mobile-shapes [data-tool="rectangle"]')).not.toBeNull();
+    expect(mobileToolbar!.querySelector('#dropdown-mobile-more [data-tool="db-table"]')).not.toBeNull();
+    expect(mobileToolbar!.querySelector<HTMLButtonElement>('#dropdown-mobile-more [data-tool="undo"]')?.disabled).toBe(true);
+
     const controls = root.querySelector<HTMLElement>('[data-zoom-controls]');
     expect(controls?.className).toBe('zoom-controls');
     expect([...controls!.children].map((element) =>
