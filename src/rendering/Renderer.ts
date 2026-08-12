@@ -50,6 +50,29 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
   return rendererStateMap.get(canvas)!;
 }
 
+/**
+ * The document stores the canvas palette color so exports remain deterministic.
+ * The built-in light/dark palette values represent the theme background rather
+ * than a user-selected custom color, so they must follow the active UI theme.
+ */
+export function resolveCanvasBackground(
+  theme: CanvasState['theme'],
+  documentBackground: CanvasState['canvasBackground'],
+): string {
+  const activeTheme = theme ?? 'light';
+  const usesThemePalette = !documentBackground
+    || documentBackground === RENDERING_CONSTANTS.THEME_LIGHT_BG
+    || documentBackground === RENDERING_CONSTANTS.THEME_DARK_BG;
+
+  if (usesThemePalette) {
+    return activeTheme === 'dark'
+      ? RENDERING_CONSTANTS.THEME_DARK_BG
+      : RENDERING_CONSTANTS.THEME_LIGHT_BG;
+  }
+
+  return documentBackground;
+}
+
 function setupCanvas(canvas: HTMLCanvasElement, rs: RendererState, rect: DOMRect, dpr: number): boolean {
   const width = Math.floor(rect.width * dpr);
   const height = Math.floor(rect.height * dpr);
@@ -64,6 +87,11 @@ function setupCanvas(canvas: HTMLCanvasElement, rs: RendererState, rect: DOMRect
 }
 
 function shouldInvalidateStatic(state: CanvasState, rs: RendererState, dynamicIds: ReadonlySet<string>): boolean {
+  const theme = state.theme ?? 'light';
+  if (rs.lastTheme !== theme) {
+    rs.isStaticValid = false;
+    rs.lastTheme = theme;
+  }
   if (rs.lastViewport.x !== state.viewport.x || rs.lastViewport.y !== state.viewport.y || rs.lastViewport.zoom !== state.viewport.zoom) {
     rs.isStaticValid = false;
     rs.lastViewport = { ...state.viewport };
@@ -171,7 +199,7 @@ function renderFullScene(
 ): number {
   let renderedCount = 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
+  ctx.fillStyle = resolveCanvasBackground(state.theme, state.canvasBackground);
   ctx.fillRect(0, 0, rect.width, rect.height);
   renderGrid(ctx, state, rect.width, rect.height);
   if (!state.shapes.length) renderWelcome(canvas, ctx, state.theme);
@@ -277,7 +305,7 @@ export function renderScene(
     renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes, registry);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = state.canvasBackground || (state.theme === 'light' ? RENDERING_CONSTANTS.THEME_LIGHT_BG : RENDERING_CONSTANTS.THEME_DARK_BG);
+    ctx.fillStyle = resolveCanvasBackground(state.theme, state.canvasBackground);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(rs.staticCanvas!, 0, 0, canvas.width, canvas.height);
 

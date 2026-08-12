@@ -87,12 +87,12 @@ describe('CanvasEngine snapshot and awareness validation', () => {
     sender.awareness.setLocalStateField('viewportZoom', 1.5);
     sender.awareness.setLocalStateField('presentationFrameId', 'frame');
     sender.awareness.setLocalStateField('pointerTool', 'laser');
-    sender.awareness.setLocalStateField('laserTrail', [{ x: 10, y: 20, timestamp: Date.now() }]);
+    sender.awareness.setLocalStateField('laserTrail', [{ x: 10, y: 20, timestamp: Date.now(), strokeId: 0 }]);
     receiver.applyRemoteAwarenessUpdate(update, 'peer-a');
     expect(receiver.getViewState().collaborators.get('peer-a')).toEqual({
       id: 'peer-a', name: 'Ada', color: '#3366ff', avatarUrl: 'https://tahta.io/a.png',
       cursor: { x: 10, y: 20 }, button: 'primary', zoom: 1.5, presentationFrameId: 'frame',
-      pointerTool: 'laser', laserTrail: [{ x: 10, y: 20, timestamp: expect.any(Number) }],
+      pointerTool: 'laser', laserTrail: [{ x: 10, y: 20, timestamp: expect.any(Number), strokeId: 0 }],
     });
     receiver.removeRemoteAwareness('peer-a');
     expect(receiver.getViewState().collaborators.size).toBe(0);
@@ -114,7 +114,7 @@ describe('CanvasEngine snapshot and awareness validation', () => {
     const invalidLaser = createCanvasEngine({ documentId: 'invalid-laser', registry: registry(), initialSnapshot: snapshot() });
     invalidLaser.setLocalAwarenessUser({ peerId: 'peer', name: 'Ada', color: '#3366ff' });
     invalidLaser.awareness.setLocalStateField('pointerTool', 'laser');
-    invalidLaser.awareness.setLocalStateField('laserTrail', [{ x: Number.NaN, y: 0, timestamp: Date.now() }]);
+    invalidLaser.awareness.setLocalStateField('laserTrail', [{ x: Number.NaN, y: 0, timestamp: Date.now(), strokeId: 0 }]);
     expect(() => engine.applyRemoteAwarenessUpdate(invalidLaser.encodeLocalAwareness(), 'peer')).toThrow('laser trail is invalid');
     invalidLaser.destroy(); spoof.destroy(); engine.destroy();
   });

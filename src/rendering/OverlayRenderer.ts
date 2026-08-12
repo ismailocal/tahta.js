@@ -132,7 +132,7 @@ function renderResizeMeasurement(ctx: CanvasRenderingContext2D, state: CanvasSta
   ctx.restore();
 }
 
-function renderLaserTrail(
+export function renderLaserTrail(
   ctx: CanvasRenderingContext2D,
   points: readonly LaserPoint[],
   color: string,
@@ -141,7 +141,6 @@ function renderLaserTrail(
 ): void {
   const firstVisibleIndex = points.findIndex((point) => timestamp - point.timestamp < LASER_TRAIL_LIFETIME_MS);
   if (firstVisibleIndex < 0) return;
-  const visiblePointCount = points.length - firstVisibleIndex;
   const scale = Math.max(zoom, 0.05);
   ctx.save();
   ctx.lineCap = 'round';
@@ -149,25 +148,22 @@ function renderLaserTrail(
   ctx.lineWidth = 3 / scale;
   ctx.shadowColor = color;
   ctx.shadowBlur = 5 / scale;
-  if (visiblePointCount === 1) {
-    const point = points[firstVisibleIndex];
-    const alpha = Math.max(0, Math.min(1, 1 - (timestamp - point.timestamp) / LASER_TRAIL_LIFETIME_MS));
+  for (let index = firstVisibleIndex; index < points.length; index += 1) {
+    const current = points[index];
+    const previous = points[index - 1];
+    const alpha = Math.max(0, Math.min(1, 1 - (timestamp - current.timestamp) / LASER_TRAIL_LIFETIME_MS));
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 2.5 / scale, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    for (let index = firstVisibleIndex + 1; index < points.length; index += 1) {
-      const previous = points[index - 1];
-      const current = points[index];
-      const alpha = Math.max(0, Math.min(1, 1 - (timestamp - current.timestamp) / LASER_TRAIL_LIFETIME_MS));
-      ctx.globalAlpha = alpha;
+    if (index > firstVisibleIndex && previous?.strokeId === current.strokeId) {
       ctx.strokeStyle = color;
       ctx.beginPath();
       ctx.moveTo(previous.x, previous.y);
       ctx.lineTo(current.x, current.y);
       ctx.stroke();
+    } else {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(current.x, current.y, 2.5 / scale, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   ctx.restore();
