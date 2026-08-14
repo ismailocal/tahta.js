@@ -29,6 +29,7 @@ import { CommandPreflight } from './CommandPreflight.js';
 import { validateLaserTrail, type LaserPoint } from './laser.js';
 
 const LOCAL_COMMAND_ORIGIN = Symbol('tahta.local-command');
+const LOCAL_PERSISTENCE_ORIGIN = Symbol('tahta.local-persistence');
 const SYSTEM_ORIGIN = Symbol('tahta.system');
 const REMOTE_ORIGIN = Symbol('tahta.remote');
 const REMOTE_AWARENESS_ORIGIN = Symbol('tahta.remote-awareness');
@@ -495,6 +496,30 @@ export class YjsCanvasEngine implements CanvasEngine {
   async enableIndexedDbPersistence(databaseName = `tahta:${this.documentId}`): Promise<() => Promise<void>> {
     this.#assertAlive();
     const { IndexeddbPersistence } = await import('y-indexeddb');
+    const persistedDocument = new Y.Doc();
+    const reader = new IndexeddbPersistence(databaseName, persistedDocument);
+    try {
+      await reader.whenSynced;
+      this.#assertAlive();
+
+      const persistedUpdate = Y.encodeStateAsUpdate(persistedDocument);
+      const candidate = new Y.Doc();
+      try {
+        Y.applyUpdate(candidate, Y.encodeStateAsUpdate(this.#doc), SYSTEM_ORIGIN);
+        Y.applyUpdate(candidate, persistedUpdate, LOCAL_PERSISTENCE_ORIGIN);
+        this.#validateDoc(candidate);
+      } finally {
+        candidate.destroy();
+      }
+
+      const missingLocalUpdate = Y.encodeStateAsUpdate(persistedDocument, Y.encodeStateVector(this.#doc));
+      Y.applyUpdate(this.#doc, missingLocalUpdate, LOCAL_PERSISTENCE_ORIGIN);
+    } finally {
+      await reader.destroy();
+      persistedDocument.destroy();
+    }
+
+    this.#assertAlive();
     const provider = new IndexeddbPersistence(databaseName, this.#doc);
     await provider.whenSynced;
     let disposed = false;

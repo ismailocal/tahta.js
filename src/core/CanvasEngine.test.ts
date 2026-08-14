@@ -1,5 +1,8 @@
+import 'fake-indexeddb/auto';
 import { generateKeyBetween } from 'fractional-indexing';
 import { describe, expect, it } from 'vitest';
+import { IndexeddbPersistence, clearDocument } from 'y-indexeddb';
+import * as Y from 'yjs';
 import { createCanvasEngine } from './CanvasEngine';
 import { createBuiltinShapeRegistry } from './builtinRegistry';
 import { EMPTY_CANVAS_SNAPSHOT, ROOT_PARENT_ID, type ShapeRecord } from './model';
@@ -33,6 +36,60 @@ function record(engine: ReturnType<typeof setup>, id: string, patch: Partial<Sha
 }
 
 describe('YjsCanvasEngine', () => {
+  it('validates IndexedDB state before applying it to the live document', async () => {
+    const databaseName = `tahta-test:${crypto.randomUUID()}`;
+    const storedEngine = setup();
+    const arrow = storedEngine.registry.validate({
+      ...record(storedEngine, 'arrow'),
+      type: 'arrow',
+      props: { width: 100, height: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] },
+    });
+    storedEngine.dispatch({ type: 'shape.create', record: arrow });
+    const invalidDocument = new Y.Doc();
+    Y.applyUpdate(invalidDocument, storedEngine.encodeState());
+    const storedProps = invalidDocument.getMap<Y.Map<unknown>>('records').get('arrow')?.get('props');
+    expect(storedProps).toBeInstanceOf(Y.Map);
+    storedProps!.set('points', [{ x: 0, y: 0 }, { x: 100, y: 0 }]);
+    const persistence = new IndexeddbPersistence(databaseName, invalidDocument);
+    await persistence.whenSynced;
+    await persistence.destroy();
+
+    const engine = setup();
+    let emittedUpdates = 0;
+    const unsubscribe = engine.onDocumentUpdate(() => { emittedUpdates += 1; });
+    await expect(engine.enableIndexedDbPersistence(databaseName)).rejects.toThrow('points are not stored collaboratively');
+    expect(engine.getSnapshot().records).toEqual([]);
+    expect(emittedUpdates).toBe(0);
+
+    unsubscribe();
+    engine.destroy();
+    storedEngine.destroy();
+    invalidDocument.destroy();
+    await clearDocument(databaseName);
+  });
+
+  it('loads valid IndexedDB state without adding it to local undo history', async () => {
+    const databaseName = `tahta-test:${crypto.randomUUID()}`;
+    const storedEngine = setup();
+    storedEngine.dispatch({ type: 'shape.create', record: record(storedEngine, 'persisted') });
+    const storedDocument = new Y.Doc();
+    Y.applyUpdate(storedDocument, storedEngine.encodeState());
+    const persistence = new IndexeddbPersistence(databaseName, storedDocument);
+    await persistence.whenSynced;
+    await persistence.destroy();
+
+    const engine = setup();
+    const dispose = await engine.enableIndexedDbPersistence(databaseName);
+    expect(engine.getSnapshot().records.map(({ id }) => id)).toEqual(['persisted']);
+    expect(engine.canUndo()).toBe(false);
+
+    await dispose();
+    engine.destroy();
+    storedEngine.destroy();
+    storedDocument.destroy();
+    await clearDocument(databaseName);
+  });
+
   it('forks definitions without sharing view runtime instances', () => {
     const source = createBuiltinShapeRegistry();
     const first = source.fork();
