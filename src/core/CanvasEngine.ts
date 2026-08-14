@@ -75,6 +75,14 @@ export interface CanvasCollaborator {
   laserTrail?: readonly LaserPoint[];
 }
 
+export interface LocalAwarenessPointer {
+  cursor: { x: number; y: number };
+  button: string;
+  viewportZoom: number;
+  pointerTool: 'pointer' | 'laser';
+  laserTrail?: readonly LaserPoint[];
+}
+
 export interface CanvasEngineConfig {
   documentId: string;
   registry: ShapeRegistry;
@@ -107,6 +115,7 @@ export interface CanvasEngine {
   onAwarenessUpdate(listener: (update: Uint8Array) => void): () => void;
   encodeLocalAwareness(): Uint8Array;
   setLocalAwarenessUser(user: { peerId: string; name: string; color: string }): void;
+  setLocalAwarenessPointer(pointer: LocalAwarenessPointer): void;
   applyRemoteAwarenessUpdate(update: Uint8Array, transportIdentity: string): void;
   removeRemoteAwareness(transportIdentity: string): void;
   enableIndexedDbPersistence(databaseName?: string): Promise<() => Promise<void>>;
@@ -400,8 +409,38 @@ export class YjsCanvasEngine implements CanvasEngine {
     if (!user.peerId.trim() || !user.name.trim() || user.peerId.length > 255 || user.name.length > 255 || !/^#[0-9a-f]{6}$/iu.test(user.color)) {
       throw new CanvasValidationError('Awareness user profile is invalid', 'AWARENESS_PROFILE_INVALID');
     }
-    this.awareness.setLocalStateField('peerId', user.peerId);
-    this.awareness.setLocalStateField('user', { name: user.name, color: user.color });
+    this.awareness.setLocalState({
+      ...(this.awareness.getLocalState() ?? {}),
+      peerId: user.peerId,
+      user: { name: user.name, color: user.color },
+    });
+  }
+
+  setLocalAwarenessPointer(pointer: LocalAwarenessPointer): void {
+    this.#assertAlive();
+    if (
+      !Number.isFinite(pointer.cursor.x)
+      || !Number.isFinite(pointer.cursor.y)
+      || !pointer.button
+      || pointer.button.length > 32
+      || !Number.isFinite(pointer.viewportZoom)
+      || pointer.viewportZoom < 0.05
+      || pointer.viewportZoom > 32
+      || (pointer.pointerTool !== 'pointer' && pointer.pointerTool !== 'laser')
+    ) {
+      throw new CanvasValidationError('Awareness pointer state is invalid', 'AWARENESS_POINTER_INVALID');
+    }
+    const laserTrail = pointer.pointerTool === 'laser'
+      ? [...(validateLaserTrail(pointer.laserTrail) ?? [])]
+      : null;
+    this.awareness.setLocalState({
+      ...(this.awareness.getLocalState() ?? {}),
+      cursor: { x: pointer.cursor.x, y: pointer.cursor.y },
+      button: pointer.button,
+      viewportZoom: pointer.viewportZoom,
+      pointerTool: pointer.pointerTool,
+      laserTrail,
+    });
   }
 
   applyRemoteAwarenessUpdate(update: Uint8Array, transportIdentity: string): void {

@@ -73,11 +73,12 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
           <div class="mobile-toolbar" data-mobile-toolbar></div>
         </div>
         <section class="board-area">
+          <button class="properties-scrim" type="button" data-properties-scrim aria-label="Close properties" aria-hidden="true"></button>
           <div class="properties-panel" data-properties></div>
           <div class="zoom-controls" data-zoom-controls>
             <button class="layers-toggle-btn" data-layers-toggle>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-              <span class="layers-badge" data-layers-badge></span>
+              <span class="dock-count-badge" data-layers-badge></span>
             </button>
             <div class="zoom-separator"></div>
             <button class="zoom-btn" data-zoom-fit title="Focus Content">
@@ -106,6 +107,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   const toolbar = root.querySelector('[data-toolbar]') as HTMLElement;
   const mobileToolbar = root.querySelector('[data-mobile-toolbar]') as HTMLElement;
   const properties = root.querySelector('[data-properties]') as HTMLElement;
+  const propertiesScrim = root.querySelector('[data-properties-scrim]') as HTMLButtonElement;
   const zoomControls = root.querySelector('[data-zoom-controls]') as HTMLElement;
   const zoomValue = root.querySelector('[data-zoom-value]') as HTMLElement;
 
@@ -267,9 +269,16 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   };
   document.addEventListener('click', onDocumentClick, listenerOptions);
 
-  let propertiesOpen = true;
+  const mobileViewport = window.matchMedia?.('(max-width: 767px)');
+  let propertiesOpen = !(mobileViewport?.matches ?? window.innerWidth <= 767);
   const propToggleBtn = document.createElement('button');
+  const propertiesId = `tahta-properties-${createId()}`;
+  properties.id = propertiesId;
+  properties.setAttribute('role', 'region');
+  properties.setAttribute('aria-label', 'Properties');
+  propToggleBtn.type = 'button';
   propToggleBtn.className = 'properties-toggle-btn active';
+  propToggleBtn.setAttribute('aria-controls', propertiesId);
   propToggleBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`;
   propToggleBtn.title = "Close Settings";
   root.appendChild(propToggleBtn);
@@ -277,6 +286,15 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
   propToggleBtn.addEventListener('click', () => {
     propertiesOpen = !propertiesOpen;
     renderProperties(store.getState());
+    if (propertiesOpen && mobileViewport?.matches) {
+      properties.querySelector<HTMLButtonElement>('[data-properties-close]')?.focus();
+    }
+  }, listenerOptions);
+
+  propertiesScrim.addEventListener('click', () => {
+    propertiesOpen = false;
+    renderProperties(store.getState());
+    propToggleBtn.focus();
   }, listenerOptions);
 
   const renderProperties = (state: CanvasState) => {
@@ -289,9 +307,15 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     if (!properties.innerHTML.trim()) {
       properties.classList.add('hidden');
       propToggleBtn.style.display = 'none';
+      propertiesScrim.classList.remove('open');
+      propertiesScrim.setAttribute('aria-hidden', 'true');
+      propToggleBtn.setAttribute('aria-expanded', 'false');
     } else {
       propToggleBtn.style.display = 'flex';
       properties.classList.toggle('closed', !propertiesOpen);
+      propertiesScrim.classList.toggle('open', propertiesOpen);
+      propertiesScrim.setAttribute('aria-hidden', String(!propertiesOpen));
+      propToggleBtn.setAttribute('aria-expanded', String(propertiesOpen));
       
       const hasSelection = selectedShapes.length > 0;
       propToggleBtn.className = `properties-toggle-btn ${propertiesOpen ? 'active' : ''} ${hasSelection ? 'has-selection' : ''}`;
@@ -301,6 +325,7 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
       
       propToggleBtn.innerHTML = propertiesOpen ? chevronIcon : paletteIcon;
       propToggleBtn.title = propertiesOpen ? "Close Settings" : "Open Settings";
+      propToggleBtn.setAttribute('aria-label', propertiesOpen ? 'Close properties' : 'Open properties');
     }
 
     // Hover-based dropdown for property panel
@@ -331,10 +356,33 @@ export function createUI(root: HTMLElement, store: WhiteboardStore, canvas: HTML
     });
   };
 
+  const closeProperties = (restoreFocus: boolean) => {
+    if (!propertiesOpen) return;
+    propertiesOpen = false;
+    renderProperties(store.getState());
+    if (restoreFocus) propToggleBtn.focus();
+  };
+
+  mobileViewport?.addEventListener('change', (event) => {
+    propertiesOpen = !event.matches;
+    renderProperties(store.getState());
+  }, listenerOptions);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobileViewport?.matches && propertiesOpen) {
+      event.preventDefault();
+      closeProperties(true);
+    }
+  }, listenerOptions);
+
   initPropertiesPanel(properties, api, lifecycle.signal);
 
   root.querySelector('.tahta-shell')?.addEventListener('click', (event: Event) => {
     const target = event.target as HTMLElement;
+    if (target.closest('[data-properties-close]')) {
+      closeProperties(true);
+      return;
+    }
     // Close dropdowns if clicked on an item or color swatch
     if (target.closest('.tool-dropdown-item') || target.closest('.pp-ibtn') || target.closest('.pp-swatch')) {
       closeAllDropdowns();

@@ -95,6 +95,21 @@ function btnGroup(...btns: string[]): string {
   return `<div class="pp-btn-group">${btns.join('')}</div>`;
 }
 
+function propertiesHeader(badge: string): string {
+  return `
+    <div class="properties-header">
+      <div class="properties-header-left">
+        <h3 class="properties-header-title">Properties</h3>
+        <span class="properties-count-badge">${badge}</span>
+      </div>
+      <button class="properties-mobile-close" type="button" data-properties-close aria-label="Close properties">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </button>
+    </div>`;
+}
+
 // ─── Main render ───────────────────────────────────────────────────────────────
 
 function renderTextLayoutSection(shape: Shape): string {
@@ -292,15 +307,8 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
       groups.push(section('Text', fsHtml));
     }
 
-    return `
-      <div class="properties-header">
-        <div class="properties-header-left">
-          <h3 class="properties-header-title">Properties</h3>
-          <span class="properties-count-badge">Tool Settings</span>
-        </div>
-      </div>
-      <div class="pp-toolbar pp--tool-settings">${groups.join('')}</div>
-    `;
+    return `${propertiesHeader('Tool Settings')}
+      <div class="pp-toolbar pp--tool-settings">${groups.join('')}</div>`;
   }
 
   const shape = selectedShapes[0]!;
@@ -459,13 +467,6 @@ export function renderPropertiesPanelHTML(api: ICanvasAPI): string {
 
   const countLabel = selectedShapes.length === 1 ? '1 object' : `${selectedShapes.length} objects`;
 
-  return `
-    <div class="properties-header">
-      <div class="properties-header-left">
-        <h3 class="properties-header-title">Properties</h3>
-        <span class="properties-count-badge">${countLabel}</span>
-      </div>
-    </div>
-    <div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join('')}</div>
-  `;
+  return `${propertiesHeader(countLabel)}
+    <div class="pp-toolbar${isLocked ? ' pp--locked' : ''}">${groups.join('')}</div>`;
 }

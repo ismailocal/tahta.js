@@ -4,6 +4,12 @@ import type { CanvasView, MountCanvasOptions } from 'tahta.js/dom';
 const registry = createBuiltinShapeRegistry();
 const engine = createCanvasEngine({ documentId: 'consumer-fixture', registry });
 const snapshot: CanvasSnapshotV2 = engine.getSnapshot();
+engine.setLocalAwarenessPointer({
+  cursor: { x: 0, y: 0 },
+  button: 'up',
+  viewportZoom: 1,
+  pointerTool: 'pointer',
+});
 const mountOptions = {} as MountCanvasOptions;
 const view = {} as CanvasView;
 

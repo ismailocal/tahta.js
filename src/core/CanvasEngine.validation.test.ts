@@ -133,4 +133,38 @@ describe('CanvasEngine snapshot and awareness validation', () => {
     expect(awareness).not.toHaveBeenCalled();
     engine.destroy();
   });
+
+  it('publishes user and pointer awareness as one atomic update each', () => {
+    const engine = createCanvasEngine({ documentId: 'awareness-atomic', registry: registry(), initialSnapshot: snapshot() });
+    const awareness = vi.fn();
+    const disposeAwareness = engine.onAwarenessUpdate(awareness);
+
+    engine.setLocalAwarenessUser({ peerId: 'peer', name: 'Ada', color: '#3366ff' });
+    expect(awareness).toHaveBeenCalledTimes(1);
+
+    engine.setLocalAwarenessPointer({
+      cursor: { x: 10, y: 20 },
+      button: 'down',
+      viewportZoom: 1,
+      pointerTool: 'pointer',
+    });
+    expect(awareness).toHaveBeenCalledTimes(2);
+    expect(engine.awareness.getLocalState()).toMatchObject({
+      cursor: { x: 10, y: 20 },
+      button: 'down',
+      viewportZoom: 1,
+      pointerTool: 'pointer',
+      laserTrail: null,
+    });
+    expect(() => engine.setLocalAwarenessPointer({
+      cursor: { x: 10, y: 20 },
+      button: 'down',
+      viewportZoom: Number.POSITIVE_INFINITY,
+      pointerTool: 'pointer',
+    })).toThrow('invalid');
+    expect(awareness).toHaveBeenCalledTimes(2);
+
+    disposeAwareness();
+    engine.destroy();
+  });
 });
