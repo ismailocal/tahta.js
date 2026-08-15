@@ -34,11 +34,11 @@ describe('shape spatial index', () => {
     const index = createShapeSpatialIndex(original, registry);
     const moved = { ...original[0], x: 1_000 };
 
-    index.update([moved, original[1]], ['a']);
+    index.update([{ id: 'a', shape: moved }]);
     expect(index.queryPoint({ x: 10, y: 10 })).toEqual([]);
     expect(index.queryPoint({ x: 1_010, y: 10 }).map(({ id }) => id)).toEqual(['a']);
 
-    index.update([moved], ['b']);
+    index.update([{ id: 'b' }]);
     expect(index.queryPoint({ x: 110, y: 110 })).toEqual([]);
   });
 
@@ -62,7 +62,7 @@ describe('shape spatial index', () => {
     expect([...index.expandConnected(new Set([target.id]))]).toEqual(expect.arrayContaining(['target', 'connector']));
 
     const detached = { ...connector, startBinding: undefined };
-    index.update([target, detached], [connector.id]);
+    index.update([{ id: connector.id, shape: detached }]);
     expect([...index.expandConnected(new Set([target.id]))]).toEqual(['target']);
   });
 });

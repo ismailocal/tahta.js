@@ -6,5 +6,6 @@ export * from './transforms.js';
 export * from './richText.js';
 export * from './laser.js';
 export * from './projection.js';
+export * from './CanvasShapeProjection.js';
 export * from './builtinRegistry.js';
 export type { CanvasState, Shape, ShapeBinding, ShapeType, Point, ConnectionPoint } from './types.js';

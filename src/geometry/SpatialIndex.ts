@@ -15,6 +15,11 @@ interface IndexedShape {
   cells: readonly string[] | null;
 }
 
+export interface SpatialIndexChange {
+  readonly id: string;
+  readonly shape?: Shape;
+}
+
 const CELL_SIZE = 512;
 const MAX_CELLS_PER_SHAPE = 256;
 
@@ -73,15 +78,11 @@ export class ShapeSpatialIndex {
     shapes.forEach((shape) => this.#insert(shape));
   }
 
-  update(shapes: readonly Shape[], changedIds: readonly string[]): void {
-    if (changedIds.length === 0) return;
-    const changed = new Set(changedIds);
-    const replacements = new Map<string, Shape>();
-    for (const shape of shapes) {
-      if (changed.has(shape.id)) replacements.set(shape.id, shape);
+  update(changes: readonly SpatialIndexChange[]): void {
+    for (const change of changes) {
+      this.#remove(change.id);
+      if (change.shape) this.#insert(change.shape);
     }
-    changed.forEach((id) => this.#remove(id));
-    replacements.forEach((shape) => this.#insert(shape));
   }
 
   queryPoint(point: Point): Shape[] {
@@ -115,6 +116,10 @@ export class ShapeSpatialIndex {
 
   getShape(id: string): Shape | undefined {
     return this.#entries.get(id)?.shape;
+  }
+
+  get size(): number {
+    return this.#entries.size;
   }
 
   clear(): void {

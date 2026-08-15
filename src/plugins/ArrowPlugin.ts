@@ -9,9 +9,7 @@ import { ConnectorMixin } from './ConnectorMixin';
 import type { RoughCanvas } from 'roughjs/bin/canvas';
 import type { Drawable } from 'roughjs/bin/core';
 import type { RoughGenerator } from 'roughjs/bin/generator';
-
-// Re-export for backward compatibility
-export const findNearestPort = ConnectorMixin.findNearestPort;
+import { getShapeById } from '../geometry/ShapeLookup';
 
 /** Use elbow routing only when explicitly selected. */
 function shouldUseElbowRouting(shape: Shape): boolean {
@@ -43,8 +41,8 @@ export class ArrowPlugin implements IShapePlugin {
     if (pts.length < 2) return null;
     const { p1, p2 } = getArrowClippedEndpoints(shape, allShapes, this.registry);
     if (shouldUseElbowRouting(shape)) {
-      const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
-      const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
+      const b1 = shape.startBinding ? getShapeById(allShapes, shape.startBinding.elementId) : undefined;
+      const b2 = shape.endBinding ? getShapeById(allShapes, shape.endBinding.elementId) : undefined;
       const path = getElbowPath(p1, p2, this.registry, b1, b2);
       return getPathMidpoint(path);
     }

@@ -3,7 +3,7 @@ import { getCachedStyle } from '../core/constants';
 import { createId, randomSeed } from '../core/Utils';
 import { getShapePlugin } from '../plugins/index';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
-import { findNearestPort } from '../plugins/ArrowPlugin';
+import { findNearestConnectionPort } from '../geometry/ConnectionPorts';
 
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
@@ -59,7 +59,7 @@ export class ShapeTool implements ToolDefinition {
 
       // Highlight nearest port when hovering before drawing starts
       if (isConnector) {
-        const nearestPort = findNearestPort(payload.world, state.shapes, api.registry, []);
+        const nearestPort = findNearestConnectionPort(payload.world, api.getSpatialIndex(), api.registry);
         const newPortShapeId = nearestPort?.shape.id ?? null;
         const newPortId = nearestPort?.portId ?? null;
         if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
@@ -67,17 +67,6 @@ export class ShapeTool implements ToolDefinition {
         }
       }
       return;
-    }
-
-    // While drawing a connector, track the nearest port for highlight feedback
-    if (isConnector) {
-      const state = api.getState();
-      const nearestPort = findNearestPort(payload.world, state.shapes, api.registry, [this.currentShapeId]);
-      const newPortShapeId = nearestPort?.shape.id ?? null;
-      const newPortId = nearestPort?.portId ?? null;
-      if (newPortShapeId !== state.hoveredPortShapeId || newPortId !== state.hoveredPortId) {
-        api.setState({ hoveredPortShapeId: newPortShapeId, hoveredPortId: newPortId });
-      }
     }
 
     if (plugin.onDrawUpdate) {

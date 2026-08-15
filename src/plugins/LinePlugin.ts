@@ -7,8 +7,7 @@ import type { ShapeRegistry } from '../core/registry';
 import { UI_CONSTANTS } from '../core/constants';
 import { ConnectorMixin } from './ConnectorMixin';
 import type { RoughCanvas } from 'roughjs/bin/canvas';
-
-// Re-export for backward compatibility
+import { getShapeById } from '../geometry/ShapeLookup';
 /** Control point for a quadratic bezier curved line — offset perpendicular to the midpoint. */
 function getCurvedControlPoint(p1: Point, p2: Point): Point {
   const mx = (p1.x + p2.x) / 2;
@@ -48,8 +47,8 @@ export class LinePlugin implements IShapePlugin {
 
     // Calculate midpoint based on edgeStyle
     if (shouldUseElbowRouting(shape)) {
-      const b1 = shape.startBinding ? allShapes.find(s => s.id === shape.startBinding!.elementId) : undefined;
-      const b2 = shape.endBinding ? allShapes.find(s => s.id === shape.endBinding!.elementId) : undefined;
+      const b1 = shape.startBinding ? getShapeById(allShapes, shape.startBinding.elementId) : undefined;
+      const b2 = shape.endBinding ? getShapeById(allShapes, shape.endBinding.elementId) : undefined;
       const path = getElbowPath(p1, p2, this.registry, b1, b2);
       return getPathMidpoint(path);
     } else if (shape.edgeStyle === 'curved') {

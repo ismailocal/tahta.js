@@ -309,7 +309,7 @@ export class WhiteboardStore {
     const snapshot = view.snapshot;
     const shapes = this.projection.project(view);
     if (this.spatialIndex && this.indexedShapes !== shapes) {
-      this.spatialIndex.update(shapes, this.projection.changedShapeIds);
+      this.spatialIndex.update(this.projection.changes);
       this.indexedShapes = shapes;
     }
     return {

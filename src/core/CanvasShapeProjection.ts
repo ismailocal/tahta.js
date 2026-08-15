@@ -11,6 +11,11 @@ interface ProjectedShape {
   readonly shape: Shape;
 }
 
+export interface CanvasShapeProjectionChange {
+  readonly id: string;
+  readonly shape?: Shape;
+}
+
 /**
  * Maintains the immutable renderer projection while preserving references for
  * records that did not change. View-only updates return the exact same array.
@@ -22,6 +27,7 @@ export class CanvasShapeProjection {
   #projectedById = new Map<string, ProjectedShape>();
   #shapes: Shape[] = [];
   #changedShapeIds: readonly string[] = [];
+  #changes: readonly CanvasShapeProjectionChange[] = [];
 
   constructor(registry: ShapeRegistry) {
     this.#registry = registry;
@@ -30,13 +36,12 @@ export class CanvasShapeProjection {
   project(view: CanvasViewState): Shape[] {
     if (this.#snapshot === view.snapshot && this.#assetHrefs === view.assetHrefs) {
       this.#changedShapeIds = [];
+      this.#changes = [];
       return this.#shapes;
     }
 
     const bindingByConnector = new Map(view.snapshot.bindings.map((binding) => [binding.connectorId, binding]));
     const visibleRecords = view.snapshot.records.filter((record) => !record.hidden);
-    const orderChanged = visibleRecords.length !== this.#shapes.length
-      || visibleRecords.some((record, index) => this.#shapes[index]?.id !== record.id);
     const nextById = new Map<string, ProjectedShape>();
     const nextShapes = new Array<Shape>(visibleRecords.length);
     const changedIds = new Set<string>();
@@ -45,10 +50,10 @@ export class CanvasShapeProjection {
       const binding = bindingByConnector.get(record.id);
       const assetHref = this.#assetHref(record, view.assetHrefs);
       const previous = this.#projectedById.get(record.id);
-      const canReuse = !orderChanged
-        && previous?.record === record
+      const canReuse = previous?.record === record
         && previous.binding === binding
-        && previous.assetHref === assetHref;
+        && previous.assetHref === assetHref
+        && previous.shape.zIndex === zIndex;
       const shape = canReuse
         ? previous.shape
         : this.#createShape(record, zIndex, binding, assetHref);
@@ -65,11 +70,16 @@ export class CanvasShapeProjection {
     this.#projectedById = nextById;
     this.#shapes = nextShapes;
     this.#changedShapeIds = [...changedIds];
+    this.#changes = this.#changedShapeIds.map((id) => ({ id, shape: nextById.get(id)?.shape }));
     return this.#shapes;
   }
 
   get changedShapeIds(): readonly string[] {
     return this.#changedShapeIds;
+  }
+
+  get changes(): readonly CanvasShapeProjectionChange[] {
+    return this.#changes;
   }
 
   clear(): void {
@@ -78,6 +88,7 @@ export class CanvasShapeProjection {
     this.#projectedById.clear();
     this.#shapes = [];
     this.#changedShapeIds = [];
+    this.#changes = [];
   }
 
   #assetHref(record: ShapeRecord, hrefs: ReadonlyMap<string, string>): string | undefined {

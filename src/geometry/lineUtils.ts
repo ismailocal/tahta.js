@@ -3,6 +3,7 @@ import type { ShapeRegistry } from '../core/registry';
 import { getShapePlugin } from '../plugins/index';
 import { getThemeAdjustedStroke } from '../core/Utils';
 import type { RoughOptions } from './ArrowheadUtils';
+import { getShapeById } from './ShapeLookup';
 
 export { getArrowheadDrawable, drawArrowhead } from './ArrowheadUtils';
 export { getElbowPath } from './ElbowRouter';
@@ -84,7 +85,7 @@ export function getArrowClippedEndpoints(shape: Shape, allShapes: Shape[], regis
 
   [ { b: shape.startBinding, set: (p: Point) => { p1 = p; } }, { b: shape.endBinding, set: (p: Point) => { p2 = p; } } ].forEach(config => {
     if (config.b?.portId) {
-      const bShape = allShapes.find(s => s.id === config.b!.elementId);
+      const bShape = getShapeById(allShapes, config.b.elementId);
       if (bShape) {
         const port = getShapePlugin(registry, bShape.type).getConnectionPoints?.(bShape)?.find(p => p.id === config.b!.portId);
         if (port) config.set({ x: port.x, y: port.y });
