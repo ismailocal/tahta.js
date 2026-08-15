@@ -119,7 +119,10 @@ export interface CanvasEngine {
   setLocalAwarenessPointer(pointer: LocalAwarenessPointer): void;
   applyRemoteAwarenessUpdate(update: Uint8Array, transportIdentity: string): void;
   removeRemoteAwareness(transportIdentity: string): void;
-  enableIndexedDbPersistence(databaseName?: string): Promise<() => Promise<void>>;
+  enableIndexedDbPersistence(
+    databaseName?: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<() => Promise<void>>;
   getRichTextFragment(shapeId: string, field?: 'text' | 'label'): Y.XmlFragment;
   destroy(): void;
 }
@@ -493,13 +496,19 @@ export class YjsCanvasEngine implements CanvasEngine {
     this.#syncCollaboratorsFromAwareness();
   }
 
-  async enableIndexedDbPersistence(databaseName = `tahta:${this.documentId}`): Promise<() => Promise<void>> {
+  async enableIndexedDbPersistence(
+    databaseName = `tahta:${this.documentId}`,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<() => Promise<void>> {
     this.#assertAlive();
     const { IndexeddbPersistence } = await import('y-indexeddb');
+    options.signal?.throwIfAborted();
+    this.#assertAlive();
     const persistedDocument = new Y.Doc();
     const reader = new IndexeddbPersistence(databaseName, persistedDocument);
     try {
       await reader.whenSynced;
+      options.signal?.throwIfAborted();
       this.#assertAlive();
 
       const persistedUpdate = Y.encodeStateAsUpdate(persistedDocument);
@@ -519,9 +528,17 @@ export class YjsCanvasEngine implements CanvasEngine {
       persistedDocument.destroy();
     }
 
+    options.signal?.throwIfAborted();
     this.#assertAlive();
     const provider = new IndexeddbPersistence(databaseName, this.#doc);
-    await provider.whenSynced;
+    try {
+      await provider.whenSynced;
+      options.signal?.throwIfAborted();
+      this.#assertAlive();
+    } catch (error) {
+      provider.destroy();
+      throw error;
+    }
     let disposed = false;
     const dispose = async () => {
       if (disposed) return;

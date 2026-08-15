@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCanvasBackground } from './Renderer';
+import { hasDynamicShapeMembershipChanged, resolveCanvasBackground } from './Renderer';
 import { RENDERING_CONSTANTS } from './RenderingConstants';
 
 describe('resolveCanvasBackground', () => {
@@ -22,5 +22,15 @@ describe('resolveCanvasBackground', () => {
   it('preserves a custom document background in every theme', () => {
     expect(resolveCanvasBackground('light', '#abcdef')).toBe('#abcdef');
     expect(resolveCanvasBackground('dark', '#abcdef')).toBe('#abcdef');
+  });
+});
+
+describe('dynamic render layer membership', () => {
+  it('invalidates the static layer when a detached connector releases its target', () => {
+    const whileBound = new Set(['arrow', 'target']);
+    const afterDetach = new Set(['arrow']);
+
+    expect(hasDynamicShapeMembershipChanged(whileBound, afterDetach)).toBe(true);
+    expect(hasDynamicShapeMembershipChanged(afterDetach, new Set(['arrow']))).toBe(false);
   });
 });

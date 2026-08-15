@@ -14,6 +14,7 @@ interface RendererState {
   lastDragState: boolean;
   lastViewport: { x: number; y: number; zoom: number };
   lastEditingShapeId: string | null;
+  lastDynamicShapeIds: Set<string>;
   lastShapesRef: Shape[] | null;
   lastTheme: string | null;
   shapeOrder: Map<string, number>;
@@ -41,6 +42,7 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
       lastDragState: false,
       lastViewport: { x: 0, y: 0, zoom: 1 },
       lastEditingShapeId: null,
+      lastDynamicShapeIds: new Set(),
       lastShapesRef: null,
       lastTheme: null,
       shapeOrder: new Map(),
@@ -86,7 +88,25 @@ function setupCanvas(canvas: HTMLCanvasElement, rs: RendererState, rect: DOMRect
   return false;
 }
 
+export function hasDynamicShapeMembershipChanged(
+  previous: ReadonlySet<string>,
+  current: ReadonlySet<string>,
+): boolean {
+  if (previous.size !== current.size) return true;
+  for (const id of previous) {
+    if (!current.has(id)) return true;
+  }
+  return false;
+}
+
 function shouldInvalidateStatic(state: CanvasState, rs: RendererState, dynamicIds: ReadonlySet<string>): boolean {
+  if (hasDynamicShapeMembershipChanged(rs.lastDynamicShapeIds, dynamicIds)) {
+    // The static layer contains the complement of this set. When a connector is
+    // detached, its former target leaves the dynamic set and must be painted
+    // back into the cached layer immediately.
+    rs.isStaticValid = false;
+    rs.lastDynamicShapeIds = new Set(dynamicIds);
+  }
   const theme = state.theme ?? 'light';
   if (rs.lastTheme !== theme) {
     rs.isStaticValid = false;

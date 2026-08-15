@@ -90,6 +90,20 @@ describe('YjsCanvasEngine', () => {
     await clearDocument(databaseName);
   });
 
+  it('cancels IndexedDB initialization before opening a provider', async () => {
+    const databaseName = `tahta-test:${crypto.randomUUID()}`;
+    const engine = setup();
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(engine.enableIndexedDbPersistence(databaseName, { signal: controller.signal }))
+      .rejects.toMatchObject({ name: 'AbortError' });
+    expect(engine.getSnapshot().records).toEqual([]);
+
+    engine.destroy();
+    await clearDocument(databaseName);
+  });
+
   it('forks definitions without sharing view runtime instances', () => {
     const source = createBuiltinShapeRegistry();
     const first = source.fork();
