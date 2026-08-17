@@ -3,7 +3,7 @@ import type { Shape, CanvasState } from '../core/types';
 import { getShapePlugin } from '../plugins/index';
 import type { ShapeRegistry } from '../core/registry';
 import { renderGrid } from './GridRenderer';
-import { hasActiveLaserAnimation, renderWelcome, renderOverlays } from './OverlayRenderer';
+import { getCanvasContentLeftInset, hasActiveLaserAnimation, renderWelcome, renderOverlays } from './OverlayRenderer';
 import { renderShape, ShapeRenderCache } from './ShapeRenderer';
 import { RENDERING_CONSTANTS } from './RenderingConstants';
 import type { ShapeSpatialIndex } from '../geometry/SpatialIndex';
@@ -21,6 +21,7 @@ interface RendererState {
   lastGridEnabled: boolean | null;
   lastGridSize: number | null;
   lastShowPorts: boolean | null;
+  lastUiLeftInset: number | null;
   shapeOrder: Map<string, number>;
   shapeCache: ShapeRenderCache;
 }
@@ -53,6 +54,7 @@ function getRendererState(canvas: HTMLCanvasElement): RendererState {
       lastGridEnabled: null,
       lastGridSize: null,
       lastShowPorts: null,
+      lastUiLeftInset: null,
       shapeOrder: new Map(),
       shapeCache: new ShapeRenderCache(),
     });
@@ -112,6 +114,7 @@ function shouldInvalidateStatic(
   rs: RendererState,
   dynamicIds: ReadonlySet<string>,
   showPorts: boolean,
+  uiLeftInset: number,
 ): boolean {
   if (hasDynamicShapeMembershipChanged(rs.lastDynamicShapeIds, dynamicIds)) {
     // The static layer contains the complement of this set. When a connector is
@@ -139,6 +142,10 @@ function shouldInvalidateStatic(
     rs.isStaticValid = false;
     rs.lastShowPorts = showPorts;
   }
+  if (rs.lastUiLeftInset !== uiLeftInset) {
+    rs.isStaticValid = false;
+    rs.lastUiLeftInset = uiLeftInset;
+  }
   if (rs.lastViewport.x !== state.viewport.x || rs.lastViewport.y !== state.viewport.y || rs.lastViewport.zoom !== state.viewport.zoom) {
     rs.isStaticValid = false;
     rs.lastViewport = { ...state.viewport };
@@ -164,6 +171,7 @@ function renderStaticLayer(
   showPorts: boolean,
   visibleShapes: Shape[],
   registry: ShapeRegistry,
+  uiLeftInset: number,
 ): void {
   if (!rs.isStaticValid || !rs.staticCanvas) {
     if (!rs.staticCanvas) rs.staticCanvas = document.createElement('canvas');
@@ -175,7 +183,9 @@ function renderStaticLayer(
 
     sCtx.clearRect(0, 0, rect.width, rect.height);
     renderGrid(sCtx, state, rect.width, rect.height);
-    if (!state.shapes.length) renderWelcome(rs.staticCanvas, sCtx, state.theme);
+    if (!state.shapes.length) {
+      renderWelcome(sCtx, { width: rect.width, height: rect.height, leftInset: uiLeftInset }, state.theme);
+    }
 
     sCtx.save();
     sCtx.translate(state.viewport.x, state.viewport.y);
@@ -311,11 +321,12 @@ export function renderScene(
   const needsAnimation = hasActiveLaserAnimation(state);
   const isDrawnAction = state.isDraggingSelection || !!state.drawingShapeId || needsAnimation;
   const dynamicIds = getDynamicIds(state, spatialIndex);
+  const uiLeftInset = getCanvasContentLeftInset(canvas, rect.width);
   if (isDrawnAction && !rs.lastDragState) rs.isStaticValid = false;
-  shouldInvalidateStatic(state, rs, dynamicIds, showPorts);
+  shouldInvalidateStatic(state, rs, dynamicIds, showPorts, uiLeftInset);
   rs.lastDragState = isDrawnAction;
 
-  renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes, registry);
+  renderStaticLayer(rs, canvas, state, rect, dpr, dynamicIds, showPorts, visibleShapes, registry, uiLeftInset);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = resolveCanvasBackground(state.theme, state.canvasBackground);

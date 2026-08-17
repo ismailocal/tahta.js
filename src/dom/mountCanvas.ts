@@ -29,6 +29,7 @@ export interface CanvasView {
   focusShapes(ids?: string[]): void;
   getShapeAtPoint(point: Point): ReturnType<ReturnType<typeof createWhiteboardAPI>['getShapeAtPoint']>;
   getPerformanceMetrics(): PerformanceMetrics;
+  invalidate(): void;
   destroy(): void;
 }
 
@@ -105,6 +106,7 @@ export function mountCanvas({ root, canvas, engine }: MountCanvasOptions): Canva
     },
     getShapeAtPoint: (point) => api.getShapeAtPoint(point),
     getPerformanceMetrics: () => performanceMonitor.getMetrics(),
+    invalidate,
     destroy() {
       if (destroyed) return;
       destroyed = true;

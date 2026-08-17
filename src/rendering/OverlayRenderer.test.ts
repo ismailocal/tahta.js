@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBuiltinShapeRegistry } from '../core/builtinRegistry';
 import type { CanvasState, Shape } from '../core/types';
 import { attachBuiltinShapeRuntimes } from '../plugins';
-import { getResizeMeasurement, renderLaserTrail, renderWelcome } from './OverlayRenderer';
+import { getCanvasContentLeftInset, getResizeMeasurement, renderLaserTrail, renderWelcome } from './OverlayRenderer';
 
 function state(shape: Shape, resizingShapeId: string | null): CanvasState {
   return {
@@ -90,14 +90,41 @@ describe('welcome overlay', () => {
       fillStyle: '',
       textAlign: 'start',
     } as unknown as CanvasRenderingContext2D;
-    const canvas = {
-      getBoundingClientRect: () => ({ width: 390, height: 844 }),
-    } as unknown as HTMLCanvasElement;
-
-    renderWelcome(canvas, context);
+    renderWelcome(context, { width: 390, height: 844, leftInset: 0 });
 
     expect(renderedFonts).toHaveLength(2);
     expect(Number.parseFloat(renderedFonts[0].match(/(\d+(?:\.\d+)?)px/)?.[1] ?? '0')).toBeLessThan(42);
     expect(context.fillText).toHaveBeenNthCalledWith(1, 'Welcome to your whiteboard', 195, 412);
+  });
+
+  it('centers the empty-state copy in the canvas area not covered by host UI', () => {
+    const context = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 200 }) as TextMetrics),
+      font: '',
+      fillStyle: '',
+      textAlign: 'start',
+    } as unknown as CanvasRenderingContext2D;
+    renderWelcome(context, { width: 800, height: 600, leftInset: 96 });
+
+    // 72px sidebar + 24px visual gap leaves a 704px content area.
+    expect(context.fillText).toHaveBeenNthCalledWith(1, 'Welcome to your whiteboard', 448, 290);
+    expect(context.fillText).toHaveBeenNthCalledWith(2, 'Choose a tool and start drawing.', 448, 340);
+  });
+
+  it('derives the content inset from the host UI offset', () => {
+    const canvas = {
+      ownerDocument: {
+        defaultView: {
+          getComputedStyle: () => ({
+            getPropertyValue: (property: string) => property === '--ui-left-offset' ? '72px' : '',
+          }),
+        },
+      },
+    } as unknown as HTMLCanvasElement;
+
+    expect(getCanvasContentLeftInset(canvas, 800)).toBe(96);
   });
 });

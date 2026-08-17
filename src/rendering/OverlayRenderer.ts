@@ -18,10 +18,38 @@ function fitCanvasFontSize(
     : preferredSize;
 }
 
-export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, theme: 'light' | 'dark' = 'light') {
-  const { width, height } = canvas.getBoundingClientRect();
+const CANVAS_UI_GAP_PX = 24;
+const MIN_WELCOME_CONTENT_WIDTH_PX = 240;
+
+export function getCanvasContentLeftInset(canvas: HTMLCanvasElement, canvasWidth: number): number {
+  const view = canvas.ownerDocument?.defaultView;
+  if (!view) return 0;
+
+  const rawOffset = view.getComputedStyle(canvas).getPropertyValue('--ui-left-offset');
+  const uiLeftOffset = Number.parseFloat(rawOffset);
+  if (!Number.isFinite(uiLeftOffset) || uiLeftOffset <= 0) return 0;
+
+  return Math.min(
+    uiLeftOffset + CANVAS_UI_GAP_PX,
+    Math.max(0, canvasWidth - MIN_WELCOME_CONTENT_WIDTH_PX),
+  );
+}
+
+export interface WelcomeViewport {
+  width: number;
+  height: number;
+  leftInset: number;
+}
+
+export function renderWelcome(
+  ctx: CanvasRenderingContext2D,
+  { width, height, leftInset }: WelcomeViewport,
+  theme: 'light' | 'dark' = 'light',
+) {
   const isLight = theme === 'light';
-  const availableWidth = Math.max(240, width - 32);
+  const contentWidth = width - leftInset;
+  const contentCenterX = leftInset + contentWidth / 2;
+  const availableWidth = Math.max(MIN_WELCOME_CONTENT_WIDTH_PX, contentWidth - 32);
   const title = 'Welcome to your whiteboard';
   const hint = 'Choose a tool and start drawing.';
 
@@ -31,11 +59,11 @@ export function renderWelcome(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
   ctx.fillStyle = isLight ? '#0f172a' : '#cbd5e0';
   ctx.textAlign = 'center';
   ctx.font = `600 ${fitCanvasFontSize(ctx, title, availableWidth, 42, 24, '600 ')}px 'Architects Daughter', cursive`;
-  ctx.fillText(title, width / 2, height / 2 - 10);
+  ctx.fillText(title, contentCenterX, height / 2 - 10);
 
   ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(203, 213, 224, 0.6)';
   ctx.font = `${fitCanvasFontSize(ctx, hint, availableWidth, 20, 14)}px 'Architects Daughter', cursive`;
-  ctx.fillText(hint, width / 2, height / 2 + 40);
+  ctx.fillText(hint, contentCenterX, height / 2 + 40);
   ctx.restore();
 }
 
