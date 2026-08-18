@@ -119,7 +119,13 @@ describe('frame drag and drop', () => {
     tool.onPointerMove(pointer(180, 170), api);
     expect(store.getState().frameDropTargetId).toBe(frame.id);
 
-    tool.onPointerUp(pointer(180, 170), api);
+    tool.onPointerMove(pointer(190, 180), api);
+    expect(store.getState().frameDropTargetId).toBe(frame.id);
+
+    tool.onPointerMove(pointer(200, 190), api);
+    expect(store.getState().frameDropTargetId).toBe(frame.id);
+
+    tool.onPointerUp(pointer(200, 190), api);
     expect(store.getState().frameDropTargetId).toBeNull();
     expect(engine.getSnapshot().records.find(({ id }) => id === child.id)?.parentId).toBe(frame.id);
 

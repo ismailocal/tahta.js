@@ -51,6 +51,7 @@ export class SelectTool implements ToolDefinition {
   private activeShapeId: string | null = null;
   private isBoxSelecting = false;
   private framePreviewParentId: string | null = null;
+  private framePreviewHighlightTargetId: string | null = null;
 
   // Arrow drawing from port
   private arrowId: string | null = null;
@@ -59,6 +60,7 @@ export class SelectTool implements ToolDefinition {
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     setFrameDropTarget(api, null);
     this.framePreviewParentId = null;
+    this.framePreviewHighlightTargetId = null;
     const state = api.getState();
 
     // Check if clicking on a connection port of the hovered shape (only when ports are visible)
@@ -267,14 +269,20 @@ export class SelectTool implements ToolDefinition {
       payload.world,
       api.registry,
     );
-    const reenteredTargetId = resolution.parentId !== ROOT_PARENT_ID
-      && this.framePreviewParentId !== null
-      && this.framePreviewParentId !== resolution.parentId
+    const targetFrameId = resolution.parentId !== ROOT_PARENT_ID
       ? resolution.parentId
       : null;
-    const highlightTargetId = resolution.highlightTargetId ?? reenteredTargetId;
+    const reenteredTargetId = targetFrameId !== null
+      && this.framePreviewParentId !== null
+      && this.framePreviewParentId !== targetFrameId
+      ? targetFrameId
+      : null;
+    const newHighlightTargetId = resolution.highlightTargetId ?? reenteredTargetId;
+    const highlightTargetId = newHighlightTargetId
+      ?? (this.framePreviewHighlightTargetId === targetFrameId ? targetFrameId : null);
     setFrameDropTarget(api, highlightTargetId);
     this.framePreviewParentId = resolution.parentId;
+    this.framePreviewHighlightTargetId = highlightTargetId;
   }
 
   onPointerUp(payload: PointerPayload, api: ICanvasAPI) {
@@ -304,6 +312,7 @@ export class SelectTool implements ToolDefinition {
       this.arrowStartShapeId = null;
       this.dragStartWorld = null;
       this.framePreviewParentId = null;
+      this.framePreviewHighlightTargetId = null;
       api.setState({ drawingShapeId: null, hoveredShapeId: null });
       return;
     }
@@ -345,6 +354,7 @@ export class SelectTool implements ToolDefinition {
     this.activeHandle = null;
     this.activeShapeId = null;
     this.framePreviewParentId = null;
+    this.framePreviewHighlightTargetId = null;
   }
 
   onKeyDown(event: KeyboardEvent, api: ICanvasAPI) {
