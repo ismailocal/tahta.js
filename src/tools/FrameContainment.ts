@@ -37,6 +37,18 @@ export function topLevelSelectionIds(selectedIds: readonly string[], shapes: rea
   });
 }
 
+export function commonParentId(shapeIds: readonly string[], shapes: readonly Shape[]): string | null {
+  if (shapeIds.length === 0) return null;
+  const shapesById = new Map(shapes.map((shape) => [shape.id, shape]));
+  const firstShape = shapesById.get(shapeIds[0]);
+  if (!firstShape) return null;
+  const commonParent = parentId(firstShape);
+  return shapeIds.every((id) => {
+    const shape = shapesById.get(id);
+    return shape !== undefined && parentId(shape) === commonParent;
+  }) ? commonParent : null;
+}
+
 export interface FrameDropResolution {
   parentId: string;
   highlightTargetId: string | null;

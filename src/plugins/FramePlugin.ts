@@ -1,6 +1,12 @@
 import type { Shape } from '../core/types';
 import { BaseRectPlugin } from './BaseRectPlugin';
 
+function frameStrokeDash(strokeStyle: Shape['strokeStyle']): number[] {
+  if (strokeStyle === 'solid') return [];
+  if (strokeStyle === 'dotted') return [2, 5];
+  return [8, 6];
+}
+
 /** A named, presentation-ready board section. */
 export class FramePlugin extends BaseRectPlugin {
   type = 'frame';
@@ -39,7 +45,7 @@ export class FramePlugin extends BaseRectPlugin {
     ctx.save();
     ctx.strokeStyle = shape.stroke ?? (theme === 'dark' ? '#64748b' : '#94a3b8');
     ctx.lineWidth = shape.strokeWidth ?? 1.5;
-    ctx.setLineDash([8, 6]);
+    ctx.setLineDash(frameStrokeDash(shape.strokeStyle));
     ctx.strokeRect(shape.x, shape.y, width, height);
     ctx.restore();
   }

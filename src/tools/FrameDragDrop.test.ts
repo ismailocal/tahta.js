@@ -20,9 +20,9 @@ const rectangle = (id: string, patch: Partial<Shape> = {}): Shape => ({
   ...patch,
 });
 
-function pointer(x: number, y: number): PointerPayload {
+function pointer(x: number, y: number, style: Record<string, string> = {}): PointerPayload {
   return {
-    nativeEvent: { target: { style: {} } } as unknown as PointerEvent,
+    nativeEvent: { target: { style } } as unknown as PointerEvent,
     screen: { x, y },
     world: { x, y },
     button: 0,
@@ -35,6 +35,30 @@ function pointer(x: number, y: number): PointerPayload {
 }
 
 describe('frame drag and drop', () => {
+  it('uses the standard move cursor as soon as a frame selection drag starts', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const frame = { ...rectangle('frame', { x: 100, y: 100, width: 300, height: 220 }), type: 'frame' };
+    const engine = createCanvasEngine({
+      documentId: 'frame-selection-cursor',
+      registry,
+      initialSnapshot: shapesToSnapshot('frame-selection-cursor', [frame], registry, {}),
+    });
+    const store = new WhiteboardStore(engine, {}, undefined, registry);
+    const api = createWhiteboardAPI(store, { offsetWidth: 800, offsetHeight: 600 } as HTMLCanvasElement);
+    const tool = new SelectTool();
+    const cursorStyle: Record<string, string> = {};
+
+    tool.onPointerDown(pointer(150, 150, cursorStyle), api);
+    expect(cursorStyle.cursor).toBe('move');
+    tool.onPointerMove(pointer(170, 170, cursorStyle), api);
+    expect(cursorStyle.cursor).toBe('move');
+    tool.onPointerUp(pointer(170, 170, cursorStyle), api);
+
+    store.destroy();
+    engine.destroy();
+  });
+
   it('reparents a shape when dropped into a frame and detaches it outside without jumping', () => {
     const registry = createBuiltinShapeRegistry();
     attachBuiltinShapeRuntimes(registry);
@@ -69,6 +93,35 @@ describe('frame drag and drop', () => {
       parentId: 'root', x: 540, y: 480,
     });
     expect(store.getState().shapes.find(({ id }) => id === 'child')).toMatchObject({ x: 540, y: 480 });
+
+    store.destroy();
+    engine.destroy();
+  });
+
+  it('restores the frame highlight when an existing child leaves and re-enters during one drag', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const frame = { ...rectangle('frame', { x: 100, y: 100, width: 300, height: 220 }), type: 'frame' };
+    const child = rectangle('child', { parentId: frame.id, x: 140, y: 130 });
+    const engine = createCanvasEngine({
+      documentId: 'frame-child-reentry-highlight',
+      registry,
+      initialSnapshot: shapesToSnapshot('frame-child-reentry-highlight', [frame, child], registry, {}),
+    });
+    const store = new WhiteboardStore(engine, {}, undefined, registry);
+    const api = createWhiteboardAPI(store, { offsetWidth: 800, offsetHeight: 600 } as HTMLCanvasElement);
+    const tool = new SelectTool();
+
+    tool.onPointerDown(pointer(160, 150), api);
+    tool.onPointerMove(pointer(560, 500), api);
+    expect(store.getState().frameDropTargetId).toBeNull();
+
+    tool.onPointerMove(pointer(180, 170), api);
+    expect(store.getState().frameDropTargetId).toBe(frame.id);
+
+    tool.onPointerUp(pointer(180, 170), api);
+    expect(store.getState().frameDropTargetId).toBeNull();
+    expect(engine.getSnapshot().records.find(({ id }) => id === child.id)?.parentId).toBe(frame.id);
 
     store.destroy();
     engine.destroy();

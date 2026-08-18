@@ -42,6 +42,42 @@ describe('resize measurement overlay', () => {
       label: '101 × 80',
     });
   });
+
+  it('reports live bounds while a box shape is being created', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const rectangle: Shape = { id: 'rect', type: 'rectangle', x: 10, y: 20, width: 120.4, height: 64.6 };
+    const drawingState = {
+      ...state(rectangle, null),
+      drawingShapeId: rectangle.id,
+    };
+
+    expect(getResizeMeasurement(drawingState, registry)).toEqual({
+      x: 70.2,
+      y: 84.6,
+      width: 120.4,
+      height: 64.6,
+      label: '120 × 65',
+    });
+  });
+
+  it('does not show a box measurement for point-based drawing tools', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const arrow: Shape = {
+      id: 'arrow',
+      type: 'arrow',
+      x: 10,
+      y: 20,
+      points: [{ x: 0, y: 0 }, { x: 100, y: 40 }],
+    };
+    const drawingState = {
+      ...state(arrow, null),
+      drawingShapeId: arrow.id,
+    };
+
+    expect(getResizeMeasurement(drawingState, registry)).toBeNull();
+  });
 });
 
 describe('frame drop target overlay', () => {

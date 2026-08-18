@@ -193,9 +193,11 @@ export interface ResizeMeasurement {
 }
 
 export function getResizeMeasurement(state: CanvasState, registry: ShapeRegistry): ResizeMeasurement | null {
-  if (!state.resizingShapeId) return null;
-  const shape = state.shapes.find(({ id }) => id === state.resizingShapeId);
+  const measuredShapeId = state.resizingShapeId ?? state.drawingShapeId;
+  if (!measuredShapeId) return null;
+  const shape = state.shapes.find(({ id }) => id === measuredShapeId);
   if (!shape) return null;
+  if (!Number.isFinite(shape.width) || !Number.isFinite(shape.height)) return null;
   const bounds = getShapeBounds(shape, registry);
   return {
     x: bounds.x + bounds.width / 2,

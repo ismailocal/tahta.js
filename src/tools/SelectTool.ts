@@ -8,7 +8,8 @@ import { getShapePlugin } from '../plugins/index';
 import type { ShapeRegistry } from '../core/registry';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset, UI_CONSTANTS } from '../core/constants';
-import { resolveFrameDrop, topLevelSelectionIds } from './FrameContainment';
+import { ROOT_PARENT_ID } from '../core/model';
+import { commonParentId, resolveFrameDrop, topLevelSelectionIds } from './FrameContainment';
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
@@ -49,6 +50,7 @@ export class SelectTool implements ToolDefinition {
   private activeHandle: HandleType | null = null;
   private activeShapeId: string | null = null;
   private isBoxSelecting = false;
+  private framePreviewParentId: string | null = null;
 
   // Arrow drawing from port
   private arrowId: string | null = null;
@@ -56,6 +58,7 @@ export class SelectTool implements ToolDefinition {
 
   onPointerDown(payload: PointerPayload, api: ICanvasAPI) {
     setFrameDropTarget(api, null);
+    this.framePreviewParentId = null;
     const state = api.getState();
 
     // Check if clicking on a connection port of the hovered shape (only when ports are visible)
@@ -122,6 +125,9 @@ export class SelectTool implements ToolDefinition {
       }
 
       api.setSelection(ids);
+      setCanvasCursor(payload.nativeEvent, 'move');
+      const movableIds = topLevelSelectionIds(ids, state.shapes);
+      this.framePreviewParentId = commonParentId(movableIds, state.shapes);
       this.dragStartWorld = payload.world;
       // Expand snapshot to include shapes bound to any connector in the selection
       const snapshotIds = new Set(ids);
@@ -148,6 +154,9 @@ export class SelectTool implements ToolDefinition {
                payload.world.y >= b.y - framePad && payload.world.y <= b.y + b.height + framePad;
       });
       if (frameHit) {
+        setCanvasCursor(payload.nativeEvent, 'move');
+        const movableIds = topLevelSelectionIds(state.selectedIds, state.shapes);
+        this.framePreviewParentId = commonParentId(movableIds, state.shapes);
         this.dragStartWorld = payload.world;
         // Expand snapshot to include shapes bound to any connector in the selection
         const frameSnapshotIds = new Set(selShapes.map(s => s.id));
@@ -248,16 +257,24 @@ export class SelectTool implements ToolDefinition {
       return;
     }
 
+    setCanvasCursor(payload.nativeEvent, 'move');
     translateSelection(api, payload, this.initialSnapshot, this.dragStartWorld);
     const translatedState = api.getState();
     const movableIds = topLevelSelectionIds(translatedState.selectedIds, translatedState.shapes);
-    const { highlightTargetId } = resolveFrameDrop(
+    const resolution = resolveFrameDrop(
       movableIds,
       translatedState.shapes,
       payload.world,
       api.registry,
     );
+    const reenteredTargetId = resolution.parentId !== ROOT_PARENT_ID
+      && this.framePreviewParentId !== null
+      && this.framePreviewParentId !== resolution.parentId
+      ? resolution.parentId
+      : null;
+    const highlightTargetId = resolution.highlightTargetId ?? reenteredTargetId;
     setFrameDropTarget(api, highlightTargetId);
+    this.framePreviewParentId = resolution.parentId;
   }
 
   onPointerUp(payload: PointerPayload, api: ICanvasAPI) {
@@ -286,6 +303,7 @@ export class SelectTool implements ToolDefinition {
       this.arrowId = null;
       this.arrowStartShapeId = null;
       this.dragStartWorld = null;
+      this.framePreviewParentId = null;
       api.setState({ drawingShapeId: null, hoveredShapeId: null });
       return;
     }
@@ -326,6 +344,7 @@ export class SelectTool implements ToolDefinition {
     this.initialSnapshot = [];
     this.activeHandle = null;
     this.activeShapeId = null;
+    this.framePreviewParentId = null;
   }
 
   onKeyDown(event: KeyboardEvent, api: ICanvasAPI) {
