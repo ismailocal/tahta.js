@@ -17,7 +17,12 @@ import {
 } from './model.js';
 import { plainText, richTextDocumentSchema } from './richText.js';
 import type { ShapeRegistry } from './registry.js';
-import { assertCanReparent, getWorldTransform, toLocalTransform } from './transforms.js';
+import {
+  assertCanReparent,
+  getWorldTransform,
+  resizeFramePreservingChildTransforms,
+  toLocalTransform,
+} from './transforms.js';
 
 type SnapshotValidator = (snapshot: CanvasSnapshotV2) => CanvasSnapshotV2;
 
@@ -84,6 +89,16 @@ export class CommandPreflight {
         if (next.parentId !== current.parentId) throw new CanvasValidationError('Use shape.reparent to change parentId');
         this.#validateRecordAsset(next);
         this.#records.set(next.id, next);
+        return;
+      }
+      case 'frame.resize': {
+        const resized = resizeFramePreservingChildTransforms(
+          command.id,
+          command.patch,
+          this.#records,
+          (record) => this.#registry.validate(record),
+        );
+        resized.forEach((record) => this.#records.set(record.id, record));
         return;
       }
       case 'shape.points.append': {

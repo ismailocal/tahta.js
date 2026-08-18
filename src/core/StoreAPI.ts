@@ -24,6 +24,8 @@ export function createWhiteboardAPI(store: WhiteboardStore, canvas: HTMLCanvasEl
     appendShapePoints: (id, points) => store.appendShapePoints(id, points),
     replaceShape: (id, shape) => store.replaceShape(id, shape),
     deleteShape: (id) => store.deleteShape(id),
+    reparentShapes: (ids, parentId) => store.reparentShapes(ids, parentId),
+    resizeFrame: (id, patch) => store.resizeFrame(id, patch),
     setSelection: (ids) => store.setSelection(ids),
     setViewport: (viewport) => store.setViewport(viewport),
     setTool: (tool, keepSelection) => store.setTool(tool, keepSelection),

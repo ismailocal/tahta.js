@@ -2,17 +2,43 @@ import { generateKeyBetween } from 'fractional-indexing';
 import type { CanvasState, Shape, ShapeBinding, ShapeType } from './types.js';
 import {
   CANVAS_SCHEMA_VERSION,
+  CanvasValidationError,
   ROOT_PARENT_ID,
+  compareFractionalIndex,
   type BindingRecord,
   type CanvasSnapshotV2,
   type ShapeRecord,
 } from './model.js';
 import type { ShapeRegistry } from './registry.js';
 import type { CanvasCommand } from './commands.js';
+import { getWorldTransform, toLocalTransform, type Transform2D } from './transforms.js';
 
 const RECORD_FIELDS = new Set([
-  'id', 'type', 'x', 'y', 'opacity', 'locked', 'startBinding', 'endBinding', 'zIndex',
+  'id', 'type', 'parentId', 'x', 'y', 'rotation', 'opacity', 'locked', 'startBinding', 'endBinding', 'zIndex',
 ]);
+
+export function recordsInRenderOrder(records: readonly ShapeRecord[]): ShapeRecord[] {
+  const childrenByParent = new Map<string, ShapeRecord[]>();
+  records.forEach((record) => {
+    const children = childrenByParent.get(record.parentId);
+    if (children) children.push(record);
+    else childrenByParent.set(record.parentId, [record]);
+  });
+  childrenByParent.forEach((children) => children.sort((left, right) => compareFractionalIndex(left.index, right.index)));
+
+  const ordered: ShapeRecord[] = [];
+  const visit = (parentId: string) => {
+    for (const record of childrenByParent.get(parentId) ?? []) {
+      ordered.push(record);
+      visit(record.id);
+    }
+  };
+  visit(ROOT_PARENT_ID);
+  if (ordered.length !== records.length) {
+    throw new CanvasValidationError('Canvas hierarchy contains unreachable records', 'HIERARCHY_CYCLE');
+  }
+  return ordered;
+}
 
 function cloneProps(shape: Shape): Record<string, unknown> {
   const props: Record<string, unknown> = {};
@@ -51,14 +77,17 @@ export function recordToShape(
   zIndex: number,
   binding: BindingRecord | undefined,
   registry: ShapeRegistry,
+  worldTransform: Transform2D,
 ): Shape {
   const validated = registry.validate(record);
   const props = structuredClone(validated.props) as Record<string, unknown>;
   return Object.freeze({
     id: record.id,
     type: record.type as ShapeType,
-    x: record.x,
-    y: record.y,
+    ...(record.parentId === ROOT_PARENT_ID ? {} : { parentId: record.parentId }),
+    x: worldTransform.x,
+    y: worldTransform.y,
+    ...(worldTransform.rotation === 0 ? {} : { rotation: worldTransform.rotation }),
     ...props,
     opacity: record.opacity,
     locked: record.locked,
@@ -74,14 +103,24 @@ export function shapesToSnapshot(
   registry: ShapeRegistry,
   state: Pick<CanvasState, 'canvasBackground' | 'showGrid' | 'gridSize'>,
 ): CanvasSnapshotV2 {
-  let previousIndex: string | null = null;
+  const previousIndexByParent = new Map<string, string>();
+  const shapeById = new Map(shapes.map((shape) => [shape.id, shape]));
   const records: ShapeRecord[] = [];
   const bindings: BindingRecord[] = [];
 
   shapes.forEach((shape) => {
-    const index = generateKeyBetween(previousIndex, null);
-    previousIndex = index;
-    const record = shapeToRecord(shape, index, registry);
+    const parentId = shape.parentId ?? ROOT_PARENT_ID;
+    const index = generateKeyBetween(previousIndexByParent.get(parentId) ?? null, null);
+    previousIndexByParent.set(parentId, index);
+    const parent = parentId === ROOT_PARENT_ID ? undefined : shapeById.get(parentId);
+    if (parentId !== ROOT_PARENT_ID && !parent) {
+      throw new CanvasValidationError(`Parent '${parentId}' does not exist`, 'PARENT_NOT_FOUND');
+    }
+    const record = shapeToRecord(shape, index, registry, parent && {
+      x: parent.x,
+      y: parent.y,
+      rotation: parent.rotation ?? 0,
+    });
     records.push(record);
     if (shape.startBinding || shape.endBinding) {
       bindings.push(shapeToBindingRecord(shape));
@@ -103,16 +142,25 @@ export function shapesToSnapshot(
   };
 }
 
-export function shapeToRecord(shape: Shape, index: string, registry: ShapeRegistry): ShapeRecord {
+export function shapeToRecord(
+  shape: Shape,
+  index: string,
+  registry: ShapeRegistry,
+  parentWorld?: Transform2D,
+): ShapeRecord {
+  const parentId = shape.parentId ?? ROOT_PARENT_ID;
+  if (parentId !== ROOT_PARENT_ID && !parentWorld) {
+    throw new CanvasValidationError(`Parent transform for '${parentId}' is required`, 'PARENT_NOT_FOUND');
+  }
+  const world = { x: shape.x, y: shape.y, rotation: shape.rotation ?? 0 };
+  const local = parentWorld ? toLocalTransform(parentWorld, world) : world;
   return registry.validate({
     id: shape.id,
     type: shape.type,
     typeVersion: registry.get(shape.type).version,
-    parentId: ROOT_PARENT_ID,
+    parentId,
     index,
-    x: shape.x,
-    y: shape.y,
-    rotation: 0,
+    ...local,
     opacity: shape.opacity ?? 1,
     locked: shape.locked ?? false,
     hidden: false,
@@ -131,20 +179,39 @@ export function shapeToBindingRecord(shape: Shape): BindingRecord {
 
 export function snapshotToShapes(snapshot: CanvasSnapshotV2, registry: ShapeRegistry): readonly Shape[] {
   const bindingByConnector = new Map(snapshot.bindings.map((binding) => [binding.connectorId, binding]));
-  return snapshot.records
+  const records = new Map(snapshot.records.map((record) => [record.id, record]));
+  return recordsInRenderOrder(snapshot.records)
     .filter((record) => !record.hidden)
-    .map((record, zIndex) => recordToShape(record, zIndex, bindingByConnector.get(record.id), registry));
+    .map((record, zIndex) => recordToShape(
+      record,
+      zIndex,
+      bindingByConnector.get(record.id),
+      registry,
+      getWorldTransform(record.id, records),
+    ));
 }
 
-export function shapePatchToRecordPatch(shape: Shape): Omit<ShapeRecord, 'id' | 'type' | 'typeVersion' | 'index'> {
-  return {
-    parentId: ROOT_PARENT_ID,
+export function shapePatchToRecordPatch(
+  shape: Shape,
+  current: ShapeRecord,
+  records: ReadonlyMap<string, ShapeRecord>,
+): Omit<ShapeRecord, 'id' | 'type' | 'typeVersion' | 'index'> {
+  const currentWorld = getWorldTransform(current.id, records);
+  const world = {
     x: shape.x,
     y: shape.y,
-    rotation: 0,
+    rotation: shape.rotation ?? currentWorld.rotation,
+  };
+  const parentWorld = current.parentId === ROOT_PARENT_ID
+    ? { x: 0, y: 0, rotation: 0 }
+    : getWorldTransform(current.parentId, records);
+  const local = toLocalTransform(parentWorld, world);
+  return {
+    parentId: current.parentId,
+    ...local,
     opacity: shape.opacity ?? 1,
     locked: shape.locked ?? false,
-    hidden: false,
+    hidden: current.hidden,
     props: cloneProps(shape),
   };
 }

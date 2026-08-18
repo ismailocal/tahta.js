@@ -32,8 +32,11 @@ export interface ShapeBinding {
 export interface Shape {
   id: string;
   type: ShapeType;
+  /** Structural parent record. Projected shapes keep world-space x/y coordinates. */
+  parentId?: string;
   x: number;
   y: number;
+  rotation?: number;
   seed?: number;
   width?: number;
   height?: number;
@@ -125,6 +128,8 @@ export interface ICanvasAPI {
   appendShapePoints: (id: string, points: readonly Point[]) => void;
   replaceShape: (id: string, shape: Shape) => void;
   deleteShape: (id: string) => void;
+  reparentShapes: (ids: readonly string[], parentId: string) => void;
+  resizeFrame: (id: string, patch: Partial<Shape>) => void;
   setSelection: (ids: string[]) => void;
   setViewport: (viewport: CanvasState['viewport']) => void;
   setTool: (tool: string, keepSelection?: boolean) => void;

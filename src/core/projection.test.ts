@@ -62,11 +62,31 @@ describe('legacy renderer projection', () => {
     expect(snapshotToShapes(snapshot, registry).find(({ id }) => id === 'arrow')).toMatchObject({
       startBinding: { elementId: 'a' }, endBinding: { elementId: 'b', portId: 'left' },
     });
-    expect(shapePatchToRecordPatch(rectangle('a', { opacity: 0.4, locked: true }))).toMatchObject({
+    const recordMap = new Map(snapshot.records.map((record) => [record.id, record]));
+    const rectangleRecord = recordMap.get('a')!;
+    expect(shapePatchToRecordPatch(
+      rectangle('a', { opacity: 0.4, locked: true }),
+      rectangleRecord,
+      recordMap,
+    )).toMatchObject({
       parentId: 'root', rotation: 0, opacity: 0.4, locked: true, hidden: false,
     });
     expect(shapeToRecord(rectangle('a'), generateKeyBetween(null, null), registry)).toMatchObject({
       id: 'a', typeVersion: 1, parentId: 'root', props: { width: 100, height: 80 },
+    });
+  });
+
+  it('stores child coordinates locally and projects them in world space', () => {
+    const registry = createBuiltinShapeRegistry();
+    const frame = { ...rectangle('frame', { x: 100, y: 80, width: 300, height: 200 }), type: 'frame' };
+    const child = rectangle('child', { parentId: 'frame', x: 140, y: 130 });
+    const snapshot = shapesToSnapshot('board', [frame, child], registry, {});
+
+    expect(snapshot.records.find(({ id }) => id === 'child')).toMatchObject({
+      parentId: 'frame', x: 40, y: 50,
+    });
+    expect(snapshotToShapes(snapshot, registry).find(({ id }) => id === 'child')).toMatchObject({
+      parentId: 'frame', x: 140, y: 130,
     });
   });
 

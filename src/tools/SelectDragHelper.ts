@@ -25,7 +25,8 @@ export function dragHandle(
       }
 
       api.batchUpdate(() => {
-        api.updateShape(activeShapeId, patch);
+        if (shape.type === 'frame') api.resizeFrame(activeShapeId, patch);
+        else api.updateShape(activeShapeId, patch);
         updateDependentShapes(api.getState(), api, [activeShapeId]);
       });
   }

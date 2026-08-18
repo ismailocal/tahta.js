@@ -4,6 +4,7 @@ import { createShapeSpatialIndex, ShapeSpatialIndex } from '../geometry/SpatialI
 import { getArrowClippedEndpoints } from '../geometry/lineUtils.js';
 import { cacheStyle, STYLE_PROPERTY_KEYS } from './constants.js';
 import type { CanvasCommand } from './commands.js';
+import { CanvasValidationError, ROOT_PARENT_ID } from './model.js';
 import type { CanvasEngine, CanvasViewState } from './CanvasEngine.js';
 import {
   shapePatchToRecordPatch,
@@ -204,13 +205,16 @@ export class WhiteboardStore {
     if (!current) return;
     if (!force && current.locked && patch.locked === undefined) return;
     const next = { ...current, ...patch };
+    const records = new Map(this.engine.getSnapshot().records.map((record) => [record.id, record]));
+    const currentRecord = records.get(shapeId);
+    if (!currentRecord) throw new CanvasValidationError(`Shape '${shapeId}' is missing from the canvas document`, 'SHAPE_NOT_FOUND');
     const commands: CanvasCommand[] = [];
     const onlyUnlock = current.locked && Object.keys(patch).every((key) => key === 'locked');
     if (force && current.locked && !onlyUnlock) commands.push({ type: 'shape.update', id: shapeId, patch: { locked: false } });
     commands.push({
       type: 'shape.update',
       id: shapeId,
-      patch: onlyUnlock ? { locked: next.locked ?? false } : shapePatchToRecordPatch(next),
+      patch: onlyUnlock ? { locked: next.locked ?? false } : shapePatchToRecordPatch(next, currentRecord, records),
     });
     const hadBinding = Boolean(current.startBinding || current.endBinding);
     const hasBinding = Boolean(next.startBinding || next.endBinding);
@@ -232,7 +236,22 @@ export class WhiteboardStore {
     const snapshot = this.engine.getSnapshot();
     const current = snapshot.records.find(({ id }) => id === shapeId);
     if (!current) return;
-    const record = shapeToRecord({ ...shape, id: shapeId }, current.index, this.registry);
+    const projectedParent = current.parentId === ROOT_PARENT_ID
+      ? undefined
+      : this.state.shapes.find(({ id }) => id === current.parentId);
+    if (current.parentId !== ROOT_PARENT_ID && !projectedParent) {
+      throw new CanvasValidationError(`Parent '${current.parentId}' is missing from the renderer projection`, 'PARENT_NOT_FOUND');
+    }
+    const record = shapeToRecord(
+      { ...shape, id: shapeId, parentId: current.parentId },
+      current.index,
+      this.registry,
+      projectedParent && {
+        x: projectedParent.x,
+        y: projectedParent.y,
+        rotation: projectedParent.rotation ?? 0,
+      },
+    );
     const commands: CanvasCommand[] = [
       { type: 'shape.delete', ids: [shapeId], mode: 'only' },
       { type: 'shape.create', record },
@@ -246,6 +265,7 @@ export class WhiteboardStore {
     const shape = this.state.shapes.find(({ id }) => id === shapeId);
     if (!shape || shape.locked) return;
     const commands: CanvasCommand[] = [];
+    const records = new Map(this.engine.getSnapshot().records.map((record) => [record.id, record]));
     const connectedIds = this.getSpatialIndex().expandConnected(new Set([shapeId]), 1);
     for (const connectedId of connectedIds) {
       if (connectedId === shapeId) continue;
@@ -261,13 +281,39 @@ export class WhiteboardStore {
         startBinding: connector.startBinding?.elementId === shapeId ? undefined : connector.startBinding,
         endBinding: connector.endBinding?.elementId === shapeId ? undefined : connector.endBinding,
       };
-      commands.push({ type: 'shape.update', id: connector.id, patch: shapePatchToRecordPatch(detached) });
+      const connectorRecord = records.get(connector.id);
+      if (!connectorRecord) throw new CanvasValidationError(`Connector '${connector.id}' is missing from the canvas document`, 'SHAPE_NOT_FOUND');
+      commands.push({
+        type: 'shape.update',
+        id: connector.id,
+        patch: shapePatchToRecordPatch(detached, connectorRecord, records),
+      });
       if (detached.startBinding || detached.endBinding) commands.push({ type: 'binding.set', binding: shapeToBindingRecord(detached) });
       else commands.push({ type: 'binding.delete', ids: [`${connector.id}:binding`] });
     }
     commands.push({ type: 'shape.delete', ids: [shapeId], mode: 'only' });
     this.execute(commands.length === 1 ? commands[0] : { type: 'batch', commands });
     this.bus.emit('shape:deleted', { shapeId });
+  }
+
+  reparentShapes(shapeIds: readonly string[], parentId: string): void {
+    const records = new Map(this.engine.getSnapshot().records.map((record) => [record.id, record]));
+    const ids = [...new Set(shapeIds)].filter((id) => records.get(id)?.parentId !== parentId);
+    if (ids.length === 0) return;
+    this.execute({ type: 'shape.reparent', ids, parentId });
+  }
+
+  resizeFrame(shapeId: string, patch: Partial<Shape>): void {
+    const current = this.state.shapes.find(({ id }) => id === shapeId);
+    if (!current) return;
+    const records = new Map(this.engine.getSnapshot().records.map((record) => [record.id, record]));
+    const currentRecord = records.get(shapeId);
+    if (!currentRecord) throw new CanvasValidationError(`Frame '${shapeId}' is missing from the canvas document`, 'SHAPE_NOT_FOUND');
+    this.execute({
+      type: 'frame.resize',
+      id: shapeId,
+      patch: shapePatchToRecordPatch({ ...current, ...patch }, currentRecord, records),
+    });
   }
 
   setSelection(ids: string[]): void {

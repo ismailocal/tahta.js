@@ -88,3 +88,37 @@ export function assertCanReparent(
     }
   }
 }
+
+export function resizeFramePreservingChildTransforms(
+  frameId: string,
+  patch: Partial<Omit<ShapeRecord, 'id' | 'type' | 'typeVersion'>>,
+  records: ReadonlyMap<string, ShapeRecord>,
+  validate: (record: ShapeRecord) => ShapeRecord,
+): readonly ShapeRecord[] {
+  const frame = records.get(frameId);
+  if (!frame) throw new CanvasValidationError(`Shape '${frameId}' does not exist`, 'SHAPE_NOT_FOUND');
+  if (frame.type !== 'frame') throw new CanvasValidationError(`Shape '${frameId}' is not a frame`, 'INVALID_PARENT_TYPE');
+  if (frame.locked) throw new CanvasValidationError(`Shape '${frameId}' is locked`, 'SHAPE_LOCKED');
+  if (patch.parentId !== undefined && patch.parentId !== frame.parentId) {
+    throw new CanvasValidationError('Use shape.reparent to change parentId');
+  }
+
+  const childWorldTransforms = [...records.values()]
+    .filter((record) => record.parentId === frameId)
+    .map((record) => ({ record, world: getWorldTransform(record.id, records) }));
+  const resizedFrame = validate({
+    ...frame,
+    ...structuredClone(patch),
+    id: frame.id,
+    type: frame.type,
+    typeVersion: frame.typeVersion,
+  });
+  const resizedRecords = new Map(records);
+  resizedRecords.set(frameId, resizedFrame);
+  const resizedFrameWorld = getWorldTransform(frameId, resizedRecords);
+  const adjustedChildren = childWorldTransforms.map(({ record, world }) => validate({
+    ...record,
+    ...toLocalTransform(resizedFrameWorld, world),
+  }));
+  return [resizedFrame, ...adjustedChildren];
+}

@@ -6,6 +6,7 @@ export type CanvasCommand =
   | { type: 'batch'; commands: CanvasCommand[] }
   | { type: 'shape.create'; record: ShapeRecord }
   | { type: 'shape.update'; id: string; patch: ShapePatch }
+  | { type: 'frame.resize'; id: string; patch: ShapePatch }
   | { type: 'shape.points.append'; id: string; points: CanvasPoint[] }
   | { type: 'shape.delete'; ids: string[]; mode: 'only' | 'cascade' }
   | { type: 'shape.reparent'; ids: string[]; parentId: string; beforeId?: string }

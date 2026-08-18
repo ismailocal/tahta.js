@@ -23,7 +23,12 @@ import {
   type ShapeRecord,
 } from './model.js';
 import { ShapeRegistry } from './registry.js';
-import { assertCanReparent, getWorldTransform, toLocalTransform } from './transforms.js';
+import {
+  assertCanReparent,
+  getWorldTransform,
+  resizeFramePreservingChildTransforms,
+  toLocalTransform,
+} from './transforms.js';
 import { plainText, readRichText, richTextDocumentSchema, richTextFromString, writeRichText } from './richText.js';
 import { CommandPreflight } from './CommandPreflight.js';
 import { validateLaserTrail, type LaserPoint } from './laser.js';
@@ -615,6 +620,19 @@ export class YjsCanvasEngine implements CanvasEngine {
         this.#validateRecordAsset(next);
         this.#storeRecord(next);
         changed.add(next.id);
+        return;
+      }
+      case 'frame.resize': {
+        const resized = resizeFramePreservingChildTransforms(
+          command.id,
+          command.patch,
+          this.#recordMap(),
+          (record) => this.registry.validate(record),
+        );
+        resized.forEach((record) => {
+          this.#storeRecord(record);
+          changed.add(record.id);
+        });
         return;
       }
       case 'shape.points.append': {

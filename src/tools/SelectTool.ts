@@ -8,6 +8,7 @@ import { getShapePlugin } from '../plugins/index';
 import type { ShapeRegistry } from '../core/registry';
 import { createId, randomSeed } from '../core/Utils';
 import { getStylePreset, UI_CONSTANTS } from '../core/constants';
+import { frameDropParentId, topLevelSelectionIds } from './FrameContainment';
 
 const HANDLE_CURSORS: Record<string, string> = {
   nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
@@ -285,7 +286,18 @@ export class SelectTool implements ToolDefinition {
         const dx = payload.world.x - this.dragStartWorld.x;
         const dy = payload.world.y - this.dragStartWorld.y;
         const moved = Math.hypot(dx, dy) > UI_CONSTANTS.DRAG_COMMIT_THRESHOLD;
-        if (moved) api.commitState();
+        if (moved) {
+          const state = api.getState();
+          const movableIds = topLevelSelectionIds(state.selectedIds, state.shapes);
+          const destinationParentId = frameDropParentId(
+            movableIds,
+            state.shapes,
+            payload.world,
+            api.registry,
+          );
+          api.reparentShapes(movableIds, destinationParentId);
+          api.commitState();
+        }
       }
     }
     this.dragStartWorld = null;

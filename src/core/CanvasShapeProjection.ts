@@ -1,13 +1,15 @@
 import type { CanvasViewState } from './CanvasEngine.js';
 import type { BindingRecord, CanvasSnapshotV2, ShapeRecord } from './model.js';
-import { recordToShape } from './projection.js';
+import { recordToShape, recordsInRenderOrder } from './projection.js';
 import type { ShapeRegistry } from './registry.js';
 import type { Shape } from './types.js';
+import { getWorldTransform, type Transform2D } from './transforms.js';
 
 interface ProjectedShape {
   readonly record: ShapeRecord;
   readonly binding: BindingRecord | undefined;
   readonly assetHref: string | undefined;
+  readonly worldTransform: Transform2D;
   readonly shape: Shape;
 }
 
@@ -41,7 +43,8 @@ export class CanvasShapeProjection {
     }
 
     const bindingByConnector = new Map(view.snapshot.bindings.map((binding) => [binding.connectorId, binding]));
-    const visibleRecords = view.snapshot.records.filter((record) => !record.hidden);
+    const recordById = new Map(view.snapshot.records.map((record) => [record.id, record]));
+    const visibleRecords = recordsInRenderOrder(view.snapshot.records).filter((record) => !record.hidden);
     const nextById = new Map<string, ProjectedShape>();
     const nextShapes = new Array<Shape>(visibleRecords.length);
     const changedIds = new Set<string>();
@@ -49,17 +52,21 @@ export class CanvasShapeProjection {
     visibleRecords.forEach((record, zIndex) => {
       const binding = bindingByConnector.get(record.id);
       const assetHref = this.#assetHref(record, view.assetHrefs);
+      const worldTransform = getWorldTransform(record.id, recordById);
       const previous = this.#projectedById.get(record.id);
       const canReuse = previous?.record === record
         && previous.binding === binding
         && previous.assetHref === assetHref
+        && previous.worldTransform.x === worldTransform.x
+        && previous.worldTransform.y === worldTransform.y
+        && previous.worldTransform.rotation === worldTransform.rotation
         && previous.shape.zIndex === zIndex;
       const shape = canReuse
         ? previous.shape
-        : this.#createShape(record, zIndex, binding, assetHref);
+        : this.#createShape(record, zIndex, binding, assetHref, worldTransform);
       if (!canReuse) changedIds.add(record.id);
       nextShapes[zIndex] = shape;
-      nextById.set(record.id, { record, binding, assetHref, shape });
+      nextById.set(record.id, { record, binding, assetHref, worldTransform, shape });
     });
     this.#projectedById.forEach((_value, id) => {
       if (!nextById.has(id)) changedIds.add(id);
@@ -102,8 +109,9 @@ export class CanvasShapeProjection {
     zIndex: number,
     binding: BindingRecord | undefined,
     assetHref: string | undefined,
+    worldTransform: Transform2D,
   ): Shape {
-    const shape = recordToShape(record, zIndex, binding, this.#registry);
+    const shape = recordToShape(record, zIndex, binding, this.#registry, worldTransform);
     return assetHref ? Object.freeze({ ...shape, imageSrc: assetHref }) : shape;
   }
 }

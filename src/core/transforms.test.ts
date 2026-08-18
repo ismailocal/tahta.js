@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { composeTransform, getWorldTransform, rotatePoint, toLocalTransform, assertCanReparent } from './transforms';
+import {
+  assertCanReparent,
+  composeTransform,
+  getWorldTransform,
+  resizeFramePreservingChildTransforms,
+  rotatePoint,
+  toLocalTransform,
+} from './transforms';
 import type { ShapeRecord } from './model';
 
 function record(id: string, parentId: string, x: number, y: number, rotation = 0): ShapeRecord {
@@ -34,5 +41,28 @@ describe('canvas transforms', () => {
     expect(() => assertCanReparent(['frame'], 'child', records)).toThrow('descendant');
     expect(() => assertCanReparent(['child'], 'missing', records)).toThrow('does not exist');
     expect(() => assertCanReparent(['child'], 'root', records)).not.toThrow();
+  });
+
+  it('resizes a frame without moving or scaling its children', () => {
+    const frame = { ...record('frame', 'root', 100, 80), props: { width: 300, height: 200 } };
+    const child = {
+      ...record('child', 'frame', 40, 50),
+      type: 'rectangle',
+      locked: true,
+      props: { width: 100, height: 80 },
+    };
+    const records = new Map<string, ShapeRecord>([['frame', frame], ['child', child]]);
+
+    const resized = resizeFramePreservingChildTransforms(
+      'frame',
+      { x: 60, y: 40, props: { width: 340, height: 240 } },
+      records,
+      (value) => value,
+    );
+    const resizedRecords = new Map(resized.map((value) => [value.id, value]));
+
+    expect(getWorldTransform('child', resizedRecords)).toMatchObject({ x: 140, y: 130 });
+    expect(resizedRecords.get('child')?.props).toEqual({ width: 100, height: 80 });
+    expect(resizedRecords.get('child')).toMatchObject({ locked: true, x: 80, y: 90 });
   });
 });

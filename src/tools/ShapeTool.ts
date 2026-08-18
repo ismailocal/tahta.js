@@ -4,6 +4,7 @@ import { createId, randomSeed } from '../core/Utils';
 import { getShapePlugin } from '../plugins/index';
 import { getTopShapeAtPoint } from '../geometry/Geometry';
 import { findNearestConnectionPort } from '../geometry/ConnectionPorts';
+import { shapesContainedByFrame } from './FrameContainment';
 
 export class ShapeTool implements ToolDefinition {
   private drawStartWorld: { x: number; y: number } | null = null;
@@ -100,6 +101,13 @@ export class ShapeTool implements ToolDefinition {
             const patch = plugin.onDrawUpdate(shape, payload, this.drawStartWorld, state.shapes, api);
             api.updateShape(this.currentShapeId!, patch);
           }
+        }
+        if (this.shapeType === 'frame') {
+          const state = api.getState();
+          api.reparentShapes(
+            shapesContainedByFrame(this.currentShapeId, state.shapes, api.registry),
+            this.currentShapeId,
+          );
         }
         api.commitState();
         // Switch to select tool after drawing, except for freehand
