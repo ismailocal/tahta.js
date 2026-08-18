@@ -85,6 +85,8 @@ export interface CanvasState {
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
   resizingShapeId?: string | null;
+  /** Valid frame that will become the dragged selection's parent on drop. */
+  frameDropTargetId?: string | null;
   laserTrail?: import('./laser.js').LaserPoint[];
   isPanning: boolean;
   isSpacePanning: boolean;

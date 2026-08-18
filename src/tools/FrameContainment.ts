@@ -37,14 +37,19 @@ export function topLevelSelectionIds(selectedIds: readonly string[], shapes: rea
   });
 }
 
-export function frameDropParentId(
+export interface FrameDropResolution {
+  parentId: string;
+  highlightTargetId: string | null;
+}
+
+export function resolveFrameDrop(
   selectedIds: readonly string[],
   shapes: readonly Shape[],
   dropPoint: Point,
   registry: ShapeRegistry,
-): string {
+): FrameDropResolution {
   const movingIds = new Set(topLevelSelectionIds(selectedIds, shapes));
-  if (movingIds.size === 0) return ROOT_PARENT_ID;
+  if (movingIds.size === 0) return { parentId: ROOT_PARENT_ID, highlightTargetId: null };
   const shapesById = new Map(shapes.map((shape) => [shape.id, shape]));
 
   const target = [...shapes].reverse().find((shape) => shape.type === 'frame'
@@ -52,7 +57,15 @@ export function frameDropParentId(
     && !movingIds.has(shape.id)
     && !hasAncestor(shape.id, movingIds, shapesById)
     && pointInShapeBounds(dropPoint, shape, registry));
-  return target?.id ?? ROOT_PARENT_ID;
+  const destinationParentId = target?.id ?? ROOT_PARENT_ID;
+  const changesParent = target !== undefined && [...movingIds].some((id) => {
+    const movingShape = shapesById.get(id);
+    return movingShape && parentId(movingShape) !== destinationParentId;
+  });
+  return {
+    parentId: destinationParentId,
+    highlightTargetId: changesParent ? destinationParentId : null,
+  };
 }
 
 export function shapesContainedByFrame(

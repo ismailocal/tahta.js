@@ -253,7 +253,7 @@ function getDynamicIds(state: CanvasState, spatialIndex: ShapeSpatialIndex): Set
   if (state.hoveredPortShapeId) dynamicIds.add(state.hoveredPortShapeId);
   if (state.editingShapeId) dynamicIds.add(state.editingShapeId);
   for (const id of state.erasingShapeIds ?? []) dynamicIds.add(id);
-  return spatialIndex.expandConnected(dynamicIds);
+  return spatialIndex.expandRenderDependencies(dynamicIds);
 }
 
 function getVisibleShapes(state: CanvasState, rect: DOMRect, rs: RendererState, spatialIndex: ShapeSpatialIndex): Shape[] {

@@ -1,5 +1,6 @@
 import type { Point, Shape } from '../core/types.js';
 import type { ShapeRegistry } from '../core/registry.js';
+import { ROOT_PARENT_ID } from '../core/model.js';
 import { getShapeBounds } from './Geometry.js';
 
 export interface Bounds {
@@ -72,6 +73,8 @@ export class ShapeSpatialIndex {
   readonly #oversized = new Set<string>();
   readonly #connections = new Map<string, Set<string>>();
   readonly #connectorTargets = new Map<string, readonly string[]>();
+  readonly #childrenByParent = new Map<string, Set<string>>();
+  readonly #parentByChild = new Map<string, string>();
 
   constructor(shapes: readonly Shape[], registry: ShapeRegistry) {
     this.#registry = registry;
@@ -114,6 +117,37 @@ export class ShapeSpatialIndex {
     return expanded;
   }
 
+  expandDescendants(shapeIds: ReadonlySet<string>): Set<string> {
+    const expanded = new Set(shapeIds);
+    const descendants = [...shapeIds];
+    for (let index = 0; index < descendants.length; index += 1) {
+      this.#childrenByParent.get(descendants[index])?.forEach((childId) => {
+        if (expanded.has(childId)) return;
+        expanded.add(childId);
+        descendants.push(childId);
+      });
+    }
+    return expanded;
+  }
+
+  /**
+   * Expands transient renderer membership without walking through the entire
+   * connected graph: selected frames include all descendants and connectors
+   * bound to those descendants, while external connector targets stay static.
+   */
+  expandRenderDependencies(shapeIds: ReadonlySet<string>): Set<string> {
+    const expanded = this.expandDescendants(shapeIds);
+
+    [...expanded].forEach((id) => {
+      const directTargets = this.#connectorTargets.get(id);
+      if (directTargets) directTargets.forEach((targetId) => expanded.add(targetId));
+      this.#connections.get(id)?.forEach((connectedId) => {
+        if (this.#connectorTargets.has(connectedId)) expanded.add(connectedId);
+      });
+    });
+    return expanded;
+  }
+
   getShape(id: string): Shape | undefined {
     return this.#entries.get(id)?.shape;
   }
@@ -128,6 +162,8 @@ export class ShapeSpatialIndex {
     this.#oversized.clear();
     this.#connections.clear();
     this.#connectorTargets.clear();
+    this.#childrenByParent.clear();
+    this.#parentByChild.clear();
   }
 
   #queryCandidates(keys: readonly string[]): IndexedShape[] {
@@ -151,6 +187,15 @@ export class ShapeSpatialIndex {
       this.#connectorTargets.set(shape.id, targets);
       targets.forEach((targetId) => this.#connect(shape.id, targetId));
     }
+    if (shape.parentId && shape.parentId !== ROOT_PARENT_ID) {
+      this.#parentByChild.set(shape.id, shape.parentId);
+      let children = this.#childrenByParent.get(shape.parentId);
+      if (!children) {
+        children = new Set();
+        this.#childrenByParent.set(shape.parentId, children);
+      }
+      children.add(shape.id);
+    }
     if (cells === null) {
       this.#oversized.add(shape.id);
       return;
@@ -170,6 +215,13 @@ export class ShapeSpatialIndex {
     if (!entry) return;
     this.#connectorTargets.get(id)?.forEach((targetId) => this.#disconnect(id, targetId));
     this.#connectorTargets.delete(id);
+    const parentId = this.#parentByChild.get(id);
+    if (parentId) {
+      const children = this.#childrenByParent.get(parentId);
+      children?.delete(id);
+      if (children?.size === 0) this.#childrenByParent.delete(parentId);
+      this.#parentByChild.delete(id);
+    }
     this.#entries.delete(id);
     if (entry.cells === null) {
       this.#oversized.delete(id);

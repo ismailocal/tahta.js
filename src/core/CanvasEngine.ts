@@ -58,6 +58,7 @@ export interface CanvasViewState {
   drawingShapeId: string | null;
   isDraggingSelection: boolean;
   resizingShapeId: string | null;
+  frameDropTargetId: string | null;
   laserTrail: readonly LaserPoint[];
   isPanning: boolean;
   isSpacePanning: boolean;
@@ -216,6 +217,7 @@ export class YjsCanvasEngine implements CanvasEngine {
       drawingShapeId: null,
       isDraggingSelection: false,
       resizingShapeId: null,
+      frameDropTargetId: null,
       laserTrail: [],
       isPanning: false,
       isSpacePanning: false,
@@ -345,6 +347,12 @@ export class YjsCanvasEngine implements CanvasEngine {
     }
     if (next.resizingShapeId && !this.#records.has(next.resizingShapeId)) {
       throw new CanvasValidationError('Resize target does not exist', 'SHAPE_NOT_FOUND');
+    }
+    if (next.frameDropTargetId) {
+      const dropTarget = this.#records.get(next.frameDropTargetId);
+      if (!dropTarget || dropTarget.get('type') !== 'frame') {
+        throw new CanvasValidationError('Frame drop target does not exist', 'SHAPE_NOT_FOUND');
+      }
     }
     this.#viewState = next;
     this.#notify();

@@ -65,4 +65,39 @@ describe('shape spatial index', () => {
     index.update([{ id: connector.id, shape: detached }]);
     expect([...index.expandConnected(new Set([target.id]))]).toEqual(['target']);
   });
+
+  it('expands frame render dependencies through nested descendants and their connectors', () => {
+    const frame = { ...shape('frame', 0, 0), type: 'frame' };
+    const nestedFrame = { ...shape('nested-frame', 20, 20), type: 'frame', parentId: frame.id };
+    const child = { ...shape('child', 40, 40), parentId: nestedFrame.id };
+    const external = shape('external', 500, 500);
+    const connector: Shape = {
+      id: 'connector',
+      type: 'arrow',
+      x: 40,
+      y: 40,
+      points: [{ x: 0, y: 0 }, { x: 460, y: 460 }],
+      startBinding: { elementId: child.id },
+      endBinding: { elementId: external.id },
+    };
+    const index = createShapeSpatialIndex([frame, nestedFrame, child, external, connector], registry);
+
+    expect(index.expandDescendants(new Set([frame.id]))).toEqual(new Set([
+      frame.id,
+      nestedFrame.id,
+      child.id,
+    ]));
+    expect([...index.expandRenderDependencies(new Set([frame.id]))]).toEqual(expect.arrayContaining([
+      frame.id,
+      nestedFrame.id,
+      child.id,
+      connector.id,
+    ]));
+    expect(index.expandRenderDependencies(new Set([frame.id])).has(external.id)).toBe(false);
+    expect(index.expandRenderDependencies(new Set([connector.id]))).toEqual(new Set([
+      connector.id,
+      child.id,
+      external.id,
+    ]));
+  });
 });

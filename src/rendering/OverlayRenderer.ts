@@ -81,6 +81,55 @@ function renderBindingHover(ctx: CanvasRenderingContext2D, state: CanvasState, r
   ctx.restore();
 }
 
+const FRAME_DROP_HIGHLIGHT = {
+  light: {
+    fill: 'rgba(99, 102, 241, 0.10)',
+    stroke: '#6366f1',
+    shadow: 'rgba(99, 102, 241, 0.45)',
+  },
+  dark: {
+    fill: 'rgba(129, 140, 248, 0.16)',
+    stroke: '#818cf8',
+    shadow: 'rgba(129, 140, 248, 0.55)',
+  },
+} as const;
+
+export function renderFrameDropTarget(
+  ctx: CanvasRenderingContext2D,
+  state: CanvasState,
+  registry: ShapeRegistry,
+): void {
+  if (!state.frameDropTargetId) return;
+  const frame = state.shapes.find(({ id }) => id === state.frameDropTargetId);
+  if (!frame || frame.type !== 'frame') return;
+
+  const bounds = getShapeBounds(frame, registry);
+  const zoom = Math.max(state.viewport.zoom, 0.05);
+  const padding = 3 / zoom;
+  const colors = FRAME_DROP_HIGHLIGHT[state.theme === 'dark' ? 'dark' : 'light'];
+
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineWidth = 2 / zoom;
+  ctx.fillStyle = colors.fill;
+  ctx.strokeStyle = colors.stroke;
+  ctx.shadowColor = colors.shadow;
+  ctx.shadowBlur = 14 / zoom;
+  ctx.fillRect(
+    bounds.x - padding,
+    bounds.y - padding,
+    bounds.width + padding * 2,
+    bounds.height + padding * 2,
+  );
+  ctx.strokeRect(
+    bounds.x - padding,
+    bounds.y - padding,
+    bounds.width + padding * 2,
+    bounds.height + padding * 2,
+  );
+  ctx.restore();
+}
+
 function renderErasingPath(ctx: CanvasRenderingContext2D, state: CanvasState): void {
   const path = state.erasingPath;
   if (!path || path.length === 0) return;
@@ -242,6 +291,7 @@ export function renderOverlays(ctx: CanvasRenderingContext2D, state: CanvasState
     renderBindingHover(ctx, state, registry);
   }
 
+  renderFrameDropTarget(ctx, state, registry);
   renderErasingPath(ctx, state);
   renderSelectionBox(ctx, state);
   renderSnapLines(ctx, state);

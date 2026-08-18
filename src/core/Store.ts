@@ -29,6 +29,7 @@ const DEFAULT_STATE: CanvasState = {
   drawingShapeId: null,
   isDraggingSelection: false,
   resizingShapeId: null,
+  frameDropTargetId: null,
   laserTrail: [],
   isPanning: false,
   isSpacePanning: false,
@@ -373,6 +374,7 @@ export class WhiteboardStore {
       drawingShapeId: view.drawingShapeId,
       isDraggingSelection: view.isDraggingSelection,
       resizingShapeId: view.resizingShapeId,
+      frameDropTargetId: view.frameDropTargetId,
       laserTrail: [...view.laserTrail],
       isPanning: view.isPanning,
       isSpacePanning: view.isSpacePanning,
@@ -417,6 +419,7 @@ export class WhiteboardStore {
     if (next.drawingShapeId !== current.drawingShapeId) patch.drawingShapeId = next.drawingShapeId;
     if (next.isDraggingSelection !== current.isDraggingSelection) patch.isDraggingSelection = next.isDraggingSelection;
     if (next.resizingShapeId !== current.resizingShapeId) patch.resizingShapeId = next.resizingShapeId ?? null;
+    if (next.frameDropTargetId !== current.frameDropTargetId) patch.frameDropTargetId = next.frameDropTargetId ?? null;
     if (next.laserTrail !== current.laserTrail) patch.laserTrail = next.laserTrail ?? [];
     if (next.isPanning !== current.isPanning) patch.isPanning = next.isPanning;
     if (next.isSpacePanning !== current.isSpacePanning) patch.isSpacePanning = next.isSpacePanning;

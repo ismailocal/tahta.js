@@ -13,6 +13,16 @@ interface ProjectedShape {
   readonly shape: Shape;
 }
 
+interface ProjectionCandidate {
+  readonly record: ShapeRecord;
+  readonly zIndex: number;
+  readonly binding: BindingRecord | undefined;
+  readonly assetHref: string | undefined;
+  readonly worldTransform: Transform2D;
+  readonly previous: ProjectedShape | undefined;
+  readonly canReuseDirectly: boolean;
+}
+
 export interface CanvasShapeProjectionChange {
   readonly id: string;
   readonly shape?: Shape;
@@ -45,31 +55,66 @@ export class CanvasShapeProjection {
     const bindingByConnector = new Map(view.snapshot.bindings.map((binding) => [binding.connectorId, binding]));
     const recordById = new Map(view.snapshot.records.map((record) => [record.id, record]));
     const visibleRecords = recordsInRenderOrder(view.snapshot.records).filter((record) => !record.hidden);
-    const nextById = new Map<string, ProjectedShape>();
-    const nextShapes = new Array<Shape>(visibleRecords.length);
-    const changedIds = new Set<string>();
-
-    visibleRecords.forEach((record, zIndex) => {
+    const visibleRecordIds = new Set(visibleRecords.map(({ id }) => id));
+    const candidates: ProjectionCandidate[] = visibleRecords.map((record, zIndex) => {
       const binding = bindingByConnector.get(record.id);
       const assetHref = this.#assetHref(record, view.assetHrefs);
       const worldTransform = getWorldTransform(record.id, recordById);
       const previous = this.#projectedById.get(record.id);
-      const canReuse = previous?.record === record
-        && previous.binding === binding
-        && previous.assetHref === assetHref
-        && previous.worldTransform.x === worldTransform.x
-        && previous.worldTransform.y === worldTransform.y
-        && previous.worldTransform.rotation === worldTransform.rotation
-        && previous.shape.zIndex === zIndex;
-      const shape = canReuse
-        ? previous.shape
-        : this.#createShape(record, zIndex, binding, assetHref, worldTransform);
-      if (!canReuse) changedIds.add(record.id);
-      nextShapes[zIndex] = shape;
-      nextById.set(record.id, { record, binding, assetHref, worldTransform, shape });
+      return {
+        record,
+        zIndex,
+        binding,
+        assetHref,
+        worldTransform,
+        previous,
+        canReuseDirectly: previous?.record === record
+          && previous.binding === binding
+          && previous.assetHref === assetHref
+          && previous.worldTransform.x === worldTransform.x
+          && previous.worldTransform.y === worldTransform.y
+          && previous.worldTransform.rotation === worldTransform.rotation
+          && previous.shape.zIndex === zIndex,
+      };
+    });
+    const changedIds = new Set<string>();
+    candidates.forEach(({ record, canReuseDirectly }) => {
+      if (!canReuseDirectly) changedIds.add(record.id);
     });
     this.#projectedById.forEach((_value, id) => {
-      if (!nextById.has(id)) changedIds.add(id);
+      if (!visibleRecordIds.has(id)) changedIds.add(id);
+    });
+
+    const boundConnectorsByTarget = new Map<string, Set<string>>();
+    candidates.forEach(({ record, binding }) => {
+      [binding?.start?.shapeId, binding?.end?.shapeId].forEach((targetId) => {
+        if (!targetId) return;
+        let connectors = boundConnectorsByTarget.get(targetId);
+        if (!connectors) {
+          connectors = new Set();
+          boundConnectorsByTarget.set(targetId, connectors);
+        }
+        connectors.add(record.id);
+      });
+    });
+    const dependencyQueue = [...changedIds];
+    for (let index = 0; index < dependencyQueue.length; index += 1) {
+      boundConnectorsByTarget.get(dependencyQueue[index])?.forEach((connectorId) => {
+        if (changedIds.has(connectorId)) return;
+        changedIds.add(connectorId);
+        dependencyQueue.push(connectorId);
+      });
+    }
+
+    const nextById = new Map<string, ProjectedShape>();
+    const nextShapes = new Array<Shape>(visibleRecords.length);
+    candidates.forEach(({ record, zIndex, binding, assetHref, worldTransform, previous, canReuseDirectly }) => {
+      const canReuse = canReuseDirectly && !changedIds.has(record.id);
+      const shape = canReuse && previous
+        ? previous.shape
+        : this.#createShape(record, zIndex, binding, assetHref, worldTransform);
+      nextShapes[zIndex] = shape;
+      nextById.set(record.id, { record, binding, assetHref, worldTransform, shape });
     });
 
     this.#snapshot = view.snapshot;

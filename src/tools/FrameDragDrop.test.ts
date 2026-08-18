@@ -51,7 +51,9 @@ describe('frame drag and drop', () => {
 
     tool.onPointerDown(pointer(40, 50), api);
     tool.onPointerMove(pointer(160, 150), api);
+    expect(store.getState().frameDropTargetId).toBe('frame');
     tool.onPointerUp(pointer(160, 150), api);
+    expect(store.getState().frameDropTargetId).toBeNull();
 
     expect(engine.getSnapshot().records.find(({ id }) => id === 'child')).toMatchObject({
       parentId: 'frame', x: 40, y: 30,
@@ -60,6 +62,7 @@ describe('frame drag and drop', () => {
 
     tool.onPointerDown(pointer(160, 150), api);
     tool.onPointerMove(pointer(560, 500), api);
+    expect(store.getState().frameDropTargetId).toBeNull();
     tool.onPointerUp(pointer(560, 500), api);
 
     expect(engine.getSnapshot().records.find(({ id }) => id === 'child')).toMatchObject({
@@ -67,6 +70,50 @@ describe('frame drag and drop', () => {
     });
     expect(store.getState().shapes.find(({ id }) => id === 'child')).toMatchObject({ x: 540, y: 480 });
 
+    store.destroy();
+    engine.destroy();
+  });
+
+  it('moves connectors bound to frame descendants while keeping the external endpoint fixed', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const frame = { ...rectangle('frame', { x: 100, y: 100, width: 300, height: 220 }), type: 'frame' };
+    const child = rectangle('child', { parentId: frame.id, x: 140, y: 160 });
+    const external = rectangle('external', { x: 600, y: 160 });
+    const connector: Shape = {
+      id: 'connector',
+      type: 'arrow',
+      x: 220,
+      y: 190,
+      points: [{ x: 0, y: 0 }, { x: 380, y: 0 }],
+      startBinding: { elementId: child.id, portId: 'right' },
+      endBinding: { elementId: external.id, portId: 'left' },
+    };
+    const engine = createCanvasEngine({
+      documentId: 'frame-bound-connector-drag',
+      registry,
+      initialSnapshot: shapesToSnapshot(
+        'frame-bound-connector-drag',
+        [frame, child, external, connector],
+        registry,
+        {},
+      ),
+    });
+    const store = new WhiteboardStore(engine, {}, undefined, registry);
+    const api = createWhiteboardAPI(store, { offsetWidth: 800, offsetHeight: 600 } as HTMLCanvasElement);
+    const tool = new SelectTool();
+
+    tool.onPointerDown(pointer(110, 110), api);
+    tool.onPointerMove(pointer(210, 110), api);
+
+    expect(store.getState().shapes.find(({ id }) => id === child.id)).toMatchObject({ x: 240, y: 160 });
+    expect(store.getState().shapes.find(({ id }) => id === connector.id)).toMatchObject({
+      x: 320,
+      y: 190,
+      points: [{ x: 0, y: 0 }, { x: 280, y: 0 }],
+    });
+
+    tool.onPointerUp(pointer(210, 110), api);
     store.destroy();
     engine.destroy();
   });

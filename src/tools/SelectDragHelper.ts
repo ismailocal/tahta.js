@@ -27,8 +27,8 @@ export function dragHandle(
       api.batchUpdate(() => {
         if (shape.type === 'frame') api.resizeFrame(activeShapeId, patch);
         else api.updateShape(activeShapeId, patch);
-        updateDependentShapes(api.getState(), api, [activeShapeId]);
       });
+      updateDependentShapes(api.getState(), api, [activeShapeId]);
   }
 }
 
@@ -128,7 +128,6 @@ export function translateSelection(
 
       api.updateShape(shape.id, patch);
     });
-
-    updateDependentShapes(api.getState(), api, initialSnapshot.map(s => s.id));
   });
+  updateDependentShapes(api.getState(), api, initialSnapshot.map(s => s.id));
 }

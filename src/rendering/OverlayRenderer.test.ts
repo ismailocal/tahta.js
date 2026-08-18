@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBuiltinShapeRegistry } from '../core/builtinRegistry';
 import type { CanvasState, Shape } from '../core/types';
 import { attachBuiltinShapeRuntimes } from '../plugins';
-import { getCanvasContentLeftInset, getResizeMeasurement, renderLaserTrail, renderWelcome } from './OverlayRenderer';
+import {
+  getCanvasContentLeftInset,
+  getResizeMeasurement,
+  renderFrameDropTarget,
+  renderLaserTrail,
+  renderWelcome,
+} from './OverlayRenderer';
 
 function state(shape: Shape, resizingShapeId: string | null): CanvasState {
   return {
@@ -35,6 +41,40 @@ describe('resize measurement overlay', () => {
       height: 79.6,
       label: '101 × 80',
     });
+  });
+});
+
+describe('frame drop target overlay', () => {
+  it('renders a zoom-stable accent border, tint, and shadow around the target frame', () => {
+    const registry = createBuiltinShapeRegistry();
+    attachBuiltinShapeRuntimes(registry);
+    const frame: Shape = { id: 'frame', type: 'frame', x: 100, y: 80, width: 300, height: 200 };
+    const frameState = {
+      ...state(frame, null),
+      frameDropTargetId: frame.id,
+      viewport: { x: 0, y: 0, zoom: 2 },
+    };
+    const context = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      setLineDash: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      lineWidth: 0,
+      fillStyle: '',
+      strokeStyle: '',
+      shadowColor: '',
+      shadowBlur: 0,
+    } as unknown as CanvasRenderingContext2D;
+
+    renderFrameDropTarget(context, frameState, registry);
+
+    expect(context.fillRect).toHaveBeenCalledWith(98.5, 78.5, 303, 203);
+    expect(context.strokeRect).toHaveBeenCalledWith(98.5, 78.5, 303, 203);
+    expect(context.lineWidth).toBe(1);
+    expect(context.strokeStyle).toBe('#6366f1');
+    expect(context.shadowColor).toBe('rgba(99, 102, 241, 0.45)');
+    expect(context.shadowBlur).toBe(7);
   });
 });
 

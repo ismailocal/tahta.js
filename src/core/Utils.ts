@@ -41,15 +41,20 @@ export function updateDependentShapes(state: CanvasState, api: ICanvasAPI, chang
   if (changedShapeIds.length === 0) return;
   const changed = new Set(changedShapeIds);
   const index = api.getSpatialIndex();
-  const dependentIds = index.expandConnected(changed, 1);
+  const projectedChanges = new Set(state.changedShapeIds ?? changedShapeIds);
+  const movedTargets = new Set(
+    [...index.expandDescendants(changed)].filter((id) => changed.has(id) || projectedChanges.has(id)),
+  );
+  const movedTargetIds = [...movedTargets];
+  const dependentIds = index.expandConnected(movedTargets, 1);
   api.batchUpdate(() => {
     dependentIds.forEach((id) => {
-      if (changed.has(id)) return;
+      if (movedTargets.has(id)) return;
       const dependentShape = index.getShape(id);
       if (!dependentShape) return;
       const plugin = getShapePlugin(api.registry, dependentShape.type);
       if (plugin.onBoundShapeChange) {
-        const patch = plugin.onBoundShapeChange(dependentShape, state.shapes, changedShapeIds, api.registry);
+        const patch = plugin.onBoundShapeChange(dependentShape, state.shapes, movedTargetIds, api.registry);
         if (patch) {
           api.updateShape(dependentShape.id, patch, true);
         }
